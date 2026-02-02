@@ -15,9 +15,11 @@ function makeState(overrides: Partial<ExportFlowState> = {}): ExportFlowState {
   };
 }
 
-// Overlay uses createPortal → rendered content lives in document.body, not container
+// Overlay uses createPortal → content lives in document.body.
+// The progress bar fill is the div with both h-full and bg-accent-primary
+// (ExportStepIndicator dots also have bg-accent-primary but use h-2).
 function getProgressFill(): HTMLElement | null {
-  return document.body.querySelector(".bg-accent-primary");
+  return document.body.querySelector(".h-full.bg-accent-primary");
 }
 
 describe("VerificationProgress", () => {
