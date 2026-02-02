@@ -72,18 +72,19 @@ function getBaseUrl(settings?: FreshsalesSettings): string {
 function mapSeniority(title: string | null | undefined): Contact["seniority"] {
   if (!title) return "staff";
   const t = title.toLowerCase();
+  // Check director before c_level keywords — "director" contains "cto" as substring
+  if (t.includes("director")) return "director";
   if (
-    t.includes("ceo") ||
-    t.includes("cto") ||
-    t.includes("cfo") ||
-    t.includes("coo") ||
+    /\bceo\b/.test(t) ||
+    /\bcto\b/.test(t) ||
+    /\bcfo\b/.test(t) ||
+    /\bcoo\b/.test(t) ||
     t.includes("chief") ||
     t.includes("founder") ||
     t.includes("owner")
   )
     return "c_level";
-  if (t.includes("vp") || t.includes("vice president")) return "vp";
-  if (t.includes("director")) return "director";
+  if (/\bvp\b/.test(t) || t.includes("vice president")) return "vp";
   if (t.includes("manager") || t.includes("head of")) return "manager";
   return "staff";
 }

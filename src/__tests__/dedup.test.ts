@@ -27,10 +27,16 @@ function makeCompany(overrides: Partial<CompanyEnriched> = {}): CompanyEnriched 
     description: "A company",
     icpScore: 50,
     hubspotStatus: "none",
+    freshsalesStatus: "none",
+    freshsalesIntel: null,
     sources: ["exa"],
     signals: [],
     contactCount: 3,
     lastRefreshed: "2025-01-01T00:00:00Z",
+    status: "new",
+    statusChangedBy: null,
+    statusChangedAt: null,
+    viewedBy: null,
     ...overrides,
   };
 }
@@ -100,11 +106,12 @@ describe("mergeCompanies (via deduplicateCompanies)", () => {
     expect(result[0].contactCount).toBe(10);
   });
 
-  it("takes max icpScore", () => {
+  it("computes weighted average icpScore (newest 1.5x)", () => {
     const c1 = makeCompany({ icpScore: 40, lastRefreshed: "2025-01-01T00:00:00Z" });
     const c2 = makeCompany({ icpScore: 90, lastRefreshed: "2025-01-02T00:00:00Z" });
     const result = deduplicateCompanies([c1, c2]);
-    expect(result[0].icpScore).toBe(90);
+    // c2 is newest → (90*1.5 + 40) / 2.5 = 70
+    expect(result[0].icpScore).toBe(70);
   });
 
   it("backfills optional fields from secondary companies", () => {

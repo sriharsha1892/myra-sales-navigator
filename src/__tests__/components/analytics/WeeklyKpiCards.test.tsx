@@ -92,7 +92,7 @@ describe("WeeklyKpiCards", () => {
           targets={{ exportsThisWeek: 10, avgIcpScore: 60 }}
         />
       );
-      const greenBars = container.querySelectorAll(".bg-green-500");
+      const greenBars = container.querySelectorAll(".bg-success");
       // exports (15 >= 10) + avgIcp (72 >= 60) = 2 green bars
       expect(greenBars).toHaveLength(2);
     });
