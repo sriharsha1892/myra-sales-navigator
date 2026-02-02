@@ -6,6 +6,7 @@ import { CommandPalette } from "@/components/command/CommandPalette";
 import { BulkActionBar } from "@/components/shared";
 import { UserSettingsPanel } from "@/components/settings/UserSettingsPanel";
 import { SearchBridge } from "@/components/SearchBridge";
+import { HydrationBridge } from "@/components/HydrationBridge";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useAuth } from "@/providers/AuthProvider";
 import { useStore } from "@/lib/store";
@@ -80,6 +81,7 @@ export default function Home() {
       <UserSettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <BulkActionBar />
       <SearchBridge />
+      <HydrationBridge />
     </div>
   );
 }

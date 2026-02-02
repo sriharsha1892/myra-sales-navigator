@@ -62,6 +62,25 @@ export function useKeyboardShortcuts() {
         return;
       }
 
+      // Cmd+C — copy first contact email (only when no text selected)
+      if ((e.metaKey || e.ctrlKey) && e.key === "c") {
+        const selection = window.getSelection();
+        if (selection && selection.toString().length > 0) return; // let native copy work
+
+        const domain = state.selectedCompanyDomain;
+        if (!domain) return;
+
+        const contacts = state.contactsByDomain[domain] ?? [];
+        const withEmail = contacts.find((c) => c.email);
+        if (withEmail?.email) {
+          e.preventDefault();
+          navigator.clipboard.writeText(withEmail.email).then(() => {
+            state.addToast({ message: `Copied ${withEmail.email}`, type: "success", duration: 2000 });
+          });
+        }
+        return;
+      }
+
       // / — focus filter search
       if (e.key === "/") {
         e.preventDefault();

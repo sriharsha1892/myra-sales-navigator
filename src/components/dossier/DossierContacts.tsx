@@ -10,12 +10,13 @@ import type { Contact } from "@/lib/types";
 
 interface DossierContactsProps {
   companyDomain: string;
+  contacts?: Contact[];
 }
 
-export function DossierContacts({ companyDomain }: DossierContactsProps) {
+export function DossierContacts({ companyDomain, contacts: contactsProp }: DossierContactsProps) {
   const companyContacts = useStore((s) => s.companyContacts);
   const selectedCompany = useStore((s) => s.selectedCompany);
-  const contacts = companyContacts(companyDomain);
+  const contacts = contactsProp ?? companyContacts(companyDomain);
   const company = selectedCompany();
 
   const [draftContact, setDraftContact] = useState<Contact | null>(null);

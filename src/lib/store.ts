@@ -73,6 +73,9 @@ interface AppState {
   // Cmd+K free-text search
   pendingFreeTextSearch: string | null;
 
+  // Filter-based search trigger
+  pendingFilterSearch: boolean;
+
   // Actions
   setViewMode: (mode: ViewMode) => void;
   selectCompany: (domain: string | null) => void;
@@ -112,6 +115,9 @@ interface AppState {
   setExportState: (s: ExportFlowState | null) => void;
   setTriggerExport: (v: "csv" | "clipboard" | null) => void;
   setPendingFreeTextSearch: (text: string | null) => void;
+  setPendingFilterSearch: (pending: boolean) => void;
+  setExclusions: (exclusions: Exclusion[]) => void;
+  setPresets: (presets: SearchPreset[]) => void;
   updateContact: (domain: string, contactId: string, updated: Contact) => void;
   setContactsForDomain: (domain: string, contacts: Contact[]) => void;
 
@@ -169,10 +175,10 @@ function clearToastTimer(id: string) {
 }
 
 export const useStore = create<AppState>((set, get) => ({
-  companies: mockCompaniesEnriched,
-  contactsByDomain: buildContactsByDomain(),
-  exclusions: mockExclusions,
-  presets: mockPresets,
+  companies: [],
+  contactsByDomain: {},
+  exclusions: [],
+  presets: [],
   adminConfig: defaultAdminConfig,
   notesByDomain: buildNotesByDomain(),
 
@@ -201,6 +207,7 @@ export const useStore = create<AppState>((set, get) => ({
   exportState: null,
   triggerExport: null,
   pendingFreeTextSearch: null,
+  pendingFilterSearch: false,
 
   setViewMode: (mode) => set({ viewMode: mode }),
 
@@ -418,19 +425,65 @@ export const useStore = create<AppState>((set, get) => ({
     return id;
   },
 
-  excludeCompany: (domain) =>
+  excludeCompany: (domain) => {
+    // Optimistic local toggle
     set((state) => ({
       companies: state.companies.map((c) =>
         c.domain === domain ? { ...c, excluded: true } : c
       ),
-    })),
+    }));
+    const userName = get().userName ?? "Unknown";
+    fetch("/api/exclusions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "domain", value: domain, addedBy: userName }),
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Failed to exclude");
+        const data = await res.json();
+        if (data.exclusion) {
+          set((state) => ({ exclusions: [...state.exclusions, data.exclusion] }));
+        }
+      })
+      .catch(() => {
+        // Revert on failure
+        set((state) => ({
+          companies: state.companies.map((c) =>
+            c.domain === domain ? { ...c, excluded: false } : c
+          ),
+        }));
+        get().addToast({ message: "Failed to exclude company", type: "error" });
+      });
+  },
 
-  undoExclude: (domain) =>
+  undoExclude: (domain) => {
+    // Optimistic local revert
     set((state) => ({
       companies: state.companies.map((c) =>
         c.domain === domain ? { ...c, excluded: false } : c
       ),
-    })),
+    }));
+    const exclusion = get().exclusions.find((e) => e.value === domain);
+    if (exclusion) {
+      set((state) => ({
+        exclusions: state.exclusions.filter((e) => e.id !== exclusion.id),
+      }));
+      fetch("/api/exclusions", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: exclusion.id }),
+      }).catch(() => {
+        // Re-add on failure
+        set((state) => ({
+          companies: state.companies.map((c) =>
+            c.domain === domain ? { ...c, excluded: true } : c
+          ),
+          exclusions: [...state.exclusions, exclusion],
+        }));
+        get().addToast({ message: "Failed to undo exclusion", type: "error" });
+      });
+    }
+  },
 
   setSlideOverOpen: (open) => set({ slideOverOpen: open }),
 
@@ -564,6 +617,9 @@ export const useStore = create<AppState>((set, get) => ({
   setExportState: (s) => set({ exportState: s }),
   setTriggerExport: (v) => set({ triggerExport: v }),
   setPendingFreeTextSearch: (text) => set({ pendingFreeTextSearch: text }),
+  setPendingFilterSearch: (pending) => set({ pendingFilterSearch: pending }),
+  setExclusions: (exclusions) => set({ exclusions }),
+  setPresets: (presets) => set({ presets }),
 
   filteredCompanies: () => {
     const { companies, searchResults, filters, sortField, sortDirection } = get();

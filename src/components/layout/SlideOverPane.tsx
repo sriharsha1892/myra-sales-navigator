@@ -7,19 +7,25 @@ import {
   DossierSignals,
   DossierContacts,
   DossierHubspot,
+  DossierSkeleton,
 } from "@/components/dossier";
 import { CompanyNotes } from "@/components/notes/CompanyNotes";
+import { useCompanyDossier } from "@/hooks/useCompanyDossier";
 
 export function SlideOverPane() {
   const selectedCompany = useStore((s) => s.selectedCompany);
+  const selectedCompanyDomain = useStore((s) => s.selectedCompanyDomain);
   const setSlideOverOpen = useStore((s) => s.setSlideOverOpen);
   const excludeCompany = useStore((s) => s.excludeCompany);
   const undoExclude = useStore((s) => s.undoExclude);
   const addUndoToast = useStore((s) => s.addUndoToast);
   const setTriggerExport = useStore((s) => s.setTriggerExport);
 
-  const company = selectedCompany();
+  const dossier = useCompanyDossier(selectedCompanyDomain);
+  const storeCompany = selectedCompany();
+  const company = dossier.company ?? storeCompany;
 
+  if (dossier.isLoading && !storeCompany) return <DossierSkeleton />;
   if (!company) return null;
 
   const handleExclude = () => {
@@ -51,12 +57,12 @@ export function SlideOverPane() {
           </button>
         </div>
 
-        <DossierHeader company={company} />
+        <DossierHeader company={company} onRefresh={dossier.refetch} />
 
         <div className="flex-1 divide-y divide-surface-3">
           <DossierOverview company={company} />
-          <DossierSignals signals={company.signals} />
-          <DossierContacts companyDomain={company.domain} />
+          <DossierSignals signals={dossier.signals.length > 0 ? dossier.signals : company.signals} />
+          <DossierContacts companyDomain={company.domain} contacts={dossier.contacts.length > 0 ? dossier.contacts : undefined} />
           <DossierHubspot company={company} />
           <CompanyNotes companyDomain={company.domain} />
         </div>

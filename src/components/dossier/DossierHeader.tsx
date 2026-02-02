@@ -6,9 +6,10 @@ import { StalenessIndicator } from "@/components/shared/StalenessIndicator";
 
 interface DossierHeaderProps {
   company: CompanyEnriched;
+  onRefresh?: () => void;
 }
 
-export function DossierHeader({ company }: DossierHeaderProps) {
+export function DossierHeader({ company, onRefresh }: DossierHeaderProps) {
   return (
     <div className="border-b border-surface-3 px-4 py-3">
       <div className="flex items-start justify-between">
@@ -35,9 +36,7 @@ export function DossierHeader({ company }: DossierHeaderProps) {
       <div className="mt-2">
         <StalenessIndicator
           lastRefreshed={company.lastRefreshed}
-          onRefresh={() => {
-            /* TODO: wire to real API */
-          }}
+          onRefresh={onRefresh ?? (() => {})}
         />
       </div>
     </div>

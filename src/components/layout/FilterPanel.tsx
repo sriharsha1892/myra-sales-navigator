@@ -63,7 +63,7 @@ export function FilterPanel() {
 
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-surface-1">
-      {/* Header */}
+      {/* Header + Search */}
       <div className="border-b border-surface-3 px-4 py-3">
         <div className="flex items-center gap-2">
           <h2 className="font-display text-sm font-medium text-text-primary">Filters</h2>
@@ -73,6 +73,13 @@ export function FilterPanel() {
             </span>
           )}
         </div>
+        <button
+          onClick={() => useStore.getState().setPendingFilterSearch(true)}
+          disabled={activeFilterCount === 0}
+          className="mt-2 w-full rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-text-inverse transition-colors hover:bg-accent-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Search
+        </button>
       </div>
 
       {/* Presets */}
