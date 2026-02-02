@@ -3,6 +3,7 @@
 import { useStore } from "@/lib/store";
 import { useExport } from "@/hooks/useExport";
 import { ExportContactPicker } from "@/components/export/ExportContactPicker";
+import { VerificationProgress } from "@/components/export/VerificationProgress";
 import { cn } from "@/lib/cn";
 
 export function BulkActionBar() {
@@ -18,11 +19,11 @@ export function BulkActionBar() {
   const clearSelection = viewMode === "contacts" ? deselectAllContacts : deselectAllCompanies;
   const count = selectedIds.size;
 
-  if (count < 2 && !exportState) return null;
+  if (count < 1 && !exportState) return null;
 
   return (
     <>
-      {count >= 2 && (
+      {count >= 1 && (
         <div
           className={cn(
             "fixed inset-x-0 bottom-0 z-40 flex items-center justify-between border-t border-surface-3 bg-surface-1 px-6 py-3 shadow-lg",
@@ -47,6 +48,10 @@ export function BulkActionBar() {
           onExport={exportPickedContacts}
           onCancel={() => setExportState(null)}
         />
+      )}
+
+      {exportState?.step === "verify" && (
+        <VerificationProgress exportState={exportState} />
       )}
     </>
   );

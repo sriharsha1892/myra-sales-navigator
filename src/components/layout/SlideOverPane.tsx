@@ -19,8 +19,6 @@ export function SlideOverPane() {
   const excludeCompany = useStore((s) => s.excludeCompany);
   const undoExclude = useStore((s) => s.undoExclude);
   const addUndoToast = useStore((s) => s.addUndoToast);
-  const setTriggerExport = useStore((s) => s.setTriggerExport);
-
   const dossier = useCompanyDossier(selectedCompanyDomain);
   const storeCompany = selectedCompany();
   const company = dossier.company ?? storeCompany;
@@ -69,12 +67,6 @@ export function SlideOverPane() {
 
         {/* Action bar */}
         <div className="flex flex-shrink-0 items-center gap-2 border-t border-surface-3 px-4 py-3">
-          <button
-            onClick={() => setTriggerExport("clipboard")}
-            className="rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-text-inverse transition-colors hover:bg-accent-primary-hover"
-          >
-            Export Selected
-          </button>
           <button
             onClick={handleExclude}
             className="rounded-input border border-surface-3 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-hover"

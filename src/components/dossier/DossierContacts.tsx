@@ -2,10 +2,12 @@
 
 import { useState, useCallback } from "react";
 import { useStore } from "@/lib/store";
+import { cn } from "@/lib/cn";
 import { ConfidenceBadge, SourceBadge } from "@/components/badges";
 import { MissingData } from "@/components/shared/MissingData";
 import { EmailDraftModal } from "@/components/email/EmailDraftModal";
 import { useInlineFeedback } from "@/hooks/useInlineFeedback";
+import { useExport } from "@/hooks/useExport";
 import type { Contact } from "@/lib/types";
 
 interface DossierContactsProps {
@@ -20,12 +22,47 @@ export function DossierContacts({ companyDomain, contacts: contactsProp }: Dossi
   const company = selectedCompany();
 
   const [draftContact, setDraftContact] = useState<Contact | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const { executeExport } = useExport();
+
+  const toggleContact = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedIds.size === contacts.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(contacts.map((c) => c.id)));
+    }
+  };
+
+  const getSelectedContacts = () => contacts.filter((c) => selectedIds.has(c.id));
 
   return (
     <div className="px-4 py-3">
-      <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-        Contacts ({contacts.length})
-      </h3>
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+          Contacts ({contacts.length})
+        </h3>
+        {contacts.length > 0 && (
+          <label className="flex cursor-pointer items-center gap-1.5">
+            <input
+              type="checkbox"
+              checked={selectedIds.size === contacts.length && contacts.length > 0}
+              onChange={toggleAll}
+              className="h-3 w-3 rounded accent-accent-primary"
+            />
+            <span className="text-[10px] text-text-tertiary">All</span>
+          </label>
+        )}
+      </div>
       {contacts.length === 0 ? (
         <p className="text-xs italic text-text-tertiary">
           No contacts found. Try enriching from Apollo.
@@ -36,9 +73,34 @@ export function DossierContacts({ companyDomain, contacts: contactsProp }: Dossi
             <DossierContactRow
               key={contact.id}
               contact={contact}
+              selected={selectedIds.has(contact.id)}
+              anySelected={selectedIds.size > 0}
+              onToggle={() => toggleContact(contact.id)}
               onDraftEmail={() => setDraftContact(contact)}
             />
           ))}
+        </div>
+      )}
+
+      {selectedIds.size > 0 && (
+        <div className="mt-2 flex items-center justify-between rounded-card border border-surface-3 bg-surface-0 px-3 py-2">
+          <span className="text-[10px] font-medium text-text-secondary">
+            {selectedIds.size} selected
+          </span>
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => executeExport(getSelectedContacts(), "clipboard")}
+              className="rounded-input bg-accent-primary px-2.5 py-1 text-[10px] font-medium text-text-inverse transition-colors hover:bg-accent-primary-hover"
+            >
+              Copy
+            </button>
+            <button
+              onClick={() => executeExport(getSelectedContacts(), "csv")}
+              className="rounded-input border border-surface-3 px-2.5 py-1 text-[10px] font-medium text-text-secondary transition-colors hover:bg-surface-hover"
+            >
+              CSV
+            </button>
+          </div>
         </div>
       )}
 
@@ -59,9 +121,15 @@ function isObfuscated(name: string): boolean {
 
 function DossierContactRow({
   contact,
+  selected,
+  anySelected,
+  onToggle,
   onDraftEmail,
 }: {
   contact: Contact;
+  selected: boolean;
+  anySelected: boolean;
+  onToggle: () => void;
   onDraftEmail: () => void;
 }) {
   const { trigger, FeedbackLabel } = useInlineFeedback();
@@ -111,6 +179,15 @@ function DossierContactRow({
   return (
     <div className="group rounded-card border border-surface-3 bg-surface-0 p-2.5">
       <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggle}
+          className={cn(
+            "h-3 w-3 flex-shrink-0 rounded accent-accent-primary transition-opacity",
+            anySelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          )}
+        />
         <span className="text-xs font-medium text-text-primary">
           {contact.firstName} {contact.lastName}
         </span>

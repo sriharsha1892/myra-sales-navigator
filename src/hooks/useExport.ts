@@ -11,7 +11,7 @@ export function escapeCsvField(field: string): string {
   return field;
 }
 
-function applyTemplate(template: string, contact: Contact & { companyName: string }): string {
+function applyTemplateLocal(template: string, contact: Contact & { companyName: string }): string {
   return template
     .replace(/\{\{first_name\}\}/g, contact.firstName)
     .replace(/\{\{last_name\}\}/g, contact.lastName)
@@ -19,6 +19,21 @@ function applyTemplate(template: string, contact: Contact & { companyName: strin
     .replace(/\{\{title\}\}/g, contact.title)
     .replace(/\{\{company\}\}/g, contact.companyName)
     .replace(/\{\{phone\}\}/g, contact.phone ?? "");
+}
+
+function buildContactPayload(c: Contact) {
+  return {
+    firstName: c.firstName,
+    lastName: c.lastName,
+    email: c.email,
+    title: c.title,
+    companyName: c.companyName,
+    companyDomain: c.companyDomain,
+    phone: c.phone,
+    linkedinUrl: c.linkedinUrl,
+    seniority: c.seniority,
+    emailConfidence: c.emailConfidence,
+  };
 }
 
 export function useExport() {
@@ -56,32 +71,69 @@ export function useExport() {
     }
 
     const handle = addProgressToast(`Exporting ${contacts.length} contacts...`);
+    const userName = useStore.getState().userName ?? "Unknown";
+    const companyDomain = contacts[0]?.companyDomain;
+    const payloads = contacts.map(buildContactPayload);
 
     try {
       if (mode === "clipboard") {
         const format = adminConfig.copyFormats.find((f) => f.id === userCopyFormat);
         const template = format?.template ?? "{{first_name}} {{last_name}} <{{email}}>";
-        const lines = contacts
-          .filter((c) => c.email)
-          .map((c) => applyTemplate(template, c));
-        await navigator.clipboard.writeText(lines.join("\n"));
-        handle.resolve(`Copied ${lines.length} contacts to clipboard`);
+
+        try {
+          const res = await fetch("/api/export/clipboard", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contacts: payloads, format: template, companyDomain, userName }),
+          });
+          if (!res.ok) throw new Error("Server error");
+          const { text, count } = await res.json();
+          await navigator.clipboard.writeText(text);
+          handle.resolve(`Copied ${count} contacts to clipboard`);
+        } catch {
+          // Fallback: client-side formatting
+          const lines = contacts
+            .filter((c) => c.email)
+            .map((c) => applyTemplateLocal(template, c));
+          await navigator.clipboard.writeText(lines.join("\n"));
+          handle.resolve(`Copied ${lines.length} contacts to clipboard`);
+        }
       } else {
-        // CSV export
-        const csvRows = [
-          ["First Name", "Last Name", "Email", "Title", "Company", "Phone", "Confidence"].join(","),
-          ...contacts.map((c) =>
-            [c.firstName, c.lastName, c.email ?? "", c.title, c.companyName, c.phone ?? "", String(c.emailConfidence)].map(escapeCsvField).join(",")
-          ),
-        ];
-        const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `contacts-export-${new Date().toISOString().slice(0, 10)}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-        handle.resolve(`Exported ${contacts.length} contacts to CSV`);
+        // CSV export — respect admin csvColumns
+        const csvColumns = adminConfig.exportSettings?.csvColumns;
+
+        try {
+          const res = await fetch("/api/export/csv", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contacts: payloads, companyDomain, userName, csvColumns }),
+          });
+          if (!res.ok) throw new Error("Server error");
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `contacts-export-${new Date().toISOString().slice(0, 10)}.csv`;
+          a.click();
+          URL.revokeObjectURL(url);
+          handle.resolve(`Exported ${contacts.length} contacts to CSV`);
+        } catch {
+          // Fallback: client-side CSV generation
+          const csvRows = [
+            ["First Name", "Last Name", "Email", "Title", "Company", "Phone", "Confidence"].join(","),
+            ...contacts.map((c) =>
+              [c.firstName, c.lastName, c.email ?? "", c.title, c.companyName, c.phone ?? "", String(c.emailConfidence)].map(escapeCsvField).join(",")
+            ),
+          ];
+          const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `contacts-export-${new Date().toISOString().slice(0, 10)}.csv`;
+          a.click();
+          URL.revokeObjectURL(url);
+          handle.resolve(`Exported ${contacts.length} contacts to CSV`);
+        }
       }
     } catch {
       handle.reject("Export failed");

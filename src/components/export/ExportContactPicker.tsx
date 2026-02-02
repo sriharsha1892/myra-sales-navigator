@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Overlay } from "@/components/primitives/Overlay";
+import { ConfidenceBadge } from "@/components/badges";
 import { useStore } from "@/lib/store";
 
 interface ExportContactPickerProps {
@@ -91,10 +92,15 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
                       <span className="text-xs text-text-primary">
                         {contact.firstName} {contact.lastName}
                       </span>
-                      {contact.email && (
-                        <span className="ml-auto font-mono text-[10px] text-text-tertiary">
-                          {contact.email}
+                      {contact.email ? (
+                        <span className="ml-auto flex items-center gap-1.5">
+                          <span className="font-mono text-[10px] text-text-tertiary">
+                            {contact.email}
+                          </span>
+                          <ConfidenceBadge level={contact.confidenceLevel} score={contact.emailConfidence} />
                         </span>
+                      ) : (
+                        <span className="ml-auto text-[10px] italic text-text-tertiary">No email</span>
                       )}
                     </label>
                   ))}
@@ -105,7 +111,13 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
         </div>
 
         <div className="flex items-center justify-between border-t border-surface-3 px-5 py-3">
-          <span className="text-xs text-text-tertiary">{selected.size} contacts selected</span>
+          <span className="text-xs text-text-tertiary">
+            {selected.size} selected
+            {(() => {
+              const withEmail = relevantContacts.filter((c) => selected.has(c.id) && c.email).length;
+              return withEmail < selected.size ? ` (${withEmail} with email)` : "";
+            })()}
+          </span>
           <div className="flex gap-2">
             <button
               onClick={onCancel}

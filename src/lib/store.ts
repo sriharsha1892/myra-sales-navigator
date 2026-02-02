@@ -21,10 +21,6 @@ import type {
   ExportFlowState,
 } from "./types";
 import {
-  mockCompaniesEnriched,
-  mockContactsCache,
-  mockExclusions,
-  mockPresets,
   defaultAdminConfig,
   mockNotes,
 } from "./mock-data";
@@ -137,11 +133,6 @@ const defaultFilters: FilterState = {
   hideExcluded: true,
   quickFilters: [],
 };
-
-// Build initial contactsByDomain and notesByDomain from mock data
-function buildContactsByDomain(): Record<string, Contact[]> {
-  return { ...mockContactsCache };
-}
 
 function buildNotesByDomain(): Record<string, CompanyNote[]> {
   const map: Record<string, CompanyNote[]> = {};

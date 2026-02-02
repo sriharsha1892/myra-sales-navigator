@@ -21,47 +21,42 @@ function escapeCsv(field: string): string {
   return field;
 }
 
-const CSV_HEADERS = [
-  "First Name",
-  "Last Name",
-  "Email",
-  "Title",
-  "Company",
-  "Domain",
-  "Phone",
-  "LinkedIn",
-  "Seniority",
-  "Email Confidence",
+const ALL_COLUMNS: { key: string; header: string; extract: (c: ContactPayload) => string }[] = [
+  { key: "name", header: "First Name", extract: (c) => c.firstName },
+  { key: "name", header: "Last Name", extract: (c) => c.lastName },
+  { key: "email", header: "Email", extract: (c) => c.email ?? "" },
+  { key: "title", header: "Title", extract: (c) => c.title },
+  { key: "company", header: "Company", extract: (c) => c.companyName },
+  { key: "domain", header: "Domain", extract: (c) => c.companyDomain ?? "" },
+  { key: "phone", header: "Phone", extract: (c) => c.phone ?? "" },
+  { key: "linkedin", header: "LinkedIn", extract: (c) => c.linkedinUrl ?? "" },
+  { key: "seniority", header: "Seniority", extract: (c) => c.seniority ?? "" },
+  { key: "confidence", header: "Email Confidence", extract: (c) => String(c.emailConfidence ?? "") },
 ];
 
 export async function POST(request: NextRequest) {
   try {
-    const { contacts, companyDomain, userName } = (await request.json()) as {
+    const { contacts, companyDomain, userName, csvColumns } = (await request.json()) as {
       contacts: ContactPayload[];
       companyDomain?: string;
       userName?: string;
+      csvColumns?: string[];
     };
 
     if (!contacts || !Array.isArray(contacts) || contacts.length === 0) {
       return NextResponse.json({ error: "contacts array is required" }, { status: 400 });
     }
 
+    // Filter columns if csvColumns specified, otherwise use all
+    const columns = csvColumns?.length
+      ? ALL_COLUMNS.filter((col) => csvColumns.includes(col.key))
+      : ALL_COLUMNS;
+
     const rows = contacts.map((c) =>
-      [
-        escapeCsv(c.firstName),
-        escapeCsv(c.lastName),
-        escapeCsv(c.email ?? ""),
-        escapeCsv(c.title),
-        escapeCsv(c.companyName),
-        escapeCsv(c.companyDomain ?? ""),
-        escapeCsv(c.phone ?? ""),
-        escapeCsv(c.linkedinUrl ?? ""),
-        escapeCsv(c.seniority ?? ""),
-        String(c.emailConfidence ?? ""),
-      ].join(",")
+      columns.map((col) => escapeCsv(col.extract(c))).join(",")
     );
 
-    const csv = [CSV_HEADERS.join(","), ...rows].join("\n");
+    const csv = [columns.map((col) => col.header).join(","), ...rows].join("\n");
 
     // Log extraction to Supabase
     if (companyDomain && userName) {
