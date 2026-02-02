@@ -70,7 +70,7 @@ export function ContactCard({ contact, isChecked, onToggleCheck }: ContactCardPr
                 />
                 <button
                   onClick={handleCopyEmail}
-                  className="flex-shrink-0 text-text-tertiary opacity-0 transition-opacity hover:text-accent-primary group-hover:opacity-100"
+                  className="flex-shrink-0 text-text-tertiary opacity-50 transition-opacity hover:text-accent-primary group-hover:opacity-100"
                   title="Copy email"
                   aria-label="Copy email"
                 >

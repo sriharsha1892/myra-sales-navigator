@@ -9,6 +9,7 @@ import { SizeFilter } from "@/components/filters/SizeFilter";
 import { SignalFilter } from "@/components/filters/SignalFilter";
 import { ExclusionToggle } from "@/components/filters/ExclusionToggle";
 import { IcpScoreBadge } from "@/components/badges";
+import { HelpTip } from "@/components/shared/HelpTip";
 import { useSearchHistory } from "@/hooks/useSearchHistory";
 import { timeAgo } from "@/lib/utils";
 
@@ -75,7 +76,11 @@ export function FilterPanel() {
         <div className="flex items-center gap-2">
           <h2 className="font-display text-base font-medium text-text-primary">Refine Results</h2>
           {activeFilterCount > 0 && (
-            <span className="flex h-4 min-w-4 items-center justify-center rounded-pill bg-accent-primary px-1.5 text-[10px] font-semibold text-text-inverse">
+            <span
+              key={activeFilterCount}
+              className="flex h-4 min-w-4 items-center justify-center rounded-pill bg-accent-primary px-1.5 text-[10px] font-semibold text-text-inverse"
+              style={{ animation: "scaleIn 180ms ease-out" }}
+            >
               {activeFilterCount}
             </span>
           )}
@@ -247,7 +252,7 @@ export function FilterPanel() {
       )}
 
       {/* Filter Sections */}
-      <FilterSection title="Vertical" defaultOpen={false} count={filters.verticals.length} onClear={() => setFilters({ verticals: [] })}>
+      <FilterSection title={<span className="inline-flex items-center gap-1">Vertical <HelpTip text="Industry or market segment, like Food Ingredients or Chemicals." /></span>} defaultOpen={false} count={filters.verticals.length} onClear={() => setFilters({ verticals: [] })}>
         <VerticalFilter />
       </FilterSection>
 
@@ -259,11 +264,11 @@ export function FilterPanel() {
         <SizeFilter />
       </FilterSection>
 
-      <FilterSection title="Signals" defaultOpen={false} count={filters.signals.length} onClear={() => setFilters({ signals: [] })}>
+      <FilterSection title={<span className="inline-flex items-center gap-1">Signals <HelpTip text="Recent activity like hiring, funding, or expansion — signs a company might be ready to buy." /></span>} defaultOpen={false} count={filters.signals.length} onClear={() => setFilters({ signals: [] })}>
         <SignalFilter />
       </FilterSection>
 
-      <FilterSection title="Exclusions" defaultOpen={false}>
+      <FilterSection title={<span className="inline-flex items-center gap-1">Exclusions <HelpTip text="Companies or contacts your team has already ruled out. Hidden from results when this filter is on." /></span>} defaultOpen={false}>
         <ExclusionToggle />
       </FilterSection>
     </div>

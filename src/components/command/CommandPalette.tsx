@@ -65,13 +65,13 @@ export function CommandPalette() {
               ref={inputRef}
               value={search}
               onValueChange={setSearch}
-              placeholder="Search a company, industry, or prospect description..."
+              placeholder="Search a company, industry, or describe your ideal prospect..."
               className="w-full bg-transparent py-3 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none"
             />
           </div>
           <Command.List className="max-h-72 overflow-y-auto p-2">
             <Command.Empty className="py-6 text-center text-sm text-text-tertiary">
-              No results found.
+              No matches. Try a company name, industry, or description like &ldquo;packaging companies in Europe&rdquo;.
             </Command.Empty>
 
             {/* Exa free-text search */}

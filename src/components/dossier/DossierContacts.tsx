@@ -8,7 +8,7 @@ import { MissingData } from "@/components/shared/MissingData";
 import { EmailDraftModal } from "@/components/email/EmailDraftModal";
 import { useInlineFeedback } from "@/hooks/useInlineFeedback";
 import { useExport } from "@/hooks/useExport";
-import type { Contact } from "@/lib/types";
+import type { Contact, ResultSource } from "@/lib/types";
 
 interface DossierContactsProps {
   companyDomain: string;
@@ -18,13 +18,62 @@ interface DossierContactsProps {
 export function DossierContacts({ companyDomain, contacts: contactsProp }: DossierContactsProps) {
   const companyContacts = useStore((s) => s.companyContacts);
   const selectedCompany = useStore((s) => s.selectedCompany);
+  const updateContact = useStore((s) => s.updateContact);
   const contacts = contactsProp ?? companyContacts(companyDomain);
   const company = selectedCompany();
 
   const [draftContact, setDraftContact] = useState<Contact | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [findingEmails, setFindingEmails] = useState(false);
 
   const { executeExport } = useExport();
+
+  const MIN_CONFIDENCE = 70;
+  const missingEmailContacts = contacts.filter(
+    (c) => !c.email || c.emailConfidence < MIN_CONFIDENCE
+  );
+
+  const handleFindEmails = useCallback(async () => {
+    if (missingEmailContacts.length === 0 || findingEmails) return;
+    setFindingEmails(true);
+    try {
+      const res = await fetch("/api/contact/find-emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          domain: companyDomain,
+          contacts: missingEmailContacts.map((c) => ({
+            contactId: c.id,
+            firstName: c.firstName,
+            lastName: c.lastName,
+          })),
+        }),
+      });
+      if (!res.ok) throw new Error("Email finder failed");
+      const data = await res.json();
+      for (const r of data.results ?? []) {
+        if (r.email && r.status === "found") {
+          const existing = contacts.find((c) => c.id === r.contactId);
+          if (existing) {
+            const newSources: ResultSource[] = existing.sources.includes("clearout")
+              ? existing.sources
+              : [...existing.sources, "clearout"];
+            updateContact(companyDomain, r.contactId, {
+              ...existing,
+              email: r.email,
+              emailConfidence: r.confidence,
+              confidenceLevel: r.confidence >= 90 ? "high" : r.confidence >= 70 ? "medium" : "low",
+              sources: newSources,
+            });
+          }
+        }
+      }
+    } catch {
+      // silently fail — user can retry
+    } finally {
+      setFindingEmails(false);
+    }
+  }, [companyDomain, contacts, missingEmailContacts, findingEmails, updateContact]);
 
   const toggleContact = (id: string) => {
     setSelectedIds((prev) => {
@@ -46,26 +95,42 @@ export function DossierContacts({ companyDomain, contacts: contactsProp }: Dossi
   const getSelectedContacts = () => contacts.filter((c) => selectedIds.has(c.id));
 
   return (
-    <div className="px-4 py-3">
+    <div className="rounded-card bg-surface-0/50 px-4 py-3">
       <div className="mb-2 flex items-center justify-between">
         <h3 className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
           Contacts ({contacts.length})
         </h3>
-        {contacts.length > 0 && (
-          <label className="flex cursor-pointer items-center gap-1.5">
-            <input
-              type="checkbox"
-              checked={selectedIds.size === contacts.length && contacts.length > 0}
-              onChange={toggleAll}
-              className="h-3 w-3 rounded accent-accent-primary"
-            />
-            <span className="text-[10px] text-text-tertiary">All</span>
-          </label>
-        )}
+        <div className="flex items-center gap-2">
+          {missingEmailContacts.length > 0 && (
+            <button
+              onClick={handleFindEmails}
+              disabled={findingEmails}
+              className="flex items-center gap-1 rounded-pill bg-accent-primary px-2.5 py-1 text-[10px] font-medium text-text-inverse transition-colors hover:bg-accent-primary-hover disabled:opacity-60"
+            >
+              {findingEmails && (
+                <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M12 2v4m0 12v4m-7.07-3.93l2.83-2.83m8.48-8.48l2.83-2.83M2 12h4m12 0h4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83" />
+                </svg>
+              )}
+              {findingEmails ? "Finding\u2026" : `Find ${missingEmailContacts.length} missing emails`}
+            </button>
+          )}
+          {contacts.length > 0 && (
+            <label className="flex cursor-pointer items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={selectedIds.size === contacts.length && contacts.length > 0}
+                onChange={toggleAll}
+                className="h-3 w-3 rounded accent-accent-primary"
+              />
+              <span className="text-[10px] text-text-tertiary">All</span>
+            </label>
+          )}
+        </div>
       </div>
       {contacts.length === 0 ? (
         <p className="text-xs italic text-text-tertiary">
-          No contacts found. Try enriching from Apollo.
+          No contacts yet for this company. Try searching for it directly, or check back later as data sources update.
         </p>
       ) : (
         <div className="space-y-2">
@@ -219,7 +284,7 @@ function DossierContactRow({
             />
             <button
               onClick={() => handleCopy(contact.email!)}
-              className="text-text-tertiary opacity-0 transition-opacity hover:text-accent-primary group-hover:opacity-100"
+              className="text-text-tertiary opacity-50 transition-opacity hover:text-accent-primary group-hover:opacity-100"
               title="Copy email"
               aria-label="Copy email"
             >
@@ -252,7 +317,7 @@ function DossierContactRow({
         {contact.email && (
           <button
             onClick={onDraftEmail}
-            className="rounded px-2 py-0.5 text-[10px] font-medium text-accent-primary opacity-0 transition-all hover:bg-accent-primary-light group-hover:opacity-100"
+            className="rounded px-2 py-0.5 text-[10px] font-medium text-accent-primary opacity-50 transition-all hover:bg-accent-primary-light group-hover:opacity-100"
           >
             Draft Email
           </button>

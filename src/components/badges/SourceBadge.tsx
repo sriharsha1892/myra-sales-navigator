@@ -2,21 +2,24 @@
 
 import { cn } from "@/lib/cn";
 import type { ResultSource } from "@/lib/types";
+import { HelpTip } from "@/components/shared/HelpTip";
 
 const config: Record<ResultSource, { label: string; color: string }> = {
   exa: { label: "E", color: "bg-source-exa text-text-inverse" },
   apollo: { label: "A", color: "bg-source-apollo text-text-inverse" },
   hubspot: { label: "H", color: "bg-source-hubspot text-text-inverse" },
+  clearout: { label: "C", color: "bg-source-clearout text-text-inverse" },
 };
 
 interface SourceBadgeProps {
   source: ResultSource;
   className?: string;
+  showHelp?: boolean;
 }
 
-export function SourceBadge({ source, className }: SourceBadgeProps) {
+export function SourceBadge({ source, className, showHelp }: SourceBadgeProps) {
   const { label, color } = config[source];
-  return (
+  const badge = (
     <span
       className={cn(
         "inline-flex h-4 w-4 items-center justify-center rounded text-[10px] font-bold leading-none",
@@ -28,4 +31,15 @@ export function SourceBadge({ source, className }: SourceBadgeProps) {
       {label}
     </span>
   );
+
+  if (showHelp) {
+    return (
+      <span className="inline-flex items-center gap-0.5">
+        {badge}
+        <HelpTip text="Where this data came from. E = Exa (web intelligence), A = Apollo (contacts database), H = HubSpot (your CRM), C = Clearout (email finder)" />
+      </span>
+    );
+  }
+
+  return badge;
 }

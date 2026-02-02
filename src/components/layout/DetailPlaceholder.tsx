@@ -39,8 +39,8 @@ export function DetailPlaceholder() {
 
   return (
     <div className="flex w-[420px] flex-shrink-0 flex-col items-center justify-center border-l border-surface-3 bg-surface-0 px-6">
-      <p className="font-display text-lg text-text-secondary">Select a company</p>
-      <p className="mt-1 text-sm text-text-tertiary">to view its dossier</p>
+      <p className="font-display text-lg text-text-secondary">Click a company</p>
+      <p className="mt-1 text-sm text-text-tertiary">to see its details, contacts, and recent activity</p>
 
       <div className="my-4 h-px w-24 bg-surface-3" />
 
@@ -49,7 +49,7 @@ export function DetailPlaceholder() {
           {companies.length} companies
         </span>
         <span className={`font-mono text-sm ${avgColor}`}>
-          Avg ICP: {avg}
+          Avg match score: {avg} / 100
         </span>
 
         {Object.keys(signalCounts).length > 0 && (

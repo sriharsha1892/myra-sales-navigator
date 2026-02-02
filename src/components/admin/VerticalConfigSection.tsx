@@ -21,7 +21,7 @@ export function VerticalConfigSection() {
   };
 
   return (
-    <AdminSection title="Vertical Configuration">
+    <AdminSection title="Vertical Configuration" description="Which industries count as a match when scoring companies. Add your target markets here.">
       <div className="flex flex-wrap gap-1.5 mb-3">
         {config.verticals.map((v) => (
           <span

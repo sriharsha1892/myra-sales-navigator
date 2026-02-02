@@ -46,6 +46,7 @@ export function UserSettingsPanel({ open, onClose }: UserSettingsPanelProps) {
               <option value="companies">Companies</option>
               <option value="contacts">Contacts</option>
             </select>
+            <p className="mt-0.5 text-[10px] text-text-tertiary">Show companies or individual contacts first when you search.</p>
           </div>
 
           <div>
@@ -59,6 +60,7 @@ export function UserSettingsPanel({ open, onClose }: UserSettingsPanelProps) {
               <option value="name">Name</option>
               <option value="employee_count">Employee Count</option>
             </select>
+            <p className="mt-0.5 text-[10px] text-text-tertiary">How results are ordered. ICP Score puts best-fit companies first.</p>
           </div>
 
           <div>
@@ -74,23 +76,55 @@ export function UserSettingsPanel({ open, onClose }: UserSettingsPanelProps) {
                 </option>
               ))}
             </select>
+            <p className="mt-0.5 text-[10px] text-text-tertiary">What gets copied when you click the copy button on a contact.</p>
+            <div className="mt-1 rounded-input border border-surface-3 bg-surface-2 px-2 py-1.5">
+              <p className="text-[10px] text-text-tertiary">Preview:</p>
+              <p className="whitespace-pre-wrap font-mono text-[10px] text-text-secondary">
+                {(() => {
+                  const fmt = config.copyFormats.find((f) => f.id === userCopyFormat);
+                  if (!fmt) return "Sarah Chen <schen@ingredion.com>";
+                  return fmt.template
+                    .replace("{name}", "Sarah Chen")
+                    .replace("{email}", "schen@ingredion.com")
+                    .replace("{title}", "VP of Procurement")
+                    .replace("{company}", "Ingredion")
+                    .replace("{phone}", "+1 555-0100");
+                })()}
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Keyboard shortcuts reference */}
+        {/* Keyboard shortcuts reference — grouped by context */}
         <div className="mt-4 border-t border-surface-3 pt-3">
           <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
             Keyboard Shortcuts
           </h4>
-          <div className="space-y-1 font-mono text-[10px]">
-            <ShortcutRow keys="Cmd+K" action="Command palette" />
-            <ShortcutRow keys="\u2191 \u2193" action="Navigate results" />
-            <ShortcutRow keys="Enter" action="Select company" />
-            <ShortcutRow keys="Space" action="Toggle checkbox" />
-            <ShortcutRow keys="Cmd+A" action="Select all" />
-            <ShortcutRow keys="Cmd+E" action="Export" />
-            <ShortcutRow keys="/" action="Focus filter search" />
-            <ShortcutRow keys="Esc" action="Close / Clear" />
+          <div className="space-y-2.5 font-mono text-[10px]">
+            <div>
+              <p className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-text-tertiary">Anywhere</p>
+              <div className="space-y-0.5">
+                <ShortcutRow keys="Cmd+K" action="Search" />
+                <ShortcutRow keys="Esc" action="Close" />
+              </div>
+            </div>
+            <div>
+              <p className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-text-tertiary">In results list</p>
+              <div className="space-y-0.5">
+                <ShortcutRow keys={"\u2191 \u2193"} action="Move between companies" />
+                <ShortcutRow keys="Space" action="Select / deselect" />
+                <ShortcutRow keys="Enter" action="Open details" />
+                <ShortcutRow keys="/" action="Focus filter search" />
+              </div>
+            </div>
+            <div>
+              <p className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-text-tertiary">With selection</p>
+              <div className="space-y-0.5">
+                <ShortcutRow keys="Cmd+A" action="Select all" />
+                <ShortcutRow keys="Cmd+E" action="Export" />
+                <ShortcutRow keys="Cmd+C" action="Copy email" />
+              </div>
+            </div>
           </div>
         </div>
 

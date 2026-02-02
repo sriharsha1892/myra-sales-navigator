@@ -70,7 +70,7 @@ export default function Home() {
                 useStore.getState().setCommandPaletteOpen(true);
               }
             }}
-            placeholder='Search companies, e.g. "chemicals in Europe"...'
+            placeholder="Search companies or press \u2318K for smart search..."
             className="w-full rounded-pill border border-surface-3 bg-surface-2 py-2 pl-9 pr-16 text-sm text-text-primary placeholder:text-text-tertiary transition-all duration-[180ms] focus:border-accent-primary focus:shadow-[0_0_0_3px_var(--color-accent-primary-light)] focus:outline-none"
           />
           <kbd

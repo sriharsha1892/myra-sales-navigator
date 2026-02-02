@@ -1,29 +1,83 @@
 "use client";
 
 import { cn } from "@/lib/cn";
+import { HelpTip } from "@/components/shared/HelpTip";
 
 interface IcpScoreBadgeProps {
   score: number;
   className?: string;
+  showHelp?: boolean;
 }
 
-function getScoreStyle(score: number): string {
-  if (score >= 80) return "bg-accent-highlight-light text-accent-highlight border-accent-highlight/20";
-  if (score >= 60) return "bg-accent-primary-light text-accent-primary border-accent-primary/20";
-  if (score >= 40) return "bg-warning-light text-warning border-warning/20";
-  return "bg-surface-2 text-text-tertiary border-surface-3";
+function getStrokeColor(score: number): string {
+  if (score >= 80) return "var(--color-accent-highlight)";
+  if (score >= 60) return "var(--color-accent-primary)";
+  if (score >= 40) return "var(--color-warning)";
+  return "var(--color-text-tertiary)";
 }
 
-export function IcpScoreBadge({ score, className }: IcpScoreBadgeProps) {
-  return (
+function getTextClass(score: number): string {
+  if (score >= 80) return "text-accent-highlight";
+  if (score >= 60) return "text-accent-primary";
+  if (score >= 40) return "text-warning";
+  return "text-text-tertiary";
+}
+
+export function IcpScoreBadge({ score, className, showHelp }: IcpScoreBadgeProps) {
+  const size = 24;
+  const strokeWidth = 2.5;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const clamped = Math.max(0, Math.min(100, score));
+  const offset = circumference - (clamped / 100) * circumference;
+
+  const badge = (
     <span
-      className={cn(
-        "inline-flex items-center rounded-badge border px-1.5 py-0.5 font-mono text-xs font-semibold",
-        getScoreStyle(score),
-        className
-      )}
+      className={cn("relative inline-flex items-center justify-center", className)}
+      title={`ICP Score: ${score}`}
+      style={{ width: size, height: size }}
     >
-      {score}
+      <svg width={size} height={size} className="rotate-[-90deg]">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          className="text-surface-3"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={getStrokeColor(score)}
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+        />
+      </svg>
+      <span
+        className={cn(
+          "absolute inset-0 flex items-center justify-center font-mono text-[9px] font-bold leading-none",
+          getTextClass(score)
+        )}
+      >
+        {score}
+      </span>
     </span>
   );
+
+  if (showHelp) {
+    return (
+      <span className="inline-flex items-center gap-0.5">
+        {badge}
+        <HelpTip text="How well this company matches your ideal prospect profile. Higher = better fit." />
+      </span>
+    );
+  }
+
+  return badge;
 }

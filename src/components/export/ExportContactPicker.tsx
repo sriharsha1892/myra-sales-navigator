@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { Overlay } from "@/components/primitives/Overlay";
 import { ConfidenceBadge } from "@/components/badges";
 import { useStore } from "@/lib/store";
+import { ExportStepIndicator } from "./ExportStepIndicator";
 
 interface ExportContactPickerProps {
   contactIds: string[];
@@ -46,6 +47,9 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
   return (
     <Overlay open={true} onClose={onCancel} backdrop="blur" placement="center">
       <div className="w-full max-w-md rounded-card border border-surface-3 bg-surface-1 shadow-2xl">
+        <div className="border-b border-surface-3">
+          <ExportStepIndicator step={1} />
+        </div>
         <div className="flex items-center justify-between border-b border-surface-3 px-5 py-3.5">
           <h3 className="font-display text-sm font-medium text-text-primary">
             Select Contacts to {mode === "csv" ? "Export" : "Copy"}

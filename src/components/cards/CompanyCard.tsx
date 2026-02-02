@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { cn } from "@/lib/cn";
 import type { CompanyEnriched } from "@/lib/types";
 import { SourceBadge, IcpScoreBadge } from "@/components/badges";
@@ -38,9 +39,12 @@ export function CompanyCard({
   onToggleCheck,
 }: CompanyCardProps) {
   const searchSimilar = useStore((s) => s.searchSimilar);
+  const [logoError, setLogoError] = useState(false);
 
   const filledCount = [company.revenue, company.founded, company.website, company.phone, company.aiSummary, company.logoUrl]
     .filter(Boolean).length;
+
+  const logoSrc = company.logoUrl ?? (company.domain ? `https://www.google.com/s2/favicons?domain=${company.domain}&sz=40` : null);
 
   return (
     <div
@@ -53,10 +57,10 @@ export function CompanyCard({
         "group cursor-pointer rounded-card border-[1.5px] p-5 transition-all duration-[180ms]",
         isSelected
           ? "border-accent-primary bg-accent-primary-light shadow-sm"
-          : "glass-card hover:-translate-y-0.5"
+          : "glass-card hover:-translate-y-0.5 hover:shadow-md"
       )}
     >
-      {/* Top row: checkbox + name + ICP score */}
+      {/* Top row: checkbox + logo + name + ICP score */}
       <div className="flex items-start gap-2.5">
         <input
           type="checkbox"
@@ -69,6 +73,16 @@ export function CompanyCard({
           tabIndex={-1}
           className="mt-1 h-3.5 w-3.5 flex-shrink-0 rounded accent-accent-primary"
         />
+        {logoSrc && !logoError && (
+          <img
+            src={logoSrc}
+            alt=""
+            width={20}
+            height={20}
+            className="mt-0.5 h-5 w-5 flex-shrink-0 rounded"
+            onError={() => setLogoError(true)}
+          />
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <h3 className="truncate font-display text-base font-semibold text-text-primary">
@@ -92,6 +106,7 @@ export function CompanyCard({
               {company.signals.slice(0, 3).map((signal) => (
                 <span
                   key={signal.id}
+                  title={signal.title}
                   className={cn(
                     "rounded-pill px-2.5 py-1 text-xs font-medium capitalize",
                     signalPillColors[signal.type] ?? signalPillColors.news
@@ -133,7 +148,7 @@ export function CompanyCard({
             )}
             <button
               onClick={(e) => { e.stopPropagation(); searchSimilar(company); }}
-              className="rounded px-1.5 py-0.5 text-[10px] text-accent-primary opacity-0 transition-opacity group-hover:opacity-100 hover:bg-accent-primary-light"
+              className="rounded px-1.5 py-0.5 text-[10px] text-accent-primary opacity-50 transition-opacity group-hover:opacity-100 hover:bg-accent-primary-light"
             >
               Similar
             </button>

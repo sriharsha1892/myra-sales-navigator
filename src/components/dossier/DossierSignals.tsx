@@ -17,17 +17,17 @@ const signalPillColors: Record<string, string> = {
 export function DossierSignals({ signals }: DossierSignalsProps) {
   if (signals.length === 0) {
     return (
-      <div className="px-4 py-3">
+      <div className="rounded-card bg-surface-0/50 px-4 py-3">
         <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
           Signals
         </h3>
-        <p className="text-xs italic text-text-tertiary">No signals detected</p>
+        <p className="text-xs italic text-text-tertiary">No recent activity found (hiring, funding, expansion). This company may be quiet right now.</p>
       </div>
     );
   }
 
   return (
-    <div className="px-4 py-3">
+    <div className="rounded-card bg-surface-0/50 px-4 py-3">
       <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
         Signals ({signals.length})
       </h3>

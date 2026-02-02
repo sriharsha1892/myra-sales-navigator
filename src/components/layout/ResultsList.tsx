@@ -6,7 +6,7 @@ import { ContactCard } from "@/components/cards/ContactCard";
 import { SkeletonCard } from "@/components/cards/SkeletonCard";
 import { ViewToggle, QuickFilterChips, ResultFilterChips, EmptyState } from "@/components/shared";
 import type { SortField } from "@/lib/types";
-import { useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchHistory } from "@/hooks/useSearchHistory";
 import { timeAgo } from "@/lib/utils";
 
@@ -43,6 +43,17 @@ export function ResultsList() {
   const toggleContactSelection = useStore((s) => s.toggleContactSelection);
   const toggleCompanySelection = useStore((s) => s.toggleCompanySelection);
   const contactsByDomain = useStore((s) => s.contactsByDomain);
+
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  useEffect(() => {
+    if (typeof window !== "undefined" && !localStorage.getItem("nav_onboarded")) {
+      setShowOnboarding(true);
+    }
+  }, []);
+  const dismissOnboarding = () => {
+    setShowOnboarding(false);
+    localStorage.setItem("nav_onboarded", "1");
+  };
 
   const companies = filteredCompanies();
 
@@ -118,7 +129,12 @@ export function ResultsList() {
   return (
     <div className="flex h-full flex-col bg-surface-0">
       {/* Top bar */}
-      <div className="glass-topbar flex flex-shrink-0 flex-wrap items-center gap-3 px-4 py-2.5">
+      <div className="relative glass-topbar flex flex-shrink-0 flex-wrap items-center gap-3 px-4 py-2.5">
+        {searchLoading && (
+          <div className="absolute inset-x-0 bottom-0 h-[2px] overflow-hidden bg-accent-primary/10">
+            <div className="h-full w-1/4 bg-accent-primary" style={{ animation: "progressSlide 1.2s ease-in-out infinite" }} />
+          </div>
+        )}
         <ViewToggle value={viewMode} onChange={setViewMode} />
         <span className="font-mono text-xs text-text-tertiary">
           {count} {viewMode === "companies" ? "companies" : "contacts"}
@@ -128,7 +144,7 @@ export function ResultsList() {
           const color = avg >= 70 ? "text-success" : avg >= 50 ? "text-warning" : "text-text-tertiary";
           return (
             <span className={`rounded-pill border border-surface-3 px-2 py-0.5 font-mono text-[10px] ${color}`}>
-              Avg ICP: {avg}
+              Avg match: {avg}
             </span>
           );
         })()}
@@ -187,18 +203,38 @@ export function ResultsList() {
         ) : !hasSearched ? (
           /* Welcome state — before first search */
           <div className="flex h-full flex-col items-center justify-center">
-            <h2 className="font-display text-2xl text-text-primary">
+            {showOnboarding && (
+              <div className="mb-6 w-full max-w-lg animate-fadeInUp rounded-card border border-surface-3 bg-surface-1 px-5 py-3.5">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm text-text-secondary">
+                    Welcome to Sales Navigator — search for any company, industry, or description.
+                    Try clicking an example below, or press <kbd className="rounded border border-surface-3 bg-surface-2 px-1 py-0.5 font-mono text-[10px]">&#8984;K</kbd> for a powerful free-text search.
+                  </p>
+                  <button
+                    onClick={dismissOnboarding}
+                    className="flex-shrink-0 rounded-input border border-surface-3 px-2.5 py-1 text-xs text-text-secondary hover:bg-surface-2"
+                  >
+                    Got it
+                  </button>
+                </div>
+              </div>
+            )}
+            <h2 className="animate-fadeInUp font-display text-2xl text-text-primary" style={{ animationDelay: "0ms" }}>
               Search for companies
             </h2>
-            <p className="mt-2 text-sm text-text-secondary">
+            <p className="animate-fadeInUp mt-2 text-sm text-text-secondary" style={{ animationDelay: "60ms" }}>
               A specific company, an industry, or a description of your ideal prospect
             </p>
+            <p className="animate-fadeInUp mt-1.5 text-xs italic text-text-tertiary" style={{ animationDelay: "80ms" }}>
+              Pro tip: Press &#8984;K to search by description — like &ldquo;food companies expanding to Asia&rdquo;
+            </p>
             <div className="mt-6 flex flex-wrap justify-center gap-2.5">
-              {exampleQueries.map((query) => (
+              {exampleQueries.map((query, i) => (
                 <button
                   key={query}
                   onClick={() => setPendingFreeTextSearch(query)}
-                  className="rounded-pill border border-surface-3 bg-surface-1 px-5 py-2.5 text-sm font-medium text-text-secondary shadow-sm transition-all duration-[180ms] hover:-translate-y-0.5 hover:shadow-md hover:text-text-primary"
+                  className="animate-fadeInUp rounded-pill border border-surface-3 bg-surface-1 px-5 py-2.5 text-sm font-medium text-text-secondary shadow-sm transition-all duration-[180ms] hover:-translate-y-0.5 hover:shadow-md hover:text-text-primary"
+                  style={{ animationDelay: `${120 + i * 60}ms` }}
                 >
                   {query}
                 </button>
@@ -247,8 +283,8 @@ export function ResultsList() {
         ) : viewMode === "companies" ? (
           companies.length === 0 ? (
             <EmptyState
-              title="No results found"
-              description="No results found. Try a different search or broaden your filters."
+              title="No matches found"
+              description="Try removing some filters, or search for a broader term like 'chemicals' instead of a specific company."
             />
           ) : (
             <div

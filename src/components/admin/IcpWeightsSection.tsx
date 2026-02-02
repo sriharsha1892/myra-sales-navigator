@@ -26,7 +26,7 @@ export function IcpWeightsSection() {
   const total = Object.values(weights).reduce((a, b) => a + Math.abs(b), 0);
 
   return (
-    <AdminSection title="ICP Scoring Weights">
+    <AdminSection title="ICP Scoring Weights" description="Controls how companies are scored. Positive = bonus for matching, negative = penalty. The final score (0-100) appears on every company card.">
       <div className="space-y-3">
         {fields.map(({ key, label }) => (
           <div key={key} className="flex items-center gap-3">

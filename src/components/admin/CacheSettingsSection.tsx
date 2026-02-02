@@ -19,7 +19,7 @@ export function CacheSettingsSection() {
   };
 
   return (
-    <AdminSection title="Cache Settings">
+    <AdminSection title="Data Freshness" description="How long the app remembers data before checking for updates. Longer = faster but data may be stale.">
       <div className="space-y-3">
         {fields.map(({ key, label }) => (
           <div key={key} className="flex items-center gap-3">
@@ -33,7 +33,7 @@ export function CacheSettingsSection() {
               className="flex-1 accent-accent-primary"
             />
             <span className="w-20 text-right font-mono text-xs text-text-secondary">
-              {config.cacheDurations[key]} min
+              {config.cacheDurations[key]} minutes
             </span>
           </div>
         ))}

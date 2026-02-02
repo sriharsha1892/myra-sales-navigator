@@ -23,7 +23,7 @@ export function ExportSettingsSection() {
   };
 
   return (
-    <AdminSection title="Export Settings">
+    <AdminSection title="Export Settings" description="Default options for exporting contacts to CSV or clipboard.">
       <div className="space-y-4">
         <div>
           <label className="mb-1.5 block text-[10px] font-medium uppercase text-text-tertiary">Default Format</label>

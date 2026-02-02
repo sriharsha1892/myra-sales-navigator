@@ -1,6 +1,7 @@
 "use client";
 
 import { Overlay } from "@/components/primitives/Overlay";
+import { ExportStepIndicator } from "./ExportStepIndicator";
 import type { ExportFlowState } from "@/lib/types";
 
 interface VerificationProgressProps {
@@ -14,6 +15,7 @@ export function VerificationProgress({ exportState }: VerificationProgressProps)
   return (
     <Overlay open={true} onClose={() => {}} backdrop="blur" placement="center">
       <div className="w-full max-w-xs rounded-card border border-surface-3 bg-surface-1 p-6 shadow-2xl">
+        <ExportStepIndicator step={2} />
         <p className="mb-4 text-sm font-medium text-text-primary">
           Verifying {totalCount} email{totalCount !== 1 ? "s" : ""}...
         </p>
