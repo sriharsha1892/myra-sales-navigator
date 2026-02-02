@@ -3,9 +3,21 @@
 import { useStore } from "@/lib/store";
 import { CompanyCard } from "@/components/cards/CompanyCard";
 import { ContactCard } from "@/components/cards/ContactCard";
-import { ViewToggle, QuickFilterChips, EmptyState } from "@/components/shared";
+import { SkeletonCard } from "@/components/cards/SkeletonCard";
+import { ViewToggle, QuickFilterChips, ResultFilterChips, EmptyState } from "@/components/shared";
 import type { SortField } from "@/lib/types";
 import { useCallback } from "react";
+import { useSearchHistory } from "@/hooks/useSearchHistory";
+import { timeAgo } from "@/lib/utils";
+
+const exampleQueries = [
+  "chemicals in Europe",
+  "SaaS hiring in US",
+  "food ingredients expanding to Asia",
+  "Brenntag",
+  "logistics companies",
+  "BASF SE",
+];
 
 export function ResultsList() {
   const viewMode = useStore((s) => s.viewMode);
@@ -15,6 +27,13 @@ export function ResultsList() {
   const setSortField = useStore((s) => s.setSortField);
   const setSortDirection = useStore((s) => s.setSortDirection);
   const searchError = useStore((s) => s.searchError);
+  const searchResults = useStore((s) => s.searchResults);
+  const searchLoading = useStore((s) => s.searchLoading);
+  const setPendingFreeTextSearch = useStore((s) => s.setPendingFreeTextSearch);
+
+  const setFilters = useStore((s) => s.setFilters);
+  const setPendingFilterSearch = useStore((s) => s.setPendingFilterSearch);
+  const { history } = useSearchHistory();
 
   const filteredCompanies = useStore((s) => s.filteredCompanies);
   const selectedCompanyDomain = useStore((s) => s.selectedCompanyDomain);
@@ -27,23 +46,19 @@ export function ResultsList() {
 
   const companies = filteredCompanies();
 
-  // Split by source for company view
-  const exaCompanies = companies.filter((c) => c.sources.includes("exa"));
-  const apolloCompanies = companies.filter((c) => !c.sources.includes("exa"));
-
   const handleListKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (viewMode !== "companies") return;
       const currentCompanies = filteredCompanies();
       if (currentCompanies.length === 0) return;
 
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "j" || e.key === "k") {
         e.preventDefault();
         const currentIdx = currentCompanies.findIndex(
           (c) => c.domain === selectedCompanyDomain
         );
         let nextIdx: number;
-        if (e.key === "ArrowDown") {
+        if (e.key === "ArrowDown" || e.key === "j") {
           nextIdx = currentIdx < currentCompanies.length - 1 ? currentIdx + 1 : 0;
         } else {
           nextIdx = currentIdx > 0 ? currentIdx - 1 : currentCompanies.length - 1;
@@ -56,7 +71,7 @@ export function ResultsList() {
         return;
       }
 
-      if (e.key === " ") {
+      if (e.key === " " || e.key === "x") {
         const active = document.activeElement;
         if (active instanceof HTMLInputElement && active.type === "checkbox") return;
         e.preventDefault();
@@ -89,6 +104,7 @@ export function ResultsList() {
   });
 
   const count = viewMode === "companies" ? companies.length : sortedContacts.length;
+  const hasSearched = searchResults !== null;
 
   const handleSortChange = (field: SortField) => {
     if (sortField === field) {
@@ -107,6 +123,15 @@ export function ResultsList() {
         <span className="font-mono text-xs text-text-tertiary">
           {count} {viewMode === "companies" ? "companies" : "contacts"}
         </span>
+        {viewMode === "companies" && companies.length > 0 && (() => {
+          const avg = Math.round(companies.reduce((s, c) => s + c.icpScore, 0) / companies.length);
+          const color = avg >= 70 ? "text-success" : avg >= 50 ? "text-warning" : "text-text-tertiary";
+          return (
+            <span className={`rounded-pill border border-surface-3 px-2 py-0.5 font-mono text-[10px] ${color}`}>
+              Avg ICP: {avg}
+            </span>
+          );
+        })()}
         <div className="ml-auto flex items-center gap-1.5">
           <span className="text-[10px] text-text-tertiary">Sort:</span>
           <select
@@ -128,10 +153,13 @@ export function ResultsList() {
         </div>
       </div>
 
-      {/* Quick filter chips */}
-      <div className="flex-shrink-0 border-b border-surface-3 bg-surface-1 px-4 py-2">
-        <QuickFilterChips />
-      </div>
+      {/* Filter chips — single merged row, only shown after first search */}
+      {hasSearched && !searchLoading && (
+        <div className="flex flex-shrink-0 flex-wrap gap-1.5 border-b border-surface-3 bg-surface-1 px-4 py-2">
+          <QuickFilterChips />
+          <ResultFilterChips />
+        </div>
+      )}
 
       {/* Error banner */}
       {searchError && (
@@ -149,11 +177,78 @@ export function ResultsList() {
 
       {/* Results */}
       <div className="flex-1 overflow-y-auto px-4 py-3">
-        {viewMode === "companies" ? (
+        {/* Loading skeletons */}
+        {searchLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        ) : !hasSearched ? (
+          /* Welcome state — before first search */
+          <div className="flex h-full flex-col items-center justify-center">
+            <h2 className="font-display text-2xl text-text-primary">
+              Search for companies
+            </h2>
+            <p className="mt-2 text-sm text-text-secondary">
+              A specific company, an industry, or a description of your ideal prospect
+            </p>
+            <div className="mt-6 flex flex-wrap justify-center gap-2">
+              {exampleQueries.map((query) => (
+                <button
+                  key={query}
+                  onClick={() => setPendingFreeTextSearch(query)}
+                  className="glass rounded-pill border border-surface-3 px-4 py-2 text-sm text-text-secondary shadow-sm transition-all duration-[180ms] hover:-translate-y-0.5 hover:shadow-md hover:text-text-primary"
+                >
+                  {query}
+                </button>
+              ))}
+            </div>
+            {history.length > 0 && (
+              <div className="mt-8 w-full max-w-md">
+                <p className="mb-2 text-center text-[10px] font-semibold uppercase tracking-widest text-text-tertiary">
+                  Recent Searches
+                </p>
+                <div className="space-y-1">
+                  {history.slice(0, 5).map((entry) => {
+                    const handleClick = () => {
+                      const f = entry.filters;
+                      const hasFilters = f && (
+                        (f.verticals?.length > 0) ||
+                        (f.regions?.length > 0) ||
+                        (f.sizes?.length > 0) ||
+                        (f.signals?.length > 0)
+                      );
+                      if (hasFilters) {
+                        setFilters(f);
+                        setPendingFilterSearch(true);
+                      } else {
+                        setPendingFreeTextSearch(entry.label ?? "");
+                      }
+                    };
+                    return (
+                      <button
+                        key={entry.id}
+                        onClick={handleClick}
+                        className="flex w-full items-center justify-between rounded-card border border-surface-3 bg-surface-1 px-3 py-2 text-xs text-text-secondary transition-colors hover:bg-surface-hover"
+                      >
+                        <span className="truncate">{entry.label ?? "Search"}</span>
+                        <span className="flex items-center gap-2 flex-shrink-0">
+                          <span className="font-mono text-[10px] text-text-tertiary">{entry.resultCount} results</span>
+                          <span className="text-[10px] text-text-tertiary">{timeAgo(entry.timestamp)}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : viewMode === "companies" ? (
           companies.length === 0 ? (
             <EmptyState
-              title="No companies found"
-              description="No matches found. Try broadening your vertical or region filters."
+              title="No results found"
+              description="No results found. Try a different search or broaden your filters."
             />
           ) : (
             <div
@@ -166,45 +261,73 @@ export function ResultsList() {
               onKeyDown={handleListKeyDown}
               className="space-y-2 focus:outline-none"
             >
-              {/* Semantic Matches (Exa) */}
-              {exaCompanies.length > 0 && (
-                <>
-                  <SectionHeader label="Semantic Matches (Exa)" count={exaCompanies.length} />
-                  {exaCompanies.map((company) => (
-                    <CompanyCard
-                      key={company.domain}
-                      company={company}
-                      isSelected={selectedCompanyDomain === company.domain}
-                      isChecked={selectedCompanyDomains.has(company.domain)}
-                      onSelect={() => selectCompany(company.domain)}
-                      onToggleCheck={() => toggleCompanySelection(company.domain)}
-                    />
-                  ))}
-                </>
-              )}
-
-              {/* Structured Matches (Apollo) */}
-              {apolloCompanies.length > 0 && (
-                <>
-                  <SectionHeader label="Structured Matches (Apollo)" count={apolloCompanies.length} />
-                  {apolloCompanies.map((company) => (
-                    <CompanyCard
-                      key={company.domain}
-                      company={company}
-                      isSelected={selectedCompanyDomain === company.domain}
-                      isChecked={selectedCompanyDomains.has(company.domain)}
-                      onSelect={() => selectCompany(company.domain)}
-                      onToggleCheck={() => toggleCompanySelection(company.domain)}
-                    />
-                  ))}
-                </>
-              )}
+              {sortField === "icp_score" ? (() => {
+                const tiers = [
+                  { label: "Strong fit", min: 80, max: 100, color: "text-accent-highlight" },
+                  { label: "Good fit", min: 60, max: 79, color: "text-accent-primary" },
+                  { label: "Possible", min: 40, max: 59, color: "text-warning" },
+                  { label: "Review", min: 0, max: 39, color: "text-text-tertiary" },
+                ] as const;
+                let globalIdx = 0;
+                return tiers.map((tier) => {
+                  const tierCompanies = companies.filter(
+                    (c) => c.icpScore >= tier.min && c.icpScore <= tier.max
+                  );
+                  if (tierCompanies.length === 0) return null;
+                  return (
+                    <div key={tier.label}>
+                      <div className="sticky top-0 z-10 rounded bg-surface-0/90 px-1 py-1.5 backdrop-blur-sm">
+                        <span className={`text-xs font-semibold ${tier.color}`}>
+                          {tier.label}
+                        </span>
+                        <span className="ml-1.5 font-mono text-[10px] text-text-tertiary">
+                          {tier.min}–{tier.max} ({tierCompanies.length})
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {tierCompanies.map((company) => {
+                          const idx = globalIdx++;
+                          return (
+                            <div
+                              key={company.domain}
+                              className="animate-fadeInUp"
+                              style={{ animationDelay: `${idx * 40}ms` }}
+                            >
+                              <CompanyCard
+                                company={company}
+                                isSelected={selectedCompanyDomain === company.domain}
+                                isChecked={selectedCompanyDomains.has(company.domain)}
+                                onSelect={() => selectCompany(company.domain)}
+                                onToggleCheck={() => toggleCompanySelection(company.domain)}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                });
+              })() : companies.map((company, index) => (
+                <div
+                  key={company.domain}
+                  className="animate-fadeInUp"
+                  style={{ animationDelay: `${index * 40}ms` }}
+                >
+                  <CompanyCard
+                    company={company}
+                    isSelected={selectedCompanyDomain === company.domain}
+                    isChecked={selectedCompanyDomains.has(company.domain)}
+                    onSelect={() => selectCompany(company.domain)}
+                    onToggleCheck={() => toggleCompanySelection(company.domain)}
+                  />
+                </div>
+              ))}
             </div>
           )
         ) : sortedContacts.length === 0 ? (
           <EmptyState
-            title="No contacts found"
-            description="No contacts match current filters. Try adjusting source or confidence filters."
+            title="No contacts available"
+            description="No contacts available for current results."
           />
         ) : (
           <div role="listbox" aria-label="Contact results" className="space-y-2">
@@ -219,19 +342,6 @@ export function ResultsList() {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function SectionHeader({ label, count }: { label: string; count: number }) {
-  return (
-    <div className="flex items-center gap-2 py-1">
-      <div className="h-px flex-1 bg-surface-3" />
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-        {label}
-      </span>
-      <span className="font-mono text-[10px] text-text-tertiary">{count}</span>
-      <div className="h-px flex-1 bg-surface-3" />
     </div>
   );
 }

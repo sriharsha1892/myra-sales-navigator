@@ -3,6 +3,8 @@
 import { cn } from "@/lib/cn";
 import type { CompanyEnriched } from "@/lib/types";
 import { SourceBadge, IcpScoreBadge } from "@/components/badges";
+import { useStore } from "@/lib/store";
+import { ContactPreviewPopover } from "./ContactPreviewPopover";
 
 interface CompanyCardProps {
   company: CompanyEnriched;
@@ -35,6 +37,11 @@ export function CompanyCard({
   onSelect,
   onToggleCheck,
 }: CompanyCardProps) {
+  const searchSimilar = useStore((s) => s.searchSimilar);
+
+  const filledCount = [company.revenue, company.founded, company.website, company.phone, company.aiSummary, company.logoUrl]
+    .filter(Boolean).length;
+
   return (
     <div
       id={`company-${company.domain}`}
@@ -43,10 +50,10 @@ export function CompanyCard({
       tabIndex={-1}
       onClick={onSelect}
       className={cn(
-        "group cursor-pointer rounded-card border-[1.5px] bg-surface-1 p-4 transition-shadow duration-[var(--transition-default)]",
+        "group cursor-pointer rounded-card border-[1.5px] bg-surface-1 p-4 transition-all duration-[180ms]",
         isSelected
-          ? "border-accent-primary bg-accent-primary-light"
-          : "border-surface-3 hover:shadow-md"
+          ? "border-accent-primary bg-accent-primary-light shadow-sm"
+          : "border-surface-3 hover:shadow-md hover:-translate-y-0.5"
       )}
     >
       {/* Top row: checkbox + name + ICP score */}
@@ -101,7 +108,7 @@ export function CompanyCard({
             </div>
           )}
 
-          {/* Bottom row: sources + hubspot + contact count */}
+          {/* Bottom row: sources + hubspot + completeness + similar + contact count */}
           <div className="mt-2 flex items-center gap-1.5">
             <div className="flex gap-0.5">
               {company.sources.map((src) => (
@@ -113,9 +120,29 @@ export function CompanyCard({
                 {hubspotLabels[company.hubspotStatus]}
               </span>
             )}
-            <span className="ml-auto font-mono text-xs text-text-tertiary">
-              {company.contactCount} contacts
-            </span>
+            {filledCount <= 4 && (
+              <span
+                className={cn(
+                  "font-mono text-[10px]",
+                  filledCount <= 2 ? "text-danger" : "text-warning"
+                )}
+                title="Data completeness"
+              >
+                {filledCount}/6
+              </span>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); searchSimilar(company); }}
+              className="rounded px-1.5 py-0.5 text-[10px] text-accent-primary opacity-0 transition-opacity group-hover:opacity-100 hover:bg-accent-primary-light"
+            >
+              Similar
+            </button>
+            <div className="group/contacts relative ml-auto">
+              <span className="cursor-default font-mono text-xs text-text-tertiary">
+                {company.contactCount} contacts
+              </span>
+              <ContactPreviewPopover domain={company.domain} />
+            </div>
           </div>
         </div>
       </div>

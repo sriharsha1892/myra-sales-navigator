@@ -5,6 +5,8 @@ import { Command } from "cmdk";
 import { useStore } from "@/lib/store";
 import { Overlay } from "@/components/primitives/Overlay";
 import { cn } from "@/lib/cn";
+import { useSearchHistory } from "@/hooks/useSearchHistory";
+import { timeAgo } from "@/lib/utils";
 
 export function CommandPalette() {
   const open = useStore((s) => s.commandPaletteOpen);
@@ -17,6 +19,9 @@ export function CommandPalette() {
   const addToast = useStore((s) => s.addToast);
   const setPendingFreeTextSearch = useStore((s) => s.setPendingFreeTextSearch);
 
+  const setFilters = useStore((s) => s.setFilters);
+  const setPendingFilterSearch = useStore((s) => s.setPendingFilterSearch);
+  const { history } = useSearchHistory();
   const [search, setSearch] = useState("");
   const inputRef = useCallback((node: HTMLInputElement | null) => {
     if (node && open) {
@@ -60,7 +65,7 @@ export function CommandPalette() {
               ref={inputRef}
               value={search}
               onValueChange={setSearch}
-              placeholder="Search companies, contacts, or type a command..."
+              placeholder="Search a company, industry, or prospect description..."
               className="w-full bg-transparent py-3 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none"
             />
           </div>
@@ -79,6 +84,38 @@ export function CommandPalette() {
                   </svg>
                   <span>Search Exa for &ldquo;{search}&rdquo;</span>
                 </CommandItem>
+              </Command.Group>
+            )}
+
+            {/* Recent Searches */}
+            {history.length > 0 && (
+              <Command.Group heading="Recent Searches" className="mb-2">
+                {history.slice(0, 5).map((entry) => (
+                  <CommandItem
+                    key={entry.id}
+                    onSelect={() => {
+                      const f = entry.filters;
+                      const hasFilters = f && (
+                        (f.verticals?.length > 0) ||
+                        (f.regions?.length > 0) ||
+                        (f.sizes?.length > 0) ||
+                        (f.signals?.length > 0)
+                      );
+                      if (hasFilters) {
+                        setFilters(f);
+                        setPendingFilterSearch(true);
+                      } else {
+                        setPendingFreeTextSearch(entry.label ?? "");
+                      }
+                      setOpen(false);
+                    }}
+                  >
+                    <span className="truncate">{entry.label ?? "Search"}</span>
+                    <span className="ml-auto font-mono text-[10px] text-text-tertiary">
+                      {entry.resultCount} &middot; {timeAgo(entry.timestamp)}
+                    </span>
+                  </CommandItem>
+                ))}
               </Command.Group>
             )}
 

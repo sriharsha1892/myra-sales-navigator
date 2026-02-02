@@ -24,6 +24,7 @@ import {
   defaultAdminConfig,
   mockNotes,
 } from "./mock-data";
+import { getSizeBucket } from "./utils";
 
 interface AppState {
   // Data
@@ -72,6 +73,9 @@ interface AppState {
   // Filter-based search trigger
   pendingFilterSearch: boolean;
 
+  // Search loading state
+  searchLoading: boolean;
+
   // Actions
   setViewMode: (mode: ViewMode) => void;
   selectCompany: (domain: string | null) => void;
@@ -101,6 +105,7 @@ interface AppState {
   deleteNote: (noteId: string, domain: string) => void;
   logExtraction: (domain: string, destination: string, contacts: ContactSnapshot[]) => void;
   updateAdminConfig: (config: Partial<AdminConfig>) => void;
+  setAdminConfig: (config: AdminConfig) => void;
   saveAdminConfig: () => Promise<void>;
   loadPreset: (presetId: string) => void;
   savePreset: (name: string) => void;
@@ -112,10 +117,12 @@ interface AppState {
   setTriggerExport: (v: "csv" | "clipboard" | null) => void;
   setPendingFreeTextSearch: (text: string | null) => void;
   setPendingFilterSearch: (pending: boolean) => void;
+  setSearchLoading: (loading: boolean) => void;
   setExclusions: (exclusions: Exclusion[]) => void;
   setPresets: (presets: SearchPreset[]) => void;
   updateContact: (domain: string, contactId: string, updated: Contact) => void;
   setContactsForDomain: (domain: string, contacts: Contact[]) => void;
+  searchSimilar: (company: CompanyEnriched) => void;
 
   // Computed / derived
   filteredCompanies: () => CompanyEnriched[];
@@ -199,6 +206,7 @@ export const useStore = create<AppState>((set, get) => ({
   triggerExport: null,
   pendingFreeTextSearch: null,
   pendingFilterSearch: false,
+  searchLoading: false,
 
   setViewMode: (mode) => set({ viewMode: mode }),
 
@@ -545,6 +553,8 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
+  setAdminConfig: (config) => set({ adminConfig: config }),
+
   updateAdminConfig: (partial) =>
     set((state) => {
       const merged = { ...state.adminConfig };
@@ -609,6 +619,7 @@ export const useStore = create<AppState>((set, get) => ({
   setTriggerExport: (v) => set({ triggerExport: v }),
   setPendingFreeTextSearch: (text) => set({ pendingFreeTextSearch: text }),
   setPendingFilterSearch: (pending) => set({ pendingFilterSearch: pending }),
+  setSearchLoading: (loading) => set({ searchLoading: loading }),
   setExclusions: (exclusions) => set({ exclusions }),
   setPresets: (presets) => set({ presets }),
 
@@ -696,6 +707,19 @@ export const useStore = create<AppState>((set, get) => ({
         ...get().contactsByDomain,
         [domain]: contacts,
       },
+    });
+  },
+
+  searchSimilar: (company) => {
+    const sizeBucket = getSizeBucket(company.employeeCount);
+    set({
+      filters: {
+        ...defaultFilters,
+        verticals: [company.vertical],
+        regions: [company.region],
+        sizes: [sizeBucket],
+      },
+      pendingFilterSearch: true,
     });
   },
 

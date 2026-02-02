@@ -6,10 +6,6 @@ import {
   enrichCompany,
   findContacts,
 } from "@/lib/providers/apollo";
-import {
-  isHubSpotAvailable,
-  getHubSpotStatus,
-} from "@/lib/providers/hubspot";
 import { createServerClient } from "@/lib/supabase/server";
 import type { Company, FilterState } from "@/lib/types";
 
@@ -169,19 +165,6 @@ export async function POST(request: Request) {
           ? apolloEnriched.find((e) => e.domain === c.domain)!
           : c
     );
-
-    // Batch-fetch HubSpot status for all result domains (graceful — never fails search)
-    if (isHubSpotAvailable()) {
-      const statusResults = await Promise.allSettled(
-        companies.map((c) => getHubSpotStatus(c.domain))
-      );
-      for (let i = 0; i < companies.length; i++) {
-        const r = statusResults[i];
-        if (r.status === "fulfilled" && r.value.status !== "none") {
-          companies[i] = { ...companies[i], hubspotStatus: r.value.status };
-        }
-      }
-    }
 
     // Log search to history (fire-and-forget)
     if (body.userName) {

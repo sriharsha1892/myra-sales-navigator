@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { FilterSection } from "@/components/filters/FilterSection";
-import { SourceFilter } from "@/components/filters/SourceFilter";
 import { VerticalFilter } from "@/components/filters/VerticalFilter";
 import { RegionFilter } from "@/components/filters/RegionFilter";
 import { SizeFilter } from "@/components/filters/SizeFilter";
 import { SignalFilter } from "@/components/filters/SignalFilter";
 import { ExclusionToggle } from "@/components/filters/ExclusionToggle";
 import { IcpScoreBadge } from "@/components/badges";
+import { useSearchHistory } from "@/hooks/useSearchHistory";
+import { timeAgo } from "@/lib/utils";
 
 export function FilterPanel() {
   const presets = useStore((s) => s.presets);
@@ -25,13 +26,16 @@ export function FilterPanel() {
   const filters = useStore((s) => s.filters);
   const setFilters = useStore((s) => s.setFilters);
 
+  const setPendingFreeTextSearch = useStore((s) => s.setPendingFreeTextSearch);
+  const setPendingFilterSearch = useStore((s) => s.setPendingFilterSearch);
+  const { history } = useSearchHistory();
+
   const [presetName, setPresetName] = useState("");
   const [showSavePreset, setShowSavePreset] = useState(false);
   const [presetDropdownOpen, setPresetDropdownOpen] = useState(false);
 
   // Active filter count
   const activeFilterCount =
-    filters.sources.length +
     filters.verticals.length +
     filters.regions.length +
     filters.sizes.length +
@@ -61,24 +65,30 @@ export function FilterPanel() {
     .map((domain) => companies.find((c) => c.domain === domain))
     .filter(Boolean);
 
+  const searchResults = useStore((s) => s.searchResults);
+  const hasSearched = searchResults !== null;
+
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-surface-1">
       {/* Header + Search */}
       <div className="border-b border-surface-3 px-4 py-3">
         <div className="flex items-center gap-2">
-          <h2 className="font-display text-sm font-medium text-text-primary">Filters</h2>
+          <h2 className="font-display text-sm font-medium text-text-primary">Refine Results</h2>
           {activeFilterCount > 0 && (
             <span className="flex h-4 min-w-4 items-center justify-center rounded-pill bg-accent-primary px-1.5 text-[10px] font-semibold text-text-inverse">
               {activeFilterCount}
             </span>
           )}
         </div>
+        {!hasSearched && (
+          <p className="mt-1.5 text-xs italic text-text-tertiary">Run a search first, then refine here</p>
+        )}
         <button
           onClick={() => useStore.getState().setPendingFilterSearch(true)}
-          disabled={activeFilterCount === 0}
-          className="mt-2 w-full rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-text-inverse transition-colors hover:bg-accent-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={filters.verticals.length + filters.regions.length + filters.sizes.length + filters.signals.length === 0}
+          className="mt-2 w-full rounded-input border border-surface-3 bg-surface-2 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Search
+          Re-search with Filters
         </button>
       </div>
 
@@ -172,6 +182,47 @@ export function FilterPanel() {
         </div>
       </div>
 
+      {/* Recent Searches */}
+      {history.length > 0 && (
+        <div className="border-b border-surface-3 px-4 py-3">
+          <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+            Recent Searches
+          </label>
+          <div className="space-y-0.5">
+            {history.slice(0, 5).map((entry) => {
+              const handleClick = () => {
+                const f = entry.filters;
+                const hasFilters = f && (
+                  (f.verticals?.length > 0) ||
+                  (f.regions?.length > 0) ||
+                  (f.sizes?.length > 0) ||
+                  (f.signals?.length > 0)
+                );
+                if (hasFilters) {
+                  setFilters(f);
+                  setPendingFilterSearch(true);
+                } else {
+                  setPendingFreeTextSearch(entry.label ?? "");
+                }
+              };
+              return (
+                <button
+                  key={entry.id}
+                  onClick={handleClick}
+                  className="flex w-full items-center justify-between rounded px-1.5 py-1 text-xs text-text-secondary hover:bg-surface-hover"
+                >
+                  <span className="truncate">{entry.label ?? "Search"}</span>
+                  <span className="flex items-center gap-2 flex-shrink-0">
+                    <span className="font-mono text-[10px] text-text-tertiary">{entry.resultCount}</span>
+                    <span className="text-[10px] text-text-tertiary">{timeAgo(entry.timestamp)}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Recent Companies */}
       {recentCompanyData.length > 0 && (
         <div className="border-b border-surface-3 px-4 py-3">
@@ -196,23 +247,19 @@ export function FilterPanel() {
       )}
 
       {/* Filter Sections */}
-      <FilterSection title="Sources" count={filters.sources.length} onClear={() => setFilters({ sources: [] })}>
-        <SourceFilter />
-      </FilterSection>
-
-      <FilterSection title="Vertical" count={filters.verticals.length} onClear={() => setFilters({ verticals: [] })}>
+      <FilterSection title="Vertical" defaultOpen={false} count={filters.verticals.length} onClear={() => setFilters({ verticals: [] })}>
         <VerticalFilter />
       </FilterSection>
 
-      <FilterSection title="Region" count={filters.regions.length} onClear={() => setFilters({ regions: [] })}>
+      <FilterSection title="Region" defaultOpen={false} count={filters.regions.length} onClear={() => setFilters({ regions: [] })}>
         <RegionFilter />
       </FilterSection>
 
-      <FilterSection title="Company Size" count={filters.sizes.length} onClear={() => setFilters({ sizes: [] })}>
+      <FilterSection title="Company Size" defaultOpen={false} count={filters.sizes.length} onClear={() => setFilters({ sizes: [] })}>
         <SizeFilter />
       </FilterSection>
 
-      <FilterSection title="Signals" count={filters.signals.length} onClear={() => setFilters({ signals: [] })}>
+      <FilterSection title="Signals" defaultOpen={false} count={filters.signals.length} onClear={() => setFilters({ signals: [] })}>
         <SignalFilter />
       </FilterSection>
 

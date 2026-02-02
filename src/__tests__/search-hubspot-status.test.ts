@@ -72,7 +72,7 @@ vi.mock("@/lib/providers/exa", () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Mock Apollo provider — skip enrichment to isolate HubSpot test
+// Mock Apollo provider — skip enrichment to isolate test
 // ---------------------------------------------------------------------------
 vi.mock("@/lib/providers/apollo", () => ({
   isApolloAvailable: () => false,
@@ -88,7 +88,7 @@ vi.mock("@/lib/exa/queryBuilder", () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Mock HubSpot provider — this is what we're actually testing
+// Mock HubSpot provider
 // ---------------------------------------------------------------------------
 const mockGetHubSpotStatus = vi.fn();
 const mockIsHubSpotAvailable = vi.fn();
@@ -114,7 +114,7 @@ function makeRequest(body: Record<string, unknown>): Request {
   });
 }
 
-describe("search/companies route — HubSpot status enrichment", () => {
+describe("search/companies route — HubSpot status NOT fetched during search", () => {
   beforeEach(async () => {
     await clearCache();
     mockGetHubSpotStatus.mockReset();
@@ -125,148 +125,38 @@ describe("search/companies route — HubSpot status enrichment", () => {
     vi.restoreAllMocks();
   });
 
-  // -----------------------------------------------------------------------
-  // Happy path: HubSpot available, returns statuses
-  // -----------------------------------------------------------------------
+  // HubSpot batch status was removed from search to avoid 429 rate limits.
+  // Status is fetched in the dossier route when the user clicks a company.
 
-  it("merges HubSpot status onto companies when available", async () => {
+  it("does not call getHubSpotStatus during search", async () => {
     mockIsHubSpotAvailable.mockReturnValue(true);
-    mockGetHubSpotStatus
-      .mockResolvedValueOnce({
-        domain: "acme.com",
-        status: "in_progress",
-        lastContact: "2026-01-15",
-        dealStage: "qualifiedtobuy",
-      })
-      .mockResolvedValueOnce({
-        domain: "globex.com",
-        status: "closed_won",
-        lastContact: "2025-12-01",
-        dealStage: "closedwon",
-      });
-
-    const res = await POST(makeRequest({ freeText: "test query" }));
-    const data = await res.json();
-
-    expect(data.companies).toHaveLength(2);
-    expect(data.companies[0].hubspotStatus).toBe("in_progress");
-    expect(data.companies[1].hubspotStatus).toBe("closed_won");
-  });
-
-  it("calls getHubSpotStatus for each company domain", async () => {
-    mockIsHubSpotAvailable.mockReturnValue(true);
-    mockGetHubSpotStatus.mockResolvedValue({
-      domain: "any.com",
-      status: "none",
-      lastContact: null,
-      dealStage: null,
-    });
 
     await POST(makeRequest({ freeText: "test query" }));
 
-    expect(mockGetHubSpotStatus).toHaveBeenCalledTimes(2);
-    expect(mockGetHubSpotStatus).toHaveBeenCalledWith("acme.com");
-    expect(mockGetHubSpotStatus).toHaveBeenCalledWith("globex.com");
+    expect(mockGetHubSpotStatus).not.toHaveBeenCalled();
   });
 
-  // -----------------------------------------------------------------------
-  // HubSpot status "none" — should NOT overwrite default
-  // -----------------------------------------------------------------------
-
-  it("keeps hubspotStatus as 'none' when HubSpot returns 'none'", async () => {
+  it("returns companies with default hubspotStatus from Exa", async () => {
     mockIsHubSpotAvailable.mockReturnValue(true);
-    mockGetHubSpotStatus.mockResolvedValue({
-      domain: "any.com",
-      status: "none",
-      lastContact: null,
-      dealStage: null,
-    });
 
     const res = await POST(makeRequest({ freeText: "test query" }));
     const data = await res.json();
 
+    expect(res.status).toBe(200);
+    expect(data.companies).toHaveLength(2);
+    // Status stays at whatever Exa returned (default "none")
     expect(data.companies[0].hubspotStatus).toBe("none");
     expect(data.companies[1].hubspotStatus).toBe("none");
   });
 
-  // -----------------------------------------------------------------------
-  // Mixed statuses — some "none", some real
-  // -----------------------------------------------------------------------
-
-  it("only updates companies that have a real HubSpot status", async () => {
-    mockIsHubSpotAvailable.mockReturnValue(true);
-    mockGetHubSpotStatus
-      .mockResolvedValueOnce({
-        domain: "acme.com",
-        status: "new",
-        lastContact: null,
-        dealStage: null,
-      })
-      .mockResolvedValueOnce({
-        domain: "globex.com",
-        status: "none",
-        lastContact: null,
-        dealStage: null,
-      });
-
-    const res = await POST(makeRequest({ freeText: "test query" }));
-    const data = await res.json();
-
-    expect(data.companies[0].hubspotStatus).toBe("new");
-    expect(data.companies[1].hubspotStatus).toBe("none");
-  });
-
-  // -----------------------------------------------------------------------
-  // HubSpot unavailable — skip entirely
-  // -----------------------------------------------------------------------
-
-  it("skips HubSpot fetch when HUBSPOT_ACCESS_TOKEN not configured", async () => {
+  it("search succeeds regardless of HubSpot availability", async () => {
     mockIsHubSpotAvailable.mockReturnValue(false);
 
     const res = await POST(makeRequest({ freeText: "test query" }));
     const data = await res.json();
 
-    expect(mockGetHubSpotStatus).not.toHaveBeenCalled();
-    expect(data.companies[0].hubspotStatus).toBe("none");
-    expect(data.companies[1].hubspotStatus).toBe("none");
-  });
-
-  // -----------------------------------------------------------------------
-  // Graceful failure — individual HubSpot lookups fail
-  // -----------------------------------------------------------------------
-
-  it("does not fail search when individual HubSpot calls reject", async () => {
-    mockIsHubSpotAvailable.mockReturnValue(true);
-    mockGetHubSpotStatus
-      .mockRejectedValueOnce(new Error("HubSpot rate limit"))
-      .mockResolvedValueOnce({
-        domain: "globex.com",
-        status: "closed_won",
-        lastContact: null,
-        dealStage: null,
-      });
-
-    const res = await POST(makeRequest({ freeText: "test query" }));
-    const data = await res.json();
-
-    // First company: failed lookup, status stays "none"
-    expect(data.companies[0].hubspotStatus).toBe("none");
-    // Second company: successful lookup
-    expect(data.companies[1].hubspotStatus).toBe("closed_won");
-    // Search itself succeeds (200)
-    expect(res.status).toBe(200);
-  });
-
-  it("does not fail search when ALL HubSpot calls reject", async () => {
-    mockIsHubSpotAvailable.mockReturnValue(true);
-    mockGetHubSpotStatus.mockRejectedValue(new Error("HubSpot down"));
-
-    const res = await POST(makeRequest({ freeText: "test query" }));
-    const data = await res.json();
-
     expect(res.status).toBe(200);
     expect(data.companies).toHaveLength(2);
-    expect(data.companies[0].hubspotStatus).toBe("none");
-    expect(data.companies[1].hubspotStatus).toBe("none");
+    expect(mockGetHubSpotStatus).not.toHaveBeenCalled();
   });
 });

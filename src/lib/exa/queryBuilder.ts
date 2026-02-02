@@ -13,15 +13,15 @@ export function buildExaQuery(filters: FilterState, freeText?: string): string {
     parts.push(freeText.trim());
   }
 
-  if (filters.verticals.length > 0) {
+  if (filters.verticals?.length > 0) {
     parts.push(`industry: ${filters.verticals.join(" OR ")}`);
   }
 
-  if (filters.regions.length > 0) {
+  if (filters.regions?.length > 0) {
     parts.push(`region: ${filters.regions.join(" OR ")}`);
   }
 
-  if (filters.signals.length > 0) {
+  if (filters.signals?.length > 0) {
     parts.push(`signals: ${filters.signals.join(", ")}`);
   }
 
@@ -70,10 +70,10 @@ export async function reformulateQuery(
   try {
     const prompt = REFORMULATION_PROMPT
       .replace("{query}", rawText || buildExaQuery(filters))
-      .replace("{verticals}", filters.verticals.join(", ") || "none")
-      .replace("{regions}", filters.regions.join(", ") || "none")
-      .replace("{sizes}", filters.sizes.join(", ") || "none")
-      .replace("{signals}", filters.signals.join(", ") || "none");
+      .replace("{verticals}", filters.verticals?.join(", ") || "none")
+      .replace("{regions}", filters.regions?.join(", ") || "none")
+      .replace("{sizes}", filters.sizes?.join(", ") || "none")
+      .replace("{signals}", filters.signals?.join(", ") || "none");
 
     const groq = getGroq();
     const response = await groq.complete(prompt, { json: true, maxTokens: 512 });

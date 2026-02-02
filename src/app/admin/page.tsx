@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useAuth } from "@/providers/AuthProvider";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { AdminTabs, ADMIN_TABS } from "@/components/admin/AdminTabs";
+import { AdminSaveBar } from "@/components/admin/AdminSaveBar";
+import { useStore } from "@/lib/store";
 import { cn } from "@/lib/cn";
 
 // Existing sections
@@ -73,6 +75,40 @@ export default function AdminPage() {
   const [analytics, setAnalytics] = useState<AnalyticsDashboard | null>(null);
   const [dateRange, setDateRange] = useState({ from: daysAgoISO(7), to: todayISO() });
   const [savingTargets, setSavingTargets] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const adminConfig = useStore((s) => s.adminConfig);
+  const setAdminConfig = useStore((s) => s.setAdminConfig);
+  const saveAdminConfig = useStore((s) => s.saveAdminConfig);
+
+  // Snapshot for dirty detection
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
+  const initializedRef = useRef(false);
+
+  useEffect(() => {
+    if (!initializedRef.current && adminConfig) {
+      setSavedSnapshot(JSON.stringify(adminConfig));
+      initializedRef.current = true;
+    }
+  }, [adminConfig]);
+
+  const isDirty = savedSnapshot !== null && JSON.stringify(adminConfig) !== savedSnapshot;
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await saveAdminConfig();
+      setSavedSnapshot(JSON.stringify(adminConfig));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDiscard = () => {
+    if (savedSnapshot) {
+      setAdminConfig(JSON.parse(savedSnapshot));
+    }
+  };
 
   useEffect(() => {
     const onHash = () => setActiveTab(getTabFromHash());
@@ -105,7 +141,6 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ analyticsSettings: { kpiTargets: targets } }),
       });
-      // Re-fetch analytics to get updated targets
       fetchAnalytics(dateRange);
     } finally {
       setSavingTargets(false);
@@ -144,6 +179,7 @@ export default function AdminPage() {
     );
   }
 
+  const activeTabDef = ADMIN_TABS.find((t) => t.id === activeTab);
   const kpiTargets = analytics?.kpiTargets ?? { exportsThisWeek: 20, avgIcpScore: 60 };
 
   return (
@@ -161,7 +197,11 @@ export default function AdminPage() {
 
         <AdminTabs activeTab={activeTab} onTabChange={handleTabChange} />
 
-        <div className="space-y-6">
+        {activeTabDef && activeTab !== "analytics" && (
+          <p className="mb-4 text-sm text-text-secondary">{activeTabDef.description}</p>
+        )}
+
+        <div className={cn("space-y-6", isDirty && "pb-16")}>
           {activeTab === "general" && (
             <>
               <IcpWeightsSection />
@@ -169,28 +209,40 @@ export default function AdminPage() {
               <SizeSweetSpotSection />
               <SignalTypesSection />
               <TeamMembersSection />
-              <CacheSettingsSection />
-              <CopyFormatSection />
               <ExclusionManagerSection />
               <PresetManagerSection />
             </>
           )}
+          {activeTab === "pipeline" && (
+            <>
+              <ScoringTuningSection />
+              <EmailVerificationSection />
+              <ExportSettingsSection />
+              <CopyFormatSection />
+            </>
+          )}
+          {activeTab === "system" && (
+            <>
+              <RateLimitSection />
+              <DataRetentionSection />
+              <NotificationSection />
+              <CacheSettingsSection />
+            </>
+          )}
           {activeTab === "api-keys" && <ApiKeysSection />}
-          {activeTab === "data-sources" && <DataSourcesSection />}
-          {activeTab === "export" && <ExportSettingsSection />}
-          {activeTab === "verification" && <EmailVerificationSection />}
-          {activeTab === "scoring" && <ScoringTuningSection />}
-          {activeTab === "rate-limits" && <RateLimitSection />}
-          {activeTab === "notifications" && <NotificationSection />}
-          {activeTab === "retention" && <DataRetentionSection />}
           {activeTab === "auth" && (
             <>
               <AuthSettingsSection />
               <AuthActivityLog />
             </>
           )}
-          {activeTab === "ui" && <UiPreferencesSection />}
           {activeTab === "email-prompts" && <EmailPromptsSection />}
+          {activeTab === "ui" && (
+            <>
+              <UiPreferencesSection />
+              <DataSourcesSection />
+            </>
+          )}
           {activeTab === "analytics" && (
             <>
               <div className="flex flex-wrap items-center justify-between gap-4">
@@ -211,6 +263,13 @@ export default function AdminPage() {
           )}
         </div>
       </div>
+
+      <AdminSaveBar
+        isDirty={isDirty}
+        onSave={handleSave}
+        onDiscard={handleDiscard}
+        saving={saving}
+      />
     </div>
   );
 }
