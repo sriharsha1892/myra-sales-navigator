@@ -1,0 +1,185 @@
+"use client";
+
+import { useState, useCallback } from "react";
+import { useStore } from "@/lib/store";
+import { ConfidenceBadge, SourceBadge } from "@/components/badges";
+import { MissingData } from "@/components/shared/MissingData";
+import { EmailDraftModal } from "@/components/email/EmailDraftModal";
+import { useInlineFeedback } from "@/hooks/useInlineFeedback";
+import type { Contact } from "@/lib/types";
+
+interface DossierContactsProps {
+  companyDomain: string;
+}
+
+export function DossierContacts({ companyDomain }: DossierContactsProps) {
+  const companyContacts = useStore((s) => s.companyContacts);
+  const selectedCompany = useStore((s) => s.selectedCompany);
+  const contacts = companyContacts(companyDomain);
+  const company = selectedCompany();
+
+  const [draftContact, setDraftContact] = useState<Contact | null>(null);
+
+  return (
+    <div className="px-4 py-3">
+      <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+        Contacts ({contacts.length})
+      </h3>
+      {contacts.length === 0 ? (
+        <p className="text-xs italic text-text-tertiary">
+          No contacts found. Try enriching from Apollo.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {contacts.map((contact) => (
+            <DossierContactRow
+              key={contact.id}
+              contact={contact}
+              onDraftEmail={() => setDraftContact(contact)}
+            />
+          ))}
+        </div>
+      )}
+
+      {draftContact && company && (
+        <EmailDraftModal
+          contact={draftContact}
+          company={company}
+          onClose={() => setDraftContact(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function isObfuscated(name: string): boolean {
+  return name.includes("***");
+}
+
+function DossierContactRow({
+  contact,
+  onDraftEmail,
+}: {
+  contact: Contact;
+  onDraftEmail: () => void;
+}) {
+  const { trigger, FeedbackLabel } = useInlineFeedback();
+  const updateContact = useStore((s) => s.updateContact);
+  const [revealing, setRevealing] = useState(false);
+
+  const needsReveal =
+    isObfuscated(contact.lastName) || (!contact.email && !contact.phone);
+
+  const handleReveal = useCallback(async () => {
+    setRevealing(true);
+    try {
+      const res = await fetch("/api/contact/enrich", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apolloId: contact.id }),
+      });
+      if (!res.ok) throw new Error("Enrichment failed");
+      const data = await res.json();
+      if (data.contact) {
+        updateContact(contact.companyDomain, contact.id, {
+          ...contact,
+          ...data.contact,
+          id: contact.id,
+          companyDomain: contact.companyDomain,
+          sources: contact.sources,
+        });
+      }
+    } catch {
+      trigger("Reveal failed", "error");
+    } finally {
+      setRevealing(false);
+    }
+  }, [contact, updateContact, trigger]);
+
+  const handleCopy = (email: string) => {
+    navigator.clipboard
+      .writeText(email)
+      .then(() => {
+        trigger("Copied");
+      })
+      .catch(() => {
+        trigger("Failed", "error");
+      });
+  };
+
+  return (
+    <div className="group rounded-card border border-surface-3 bg-surface-0 p-2.5">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-medium text-text-primary">
+          {contact.firstName} {contact.lastName}
+        </span>
+        <div className="flex gap-0.5">
+          {contact.sources.map((src) => (
+            <SourceBadge key={src} source={src} />
+          ))}
+        </div>
+        {needsReveal && (
+          <button
+            onClick={handleReveal}
+            disabled={revealing}
+            className="ml-auto rounded px-1.5 py-0.5 text-[10px] font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/10 disabled:opacity-50"
+          >
+            {revealing ? "Revealing\u2026" : "Reveal"}
+          </button>
+        )}
+      </div>
+      <p className="mt-0.5 text-xs text-text-secondary">{contact.title}</p>
+      <div className="mt-1 flex items-center gap-2">
+        {contact.email ? (
+          <>
+            <span className="font-mono text-xs text-text-secondary">
+              {contact.email}
+            </span>
+            <ConfidenceBadge
+              level={contact.confidenceLevel}
+              score={contact.emailConfidence}
+            />
+            <button
+              onClick={() => handleCopy(contact.email!)}
+              className="text-text-tertiary opacity-0 transition-opacity hover:text-accent-primary group-hover:opacity-100"
+              title="Copy email"
+              aria-label="Copy email"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <rect x="9" y="9" width="13" height="13" rx="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+            </button>
+            {FeedbackLabel}
+          </>
+        ) : (
+          <MissingData label="No email found" />
+        )}
+      </div>
+      <div className="mt-1 flex items-center justify-between">
+        {contact.phone ? (
+          <p className="font-mono text-[10px] text-text-tertiary">
+            {contact.phone}
+          </p>
+        ) : (
+          <MissingData label="No phone available" />
+        )}
+        {contact.email && (
+          <button
+            onClick={onDraftEmail}
+            className="rounded px-2 py-0.5 text-[10px] font-medium text-accent-primary opacity-0 transition-all hover:bg-accent-primary-light group-hover:opacity-100"
+          >
+            Draft Email
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
