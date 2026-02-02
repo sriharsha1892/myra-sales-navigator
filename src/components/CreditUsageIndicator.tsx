@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 
 interface CreditData {
   clearout: { remaining: number; limit: number } | null;
@@ -41,15 +42,16 @@ export function CreditUsageIndicator() {
         const usagePercent = d.limit > 0 ? ((d.limit - d.remaining) / d.limit) * 100 : 0;
         const isHigh = usagePercent > 90;
         return (
-          <span
+          <Link
             key={source.key}
-            className={`rounded-pill border border-surface-3 px-2 py-0.5 font-mono text-[10px] ${
+            href="/admin"
+            className={`cursor-pointer rounded-pill border border-surface-3 px-2 py-0.5 font-mono text-[10px] transition-colors hover:border-accent-primary hover:text-accent-primary ${
               isHigh ? "text-danger" : "text-text-tertiary"
             }`}
             title={`${source.label}: ${d.remaining} remaining of ${d.limit}`}
           >
             {source.label} {d.remaining}
-          </span>
+          </Link>
         );
       })}
     </div>
