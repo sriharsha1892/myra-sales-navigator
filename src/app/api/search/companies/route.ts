@@ -142,6 +142,7 @@ export async function POST(request: Request) {
 
   try {
     const primaryQuery = reformulatedQueries[0] || freeText || "";
+    console.log("[Search] primaryQuery:", primaryQuery);
 
     // Parallel: Exa semantic search + exclusion list fetch
     const [exaResult, excluded] = await Promise.all([

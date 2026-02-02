@@ -23,7 +23,7 @@ export function SizeFilter() {
   };
 
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-2">
       {buckets.map(({ key, label }) => {
         const active = activeSizes.includes(key);
         return (
@@ -31,10 +31,10 @@ export function SizeFilter() {
             key={key}
             onClick={() => toggle(key)}
             className={cn(
-              "rounded-input border px-2 py-1 text-xs font-medium transition-all duration-[var(--transition-default)]",
+              "rounded-input border px-3 py-1.5 text-sm font-medium transition-all duration-[var(--transition-default)]",
               active
                 ? "border-accent-primary bg-accent-primary-light text-accent-primary"
-                : "border-surface-3 text-text-tertiary hover:text-text-secondary"
+                : "border-surface-3 text-text-secondary hover:text-text-primary hover:border-surface-3/80"
             )}
           >
             {label}

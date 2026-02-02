@@ -17,7 +17,7 @@ export function DossierHeader({ company, onRefresh }: DossierHeaderProps) {
     <div className="border-b border-surface-3 px-4 py-3">
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="font-display text-lg font-medium text-text-primary">
+          <h2 className="font-display text-xl font-semibold text-text-primary">
             {company.name}
           </h2>
           <p className="font-mono text-xs text-text-tertiary">{company.domain}</p>
@@ -31,7 +31,7 @@ export function DossierHeader({ company, onRefresh }: DossierHeaderProps) {
       )}
       <div className="mt-2 flex items-center gap-2">
         <div className="flex gap-0.5">
-          {company.sources.map((src) => (
+          {(Array.isArray(company.sources) ? company.sources : []).map((src) => (
             <SourceBadge key={src} source={src} />
           ))}
         </div>

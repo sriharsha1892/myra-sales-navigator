@@ -132,11 +132,11 @@ interface AppState {
 }
 
 const defaultFilters: FilterState = {
-  sources: [],
-  verticals: [],
-  regions: [],
-  sizes: [],
-  signals: [],
+  sources: ["exa", "apollo", "hubspot"],
+  verticals: [],  // keep empty — Exa results have vertical:"", selecting all would filter them out
+  regions: ["North America", "Europe", "Asia Pacific", "Latin America", "Middle East & Africa"],
+  sizes: ["1-50", "51-200", "201-1000", "1000+"],
+  signals: ["hiring", "funding", "expansion", "news"],
   hideExcluded: true,
   quickFilters: [],
 };
@@ -425,11 +425,14 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   excludeCompany: (domain) => {
-    // Optimistic local toggle
+    // Optimistic local toggle — mutate BOTH companies and searchResults
     set((state) => ({
       companies: state.companies.map((c) =>
         c.domain === domain ? { ...c, excluded: true } : c
       ),
+      searchResults: state.searchResults?.map((c) =>
+        c.domain === domain ? { ...c, excluded: true } : c
+      ) ?? null,
     }));
     const userName = get().userName ?? "Unknown";
     fetch("/api/exclusions", {
@@ -445,22 +448,28 @@ export const useStore = create<AppState>((set, get) => ({
         }
       })
       .catch(() => {
-        // Revert on failure
+        // Revert on failure — revert BOTH arrays
         set((state) => ({
           companies: state.companies.map((c) =>
             c.domain === domain ? { ...c, excluded: false } : c
           ),
+          searchResults: state.searchResults?.map((c) =>
+            c.domain === domain ? { ...c, excluded: false } : c
+          ) ?? null,
         }));
         get().addToast({ message: "Failed to exclude company", type: "error" });
       });
   },
 
   undoExclude: (domain) => {
-    // Optimistic local revert
+    // Optimistic local revert — mutate BOTH companies and searchResults
     set((state) => ({
       companies: state.companies.map((c) =>
         c.domain === domain ? { ...c, excluded: false } : c
       ),
+      searchResults: state.searchResults?.map((c) =>
+        c.domain === domain ? { ...c, excluded: false } : c
+      ) ?? null,
     }));
     const exclusion = get().exclusions.find((e) => e.value === domain);
     if (exclusion) {
@@ -472,11 +481,14 @@ export const useStore = create<AppState>((set, get) => ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: exclusion.id }),
       }).catch(() => {
-        // Re-add on failure
+        // Re-add on failure — revert BOTH arrays
         set((state) => ({
           companies: state.companies.map((c) =>
             c.domain === domain ? { ...c, excluded: true } : c
           ),
+          searchResults: state.searchResults?.map((c) =>
+            c.domain === domain ? { ...c, excluded: true } : c
+          ) ?? null,
           exclusions: [...state.exclusions, exclusion],
         }));
         get().addToast({ message: "Failed to undo exclusion", type: "error" });
@@ -631,7 +643,8 @@ export const useStore = create<AppState>((set, get) => ({
       result = result.filter((c) => !c.excluded);
     }
 
-    if (filters.sources.length > 0) {
+    // Skip filtering when ALL options in a category are selected (treat as "no filter")
+    if (filters.sources.length > 0 && filters.sources.length < 3) {
       result = result.filter((c) =>
         filters.sources.some((s: ResultSource) => c.sources.includes(s))
       );
@@ -641,11 +654,11 @@ export const useStore = create<AppState>((set, get) => ({
       result = result.filter((c) => filters.verticals.includes(c.vertical));
     }
 
-    if (filters.regions.length > 0) {
+    if (filters.regions.length > 0 && filters.regions.length < 5) {
       result = result.filter((c) => filters.regions.includes(c.region));
     }
 
-    if (filters.sizes.length > 0) {
+    if (filters.sizes.length > 0 && filters.sizes.length < 4) {
       result = result.filter((c) => {
         return filters.sizes.some((bucket: SizeBucket) => {
           switch (bucket) {
@@ -659,7 +672,7 @@ export const useStore = create<AppState>((set, get) => ({
       });
     }
 
-    if (filters.signals.length > 0) {
+    if (filters.signals.length > 0 && filters.signals.length < 4) {
       result = result.filter((c) =>
         c.signals.some((s) => filters.signals.includes(s.type as SignalType))
       );
@@ -724,8 +737,12 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   selectedCompany: () => {
-    const { companies, selectedCompanyDomain } = get();
+    const { companies, searchResults, selectedCompanyDomain } = get();
     if (!selectedCompanyDomain) return null;
+    if (searchResults) {
+      const fromSearch = searchResults.find((c) => c.domain === selectedCompanyDomain);
+      if (fromSearch) return fromSearch;
+    }
     return companies.find((c) => c.domain === selectedCompanyDomain) ?? null;
   },
 

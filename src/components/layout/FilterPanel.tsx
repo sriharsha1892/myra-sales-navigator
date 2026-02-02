@@ -69,11 +69,11 @@ export function FilterPanel() {
   const hasSearched = searchResults !== null;
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto bg-surface-1">
+    <div className="glass-panel flex h-full flex-col overflow-y-auto">
       {/* Header + Search */}
       <div className="border-b border-surface-3 px-4 py-3">
         <div className="flex items-center gap-2">
-          <h2 className="font-display text-sm font-medium text-text-primary">Refine Results</h2>
+          <h2 className="font-display text-base font-medium text-text-primary">Refine Results</h2>
           {activeFilterCount > 0 && (
             <span className="flex h-4 min-w-4 items-center justify-center rounded-pill bg-accent-primary px-1.5 text-[10px] font-semibold text-text-inverse">
               {activeFilterCount}
@@ -86,7 +86,7 @@ export function FilterPanel() {
         <button
           onClick={() => useStore.getState().setPendingFilterSearch(true)}
           disabled={filters.verticals.length + filters.regions.length + filters.sizes.length + filters.signals.length === 0}
-          className="mt-2 w-full rounded-input border border-surface-3 bg-surface-2 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
+          className="mt-3 w-full rounded-input border border-surface-3 bg-surface-2 px-3 py-2 text-sm font-semibold text-text-secondary transition-colors hover:bg-surface-3 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
         >
           Re-search with Filters
         </button>
@@ -122,7 +122,7 @@ export function FilterPanel() {
               {presets.map((p) => (
                 <div
                   key={p.id}
-                  className="group flex items-center gap-1 px-2 py-1 hover:bg-surface-hover"
+                  className="group flex items-center gap-1 px-2 py-1 hover:bg-surface-2"
                 >
                   <button
                     onClick={() => {
@@ -209,12 +209,12 @@ export function FilterPanel() {
                 <button
                   key={entry.id}
                   onClick={handleClick}
-                  className="flex w-full items-center justify-between rounded px-1.5 py-1 text-xs text-text-secondary hover:bg-surface-hover"
+                  className="flex w-full items-center justify-between rounded-input px-2.5 py-2 text-sm text-text-secondary hover:bg-surface-2"
                 >
                   <span className="truncate">{entry.label ?? "Search"}</span>
                   <span className="flex items-center gap-2 flex-shrink-0">
-                    <span className="font-mono text-[10px] text-text-tertiary">{entry.resultCount}</span>
-                    <span className="text-[10px] text-text-tertiary">{timeAgo(entry.timestamp)}</span>
+                    <span className="font-mono text-xs text-text-tertiary">{entry.resultCount}</span>
+                    <span className="text-xs text-text-tertiary">{timeAgo(entry.timestamp)}</span>
                   </span>
                 </button>
               );
@@ -235,7 +235,7 @@ export function FilterPanel() {
                 <button
                   key={company.domain}
                   onClick={() => selectCompany(company.domain)}
-                  className="flex w-full items-center justify-between rounded px-1.5 py-1 text-xs text-text-secondary hover:bg-surface-hover"
+                  className="flex w-full items-center justify-between rounded-input px-2.5 py-2 text-sm text-text-secondary hover:bg-surface-2"
                 >
                   <span className="truncate">{company.name}</span>
                   <IcpScoreBadge score={company.icpScore} className="scale-90" />

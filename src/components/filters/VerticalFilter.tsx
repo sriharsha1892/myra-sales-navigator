@@ -33,14 +33,14 @@ export function VerticalFilter() {
       />
       <div className="max-h-32 space-y-0.5 overflow-y-auto">
         {filtered.map((v) => (
-          <label key={v} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-0.5 hover:bg-surface-hover">
+          <label key={v} className="flex cursor-pointer items-center gap-2.5 rounded-input px-2 py-1.5 hover:bg-surface-2">
             <input
               type="checkbox"
               checked={activeVerticals.includes(v)}
               onChange={() => toggle(v)}
-              className="h-3 w-3 rounded accent-accent-primary"
+              className="h-4 w-4 rounded accent-accent-primary"
             />
-            <span className={cn("text-xs", activeVerticals.includes(v) ? "text-text-primary" : "text-text-secondary")}>
+            <span className={cn("text-sm", activeVerticals.includes(v) ? "text-text-primary font-medium" : "text-text-secondary")}>
               {v}
             </span>
           </label>

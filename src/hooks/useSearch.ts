@@ -34,6 +34,7 @@ export function useSearch() {
       setSearchError(null);
     },
     onError: (error: Error) => {
+      setSearchResults([]);
       setSearchError(error.message);
     },
   });

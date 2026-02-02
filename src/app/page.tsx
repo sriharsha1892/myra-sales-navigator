@@ -35,11 +35,11 @@ export default function Home() {
   }
 
   return (
-    <div className="relative h-screen overflow-hidden bg-surface-0">
+    <div className="relative h-screen overflow-hidden bg-gradient-to-br from-surface-0 via-surface-0 to-surface-2">
       {/* Top bar */}
-      <div className="flex h-14 flex-shrink-0 items-center justify-between border-b border-surface-3 bg-surface-1 px-5">
+      <div className="glass-topbar flex h-14 flex-shrink-0 items-center justify-between shadow-sm px-5">
         <div className="flex items-center gap-3">
-          <h1 className="font-display text-lg text-text-primary">myRA</h1>
+          <h1 className="font-display text-lg text-accent-primary">myRA</h1>
           <span className="text-xs text-text-tertiary">Sales Navigator</span>
         </div>
 
@@ -75,7 +75,7 @@ export default function Home() {
           />
           <kbd
             onClick={() => useStore.getState().setCommandPaletteOpen(true)}
-            className="absolute right-3 cursor-pointer rounded border border-surface-3 bg-surface-1 px-1.5 py-0.5 font-mono text-[10px] text-text-tertiary hover:text-text-secondary"
+            className="absolute right-3 cursor-pointer rounded border border-surface-3 bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] text-text-tertiary hover:text-text-secondary"
           >
             &#8984;K
           </kbd>

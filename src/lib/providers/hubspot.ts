@@ -31,16 +31,39 @@ function hubspotHeaders(): Record<string, string> {
 }
 
 // ---------------------------------------------------------------------------
-// Contact sanitization — clean bad names + exclude own-domain contacts
+// Contact sanitization — clean bad names + filter out generic email providers
 // ---------------------------------------------------------------------------
 
 const SALUTATION_PATTERN = /^(sir|madam|sir\/madam|sir ?\/ ?madam|dear sir|dear madam|mr|mrs|ms|miss|dr)$/i;
 
-export function sanitizeContacts(contacts: Contact[], domain: string): Contact[] {
+const GENERIC_EMAIL_DOMAINS = new Set([
+  "gmail.com",
+  "yahoo.com",
+  "yahoo.co.in",
+  "hotmail.com",
+  "outlook.com",
+  "aol.com",
+  "icloud.com",
+  "mail.com",
+  "protonmail.com",
+  "zoho.com",
+  "yandex.com",
+  "gmx.com",
+  "live.com",
+  "me.com",
+  "msn.com",
+  "rediffmail.com",
+]);
+
+export function sanitizeContacts(contacts: Contact[], _domain: string): Contact[] {
   return contacts
     .filter((c) => {
-      // Exclude contacts whose email matches the queried domain
-      if (c.email && c.email.toLowerCase().endsWith(`@${domain.toLowerCase()}`)) {
+      // Keep contacts with no email — they may still have phone/name info
+      if (!c.email) return true;
+      // Filter out contacts with generic/personal email providers
+      // (e.g. gmail.com, yahoo.com) — these aren't useful corporate contacts
+      const emailDomain = c.email.toLowerCase().split("@")[1];
+      if (emailDomain && GENERIC_EMAIL_DOMAINS.has(emailDomain)) {
         return false;
       }
       return true;

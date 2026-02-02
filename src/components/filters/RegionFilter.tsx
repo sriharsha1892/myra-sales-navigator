@@ -19,14 +19,14 @@ export function RegionFilter() {
   return (
     <div className="space-y-0.5">
       {regions.map((r) => (
-        <label key={r} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-0.5 hover:bg-surface-hover">
+        <label key={r} className="flex cursor-pointer items-center gap-2.5 rounded-input px-2 py-1.5 hover:bg-surface-2">
           <input
             type="checkbox"
             checked={activeRegions.includes(r)}
             onChange={() => toggle(r)}
-            className="h-3 w-3 rounded accent-accent-primary"
+            className="h-4 w-4 rounded accent-accent-primary"
           />
-          <span className={cn("text-xs", activeRegions.includes(r) ? "text-text-primary" : "text-text-secondary")}>
+          <span className={cn("text-sm", activeRegions.includes(r) ? "text-text-primary font-medium" : "text-text-secondary")}>
             {r}
           </span>
         </label>

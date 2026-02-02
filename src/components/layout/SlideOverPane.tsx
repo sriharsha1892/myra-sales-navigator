@@ -37,7 +37,7 @@ export function SlideOverPane() {
 
   return (
     <div
-      className="w-[420px] flex-shrink-0 border-l border-surface-3 bg-surface-1"
+      className="glass-panel w-[420px] flex-shrink-0 border-l border-surface-3"
       style={{ animation: "slideOverIn 300ms ease-out" }}
     >
       <div className="flex h-full flex-col overflow-y-auto">
@@ -69,7 +69,7 @@ export function SlideOverPane() {
         <div className="flex flex-shrink-0 items-center gap-2 border-t border-surface-3 px-4 py-3">
           <button
             onClick={handleExclude}
-            className="rounded-input border border-surface-3 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-hover"
+            className="rounded-input border border-surface-3 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-2"
           >
             Mark Excluded
           </button>

@@ -118,7 +118,7 @@ export function ResultsList() {
   return (
     <div className="flex h-full flex-col bg-surface-0">
       {/* Top bar */}
-      <div className="flex flex-shrink-0 flex-wrap items-center gap-3 border-b border-surface-3 bg-surface-1 px-4 py-2.5">
+      <div className="glass-topbar flex flex-shrink-0 flex-wrap items-center gap-3 px-4 py-2.5">
         <ViewToggle value={viewMode} onChange={setViewMode} />
         <span className="font-mono text-xs text-text-tertiary">
           {count} {viewMode === "companies" ? "companies" : "contacts"}
@@ -155,7 +155,7 @@ export function ResultsList() {
 
       {/* Filter chips — single merged row, only shown after first search */}
       {hasSearched && !searchLoading && (
-        <div className="flex flex-shrink-0 flex-wrap gap-1.5 border-b border-surface-3 bg-surface-1 px-4 py-2">
+        <div className="glass-subtle flex flex-shrink-0 flex-wrap gap-1.5 border-b border-surface-3 px-4 py-2">
           <QuickFilterChips />
           <ResultFilterChips />
         </div>
@@ -193,12 +193,12 @@ export function ResultsList() {
             <p className="mt-2 text-sm text-text-secondary">
               A specific company, an industry, or a description of your ideal prospect
             </p>
-            <div className="mt-6 flex flex-wrap justify-center gap-2">
+            <div className="mt-6 flex flex-wrap justify-center gap-2.5">
               {exampleQueries.map((query) => (
                 <button
                   key={query}
                   onClick={() => setPendingFreeTextSearch(query)}
-                  className="glass rounded-pill border border-surface-3 px-4 py-2 text-sm text-text-secondary shadow-sm transition-all duration-[180ms] hover:-translate-y-0.5 hover:shadow-md hover:text-text-primary"
+                  className="rounded-pill border border-surface-3 bg-surface-1 px-5 py-2.5 text-sm font-medium text-text-secondary shadow-sm transition-all duration-[180ms] hover:-translate-y-0.5 hover:shadow-md hover:text-text-primary"
                 >
                   {query}
                 </button>
@@ -230,7 +230,7 @@ export function ResultsList() {
                       <button
                         key={entry.id}
                         onClick={handleClick}
-                        className="flex w-full items-center justify-between rounded-card border border-surface-3 bg-surface-1 px-3 py-2 text-xs text-text-secondary transition-colors hover:bg-surface-hover"
+                        className="flex w-full items-center justify-between rounded-card border border-surface-3 bg-surface-1 px-4 py-3 text-sm text-text-secondary transition-colors hover:bg-surface-2"
                       >
                         <span className="truncate">{entry.label ?? "Search"}</span>
                         <span className="flex items-center gap-2 flex-shrink-0">
@@ -277,7 +277,7 @@ export function ResultsList() {
                   return (
                     <div key={tier.label}>
                       <div className="sticky top-0 z-10 rounded bg-surface-0/90 px-1 py-1.5 backdrop-blur-sm">
-                        <span className={`text-xs font-semibold ${tier.color}`}>
+                        <span className={`text-sm font-semibold uppercase tracking-wide ${tier.color}`}>
                           {tier.label}
                         </span>
                         <span className="ml-1.5 font-mono text-[10px] text-text-tertiary">

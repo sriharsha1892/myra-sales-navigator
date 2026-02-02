@@ -25,14 +25,14 @@ export function SignalFilter() {
   return (
     <div className="space-y-0.5">
       {signalTypes.map(({ key, label }) => (
-        <label key={key} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-0.5 hover:bg-surface-hover">
+        <label key={key} className="flex cursor-pointer items-center gap-2.5 rounded-input px-2 py-1.5 hover:bg-surface-2">
           <input
             type="checkbox"
             checked={activeSignals.includes(key)}
             onChange={() => toggle(key)}
-            className="h-3 w-3 rounded accent-accent-primary"
+            className="h-4 w-4 rounded accent-accent-primary"
           />
-          <span className={cn("text-xs capitalize", activeSignals.includes(key) ? "text-text-primary" : "text-text-secondary")}>
+          <span className={cn("text-sm capitalize", activeSignals.includes(key) ? "text-text-primary font-medium" : "text-text-secondary")}>
             {label}
           </span>
         </label>

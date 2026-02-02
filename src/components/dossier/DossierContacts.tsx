@@ -192,7 +192,7 @@ function DossierContactRow({
           {contact.firstName} {contact.lastName}
         </span>
         <div className="flex gap-0.5">
-          {contact.sources.map((src) => (
+          {(Array.isArray(contact.sources) ? contact.sources : []).map((src) => (
             <SourceBadge key={src} source={src} />
           ))}
         </div>

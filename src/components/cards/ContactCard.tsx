@@ -93,7 +93,7 @@ export function ContactCard({ contact, isChecked, onToggleCheck }: ContactCardPr
               <MissingData label="No phone available" />
             )}
             <div className="ml-auto flex gap-0.5">
-              {contact.sources.map((src) => (
+              {(Array.isArray(contact.sources) ? contact.sources : []).map((src) => (
                 <SourceBadge key={src} source={src} />
               ))}
             </div>

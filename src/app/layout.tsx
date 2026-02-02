@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Instrument_Serif, Plus_Jakarta_Sans } from "next/font/google";
+import { Instrument_Serif, Manrope } from "next/font/google";
 import { Geist_Mono } from "next/font/google";
 import { QueryProvider } from "@/providers/QueryProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
@@ -14,7 +14,7 @@ const instrumentSerif = Instrument_Serif({
   display: "swap",
 });
 
-const plusJakartaSans = Plus_Jakarta_Sans({
+const manrope = Manrope({
   subsets: ["latin"],
   variable: "--font-body",
   display: "swap",
@@ -39,7 +39,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${instrumentSerif.variable} ${plusJakartaSans.variable} ${geistMono.variable} antialiased`}
+        className={`${instrumentSerif.variable} ${manrope.variable} ${geistMono.variable} antialiased`}
       >
         <QueryProvider>
           <AuthProvider>

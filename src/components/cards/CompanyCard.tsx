@@ -50,10 +50,10 @@ export function CompanyCard({
       tabIndex={-1}
       onClick={onSelect}
       className={cn(
-        "group cursor-pointer rounded-card border-[1.5px] bg-surface-1 p-4 transition-all duration-[180ms]",
+        "group cursor-pointer rounded-card border-[1.5px] p-5 transition-all duration-[180ms]",
         isSelected
           ? "border-accent-primary bg-accent-primary-light shadow-sm"
-          : "border-surface-3 hover:shadow-md hover:-translate-y-0.5"
+          : "glass-card hover:-translate-y-0.5"
       )}
     >
       {/* Top row: checkbox + name + ICP score */}
@@ -71,14 +71,14 @@ export function CompanyCard({
         />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="truncate font-display text-sm font-medium text-text-primary">
+            <h3 className="truncate font-display text-base font-semibold text-text-primary">
               {company.name}
             </h3>
             <IcpScoreBadge score={company.icpScore} />
           </div>
 
           {/* Meta row */}
-          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-text-secondary">
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-text-secondary">
             <span>{company.industry}</span>
             <span className="text-text-tertiary">&middot;</span>
             <span>{company.employeeCount?.toLocaleString("en-US") ?? "—"} emp</span>
@@ -88,12 +88,12 @@ export function CompanyCard({
 
           {/* Signals as pills */}
           {company.signals.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
               {company.signals.slice(0, 3).map((signal) => (
                 <span
                   key={signal.id}
                   className={cn(
-                    "rounded-pill px-2 py-0.5 text-[10px] font-medium capitalize",
+                    "rounded-pill px-2.5 py-1 text-xs font-medium capitalize",
                     signalPillColors[signal.type] ?? signalPillColors.news
                   )}
                 >
@@ -109,9 +109,9 @@ export function CompanyCard({
           )}
 
           {/* Bottom row: sources + hubspot + completeness + similar + contact count */}
-          <div className="mt-2 flex items-center gap-1.5">
+          <div className="mt-3 flex items-center gap-2">
             <div className="flex gap-0.5">
-              {company.sources.map((src) => (
+              {(Array.isArray(company.sources) ? company.sources : []).map((src) => (
                 <SourceBadge key={src} source={src} />
               ))}
             </div>
