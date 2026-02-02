@@ -17,6 +17,9 @@ export function IcpWeightsSection() {
     { key: "exaRelevance", label: "Exa Relevance" },
     { key: "hubspotLead", label: "HubSpot Lead" },
     { key: "hubspotCustomer", label: "HubSpot Customer" },
+    { key: "freshsalesLead", label: "Freshsales Lead" },
+    { key: "freshsalesCustomer", label: "Freshsales Customer" },
+    { key: "freshsalesRecentContact", label: "Freshsales Recent Contact" },
   ];
 
   const handleChange = (key: keyof typeof weights, value: number) => {
@@ -58,6 +61,7 @@ export function IcpWeightsSection() {
               verticalMatch: 25, sizeMatch: 20, regionMatch: 15,
               buyingSignals: 15, negativeSignals: -10, exaRelevance: 10,
               hubspotLead: 10, hubspotCustomer: 5,
+              freshsalesLead: 10, freshsalesCustomer: -40, freshsalesRecentContact: 15,
             },
           })
         }

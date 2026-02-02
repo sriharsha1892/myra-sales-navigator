@@ -32,6 +32,9 @@ import { AuthSettingsSection } from "@/components/admin/AuthSettingsSection";
 import { AuthActivityLog } from "@/components/admin/AuthActivityLog";
 import { UiPreferencesSection } from "@/components/admin/UiPreferencesSection";
 import { EmailPromptsSection } from "@/components/admin/EmailPromptsSection";
+import { PipelineStagesSection } from "@/components/admin/PipelineStagesSection";
+import { ChatbotConfigSection } from "@/components/admin/ChatbotConfigSection";
+import { FreshsalesSettingsSection } from "@/components/admin/FreshsalesSettingsSection";
 
 // Analytics dashboard
 import { WeeklyKpiCards } from "@/components/admin/analytics/WeeklyKpiCards";
@@ -215,6 +218,7 @@ export default function AdminPage() {
           )}
           {activeTab === "pipeline" && (
             <>
+              <PipelineStagesSection />
               <ScoringTuningSection />
               <EmailVerificationSection />
               <ExportSettingsSection />
@@ -224,6 +228,7 @@ export default function AdminPage() {
           {activeTab === "system" && (
             <>
               <RateLimitSection />
+              <FreshsalesSettingsSection />
               <DataRetentionSection />
               <NotificationSection />
               <CacheSettingsSection />
@@ -241,6 +246,7 @@ export default function AdminPage() {
             <>
               <UiPreferencesSection />
               <DataSourcesSection />
+              <ChatbotConfigSection />
             </>
           )}
           {activeTab === "analytics" && (

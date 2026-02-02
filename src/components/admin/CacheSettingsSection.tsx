@@ -12,6 +12,7 @@ export function CacheSettingsSection() {
     { key: "apollo", label: "Apollo" },
     { key: "hubspot", label: "HubSpot" },
     { key: "clearout", label: "Clearout" },
+    { key: "freshsales", label: "Freshsales" },
   ];
 
   const handleChange = (key: keyof typeof config.cacheDurations, value: number) => {

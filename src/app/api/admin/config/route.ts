@@ -36,6 +36,7 @@ export async function GET() {
       uiPreferences: data.ui_preferences ?? {},
       emailPrompts: data.email_prompts ?? {},
       analyticsSettings: data.analytics_settings ?? {},
+      freshsalesSettings: data.freshsales_settings ?? {},
       authLog: data.auth_log ?? [],
       authRequests: data.auth_requests ?? [],
     };
@@ -86,6 +87,7 @@ export async function PUT(request: NextRequest) {
       uiPreferences: "ui_preferences",
       emailPrompts: "email_prompts",
       analyticsSettings: "analytics_settings",
+      freshsalesSettings: "freshsales_settings",
       authLog: "auth_log",
       authRequests: "auth_requests",
     };

@@ -4,7 +4,7 @@ import { useStore } from "@/lib/store";
 import { AdminSection } from "./AdminSection";
 import type { ScoringSettings } from "@/lib/types";
 
-const SOURCES = ["exa", "apollo", "hubspot"];
+const SOURCES = ["exa", "apollo", "hubspot", "freshsales"];
 
 export function ScoringTuningSection() {
   const config = useStore((s) => s.adminConfig);

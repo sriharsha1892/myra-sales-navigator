@@ -1,4 +1,4 @@
-export type ResultSource = "exa" | "apollo" | "hubspot";
+export type ResultSource = "exa" | "apollo" | "hubspot" | "clearout" | "mordor" | "freshsales";
 
 export type HubSpotStatus =
   | "new"
@@ -7,6 +7,65 @@ export type HubSpotStatus =
   | "closed_won"
   | "closed_lost"
   | "none";
+
+export type FreshsalesStatus =
+  | "none"
+  | "new_lead"
+  | "contacted"
+  | "negotiation"
+  | "won"
+  | "lost"
+  | "customer";
+
+export interface FreshsalesDeal {
+  id: number;
+  name: string;
+  amount: number | null;
+  stage: string;
+  probability: number | null;
+  expectedClose: string | null;
+}
+
+export interface FreshsalesActivity {
+  type: string;
+  title: string;
+  date: string;
+  actor: string;
+}
+
+export interface FreshsalesIntel {
+  domain: string;
+  status: FreshsalesStatus;
+  account: {
+    id: number;
+    name: string;
+    website: string | null;
+    industry: string | null;
+    employees: number | null;
+  } | null;
+  contacts: Contact[];
+  deals: FreshsalesDeal[];
+  recentActivity: FreshsalesActivity[];
+  lastContactDate: string | null;
+}
+
+export interface FreshsalesSettings {
+  enabled: boolean;
+  domain: string;
+  sectionTitle: string;
+  emptyStateLabel: string;
+  statusLabels: Record<FreshsalesStatus, string>;
+  showDeals: boolean;
+  showContacts: boolean;
+  showActivity: boolean;
+  recentActivityDaysThreshold: number;
+  cacheTtlMinutes: number;
+  icpWeights: {
+    freshsalesLead: number;
+    freshsalesCustomer: number;
+    freshsalesRecentContact: number;
+  };
+}
 
 export type SignalType = "hiring" | "funding" | "expansion" | "news";
 
@@ -17,6 +76,23 @@ export type ViewMode = "companies" | "contacts";
 export type SortField = "icp_score" | "name" | "employee_count" | "relevance";
 
 export type SortDirection = "asc" | "desc";
+
+export interface PipelineStage {
+  id: string;
+  label: string;
+  color: string;
+  order: number;
+}
+
+export const DEFAULT_PIPELINE_STAGES: PipelineStage[] = [
+  { id: "new", label: "New", color: "#B5B3AD", order: 0 },
+  { id: "researching", label: "Researching", color: "#2D2D2D", order: 1 },
+  { id: "contacted", label: "Contacted", color: "#1B4D3E", order: 2 },
+  { id: "demo_scheduled", label: "Demo Scheduled", color: "#16a34a", order: 3 },
+  { id: "passed", label: "Passed", color: "#dc2626", order: 4 },
+];
+
+export type CompanyStatus = string; // pipeline stage id
 
 // ---------------------------------------------------------------------------
 // DB anchor — what lives in Supabase (domain PK, lightweight)
@@ -37,6 +113,10 @@ export interface CompanyRecord {
   excludedBy: string | null;
   excludedAt: string | null;
   exclusionReason: string | null;
+  status: string;
+  statusChangedBy: string | null;
+  statusChangedAt: string | null;
+  viewedBy: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -59,6 +139,10 @@ export interface CompanyEnriched {
   excludedBy: string | null;
   excludedAt: string | null;
   exclusionReason: string | null;
+  status: string;
+  statusChangedBy: string | null;
+  statusChangedAt: string | null;
+  viewedBy: string | null;
 
   // Cached enrichment (from Exa/Apollo/HubSpot via KV)
   industry: string;
@@ -69,6 +153,8 @@ export interface CompanyEnriched {
   description: string;
   icpScore: number;
   hubspotStatus: HubSpotStatus;
+  freshsalesStatus: FreshsalesStatus;
+  freshsalesIntel: FreshsalesIntel | null;
   sources: ResultSource[];
   signals: Signal[];
   contactCount: number;
@@ -172,6 +258,7 @@ export interface FilterState {
   regions: string[];
   sizes: SizeBucket[];
   signals: SignalType[];
+  statuses: string[];
   hideExcluded: boolean;
   quickFilters: QuickFilter[];
 }
@@ -182,6 +269,7 @@ export type QuickFilter =
   | "high_icp"
   | "has_signals"
   | "not_in_hubspot"
+  | "not_in_freshsales"
   | "verified_email";
 
 export interface IcpWeights {
@@ -193,6 +281,9 @@ export interface IcpWeights {
   exaRelevance: number;
   hubspotLead: number;
   hubspotCustomer: number;
+  freshsalesLead: number;
+  freshsalesCustomer: number;
+  freshsalesRecentContact: number;
 }
 
 export interface AnalyticsSettings {
@@ -220,6 +311,7 @@ export interface AdminConfig {
   uiPreferences: AdminUiPreferences;
   emailPrompts: EmailPromptsConfig;
   analyticsSettings: AnalyticsSettings;
+  freshsalesSettings: FreshsalesSettings;
   authLog: AuthLogEntry[];
   authRequests: AuthAccessRequest[];
 }
@@ -250,6 +342,7 @@ export interface CacheDurations {
   apollo: number;
   hubspot: number;
   clearout: number;
+  freshsales: number;
 }
 
 export interface CopyFormat {
@@ -405,6 +498,9 @@ export interface EmailVerificationSettings {
   autoVerifyAboveConfidence: number; // auto-verify if Apollo confidence > X
   dailyMaxVerifications: number;
   verifyOnContactLoad: boolean;
+  emailFinderEnabled: boolean;
+  emailFinderMaxPerBatch: number;
+  emailFinderMinConfidenceToSkip: number;
 }
 
 export interface ScoringSettings {
@@ -466,6 +562,47 @@ export interface EmailDraftResponse {
   subject: string;
   body: string;
 }
+
+// ---------------------------------------------------------------------------
+// Chatbot Config (admin-configurable)
+// ---------------------------------------------------------------------------
+
+export interface ChatbotConfig {
+  enabled: boolean;
+  systemPrompt: string;
+  appHelpContext: string;
+  companyAnalysisPrompt: string;
+  customInstructions: string;
+  greeting: string;
+  maxHistoryMessages: number;
+  temperature: number;
+}
+
+export const DEFAULT_CHATBOT_CONFIG: ChatbotConfig = {
+  enabled: true,
+  systemPrompt: `You are myRA Assistant, a helpful chatbot embedded in the myRA Sales Navigator tool. You help the sales team with:
+1. How to use the app (searching, filtering, exporting, pipeline stages, etc.)
+2. Answering questions about companies using their dossier data
+3. General sales prospecting advice
+
+Be concise and practical. Use markdown for formatting.`,
+  appHelpContext: `myRA Sales Navigator features:
+- Search: Use the search bar or Cmd+K for semantic search powered by Exa
+- Filters: Vertical, Region, Company Size, Signals, Status in the left panel
+- Pipeline Stages: Track companies through New -> Researching -> Contacted -> Demo Scheduled -> Passed
+- Export: Select companies/contacts, then Copy or CSV export. Email verification runs on export.
+- Exclusions: Mark companies as excluded to hide them from results
+- Presets: Save filter combinations as team-shared presets
+- Notes: Add notes to companies visible to the whole team
+- Bulk Actions: Select multiple companies to exclude, set status, or add notes in bulk
+- Keyboard: Cmd+K (search), Arrow keys (navigate), Space (select), Cmd+E (export)
+- Admin: /admin page for ICP weights, pipeline stages, API keys, and more`,
+  companyAnalysisPrompt: "When asked about a specific company, use the provided dossier data including signals, contacts, ICP score, and HubSpot status to give actionable insights.",
+  customInstructions: "",
+  greeting: "Hi! I can help you navigate the app or analyze companies. What do you need?",
+  maxHistoryMessages: 20,
+  temperature: 0.4,
+};
 
 // ---------------------------------------------------------------------------
 // Admin UI Preferences

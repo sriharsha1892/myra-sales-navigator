@@ -5,7 +5,7 @@ import { useStore } from "@/lib/store";
 import { AdminSection } from "./AdminSection";
 import type { ApiKeyEntry } from "@/lib/types";
 
-const KNOWN_SOURCES = ["exa", "apollo", "hubspot", "clearout"];
+const KNOWN_SOURCES = ["exa", "apollo", "hubspot", "clearout", "freshsales"];
 
 interface CreditData {
   clearout: { available: number; total: number } | null;
@@ -18,6 +18,7 @@ const PROVIDER_DASHBOARDS: Record<string, string> = {
   apollo: "https://app.apollo.io/#/settings/credits",
   exa: "https://dashboard.exa.ai",
   hubspot: "https://app.hubspot.com/usage-reporting",
+  freshsales: "https://mordorintelligence.freshsales.io",
 };
 
 function CreditBadge({ available }: { available: number }) {
@@ -69,7 +70,7 @@ function CreditUsageBanner() {
         </button>
       </div>
 
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-5 gap-3">
         {/* Clearout */}
         <div className="rounded-input border border-surface-3 bg-surface-1 px-3 py-2">
           <p className="mb-1 text-[10px] font-medium uppercase text-text-tertiary">Clearout</p>
@@ -103,6 +104,14 @@ function CreditUsageBanner() {
           <p className="mb-1 text-[10px] font-medium uppercase text-text-tertiary">HubSpot</p>
           <a href={PROVIDER_DASHBOARDS.hubspot} target="_blank" rel="noopener noreferrer" className="text-[10px] text-accent-secondary hover:underline">
             Check in HubSpot dashboard
+          </a>
+        </div>
+
+        {/* Freshsales */}
+        <div className="rounded-input border border-surface-3 bg-surface-1 px-3 py-2">
+          <p className="mb-1 text-[10px] font-medium uppercase text-text-tertiary">Freshsales</p>
+          <a href={PROVIDER_DASHBOARDS.freshsales} target="_blank" rel="noopener noreferrer" className="text-[10px] text-accent-secondary hover:underline">
+            Check in Freshsales dashboard
           </a>
         </div>
       </div>

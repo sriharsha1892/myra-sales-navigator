@@ -5,7 +5,7 @@ import { useStore } from "@/lib/store";
 import { AdminSection } from "./AdminSection";
 import type { RateLimitSettings } from "@/lib/types";
 
-const DEFAULT_SOURCES = ["exa", "apollo", "hubspot", "clearout"];
+const DEFAULT_SOURCES = ["exa", "apollo", "hubspot", "clearout", "freshsales"];
 
 export function RateLimitSection() {
   const config = useStore((s) => s.adminConfig);

@@ -16,6 +16,7 @@ import type {
   AuthSettings,
   AdminUiPreferences,
   EmailPromptsConfig,
+  FreshsalesSettings,
 } from "./types";
 
 export function daysAgo(n: number): string {
@@ -28,31 +29,31 @@ export function daysAgo(n: number): string {
 // DB anchor records — what Supabase holds
 // ---------------------------------------------------------------------------
 export const mockCompanyAnchors: CompanyRecord[] = [
-  { domain: "ingredion.com", name: "Ingredion", firstViewedBy: "Adi", firstViewedAt: daysAgo(30), lastViewedBy: "Satish", lastViewedAt: daysAgo(0), source: "exa", noteCount: 2, lastNoteAt: daysAgo(7), extractionCount: 1, lastExtractionAt: daysAgo(5), excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "tateandlyle.com", name: "Tate & Lyle", firstViewedBy: "Satish", firstViewedAt: daysAgo(20), lastViewedBy: "Satish", lastViewedAt: daysAgo(1), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "kerry.com", name: "Kerry Group", firstViewedBy: "Nikita", firstViewedAt: daysAgo(15), lastViewedBy: "Nikita", lastViewedAt: daysAgo(2), source: "apollo", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "basf.com", name: "BASF", firstViewedBy: "Adi", firstViewedAt: daysAgo(25), lastViewedBy: "Adi", lastViewedAt: daysAgo(3), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "evonik.com", name: "Evonik Industries", firstViewedBy: "Satish", firstViewedAt: daysAgo(10), lastViewedBy: "Satish", lastViewedAt: daysAgo(1), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "ashland.com", name: "Ashland Global", firstViewedBy: "Nikita", firstViewedAt: daysAgo(18), lastViewedBy: "Nikita", lastViewedAt: daysAgo(5), source: "apollo", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "lonza.com", name: "Lonza Group", firstViewedBy: "Nikita", firstViewedAt: daysAgo(12), lastViewedBy: "Nikita", lastViewedAt: daysAgo(0), source: "exa", noteCount: 1, lastNoteAt: daysAgo(3), extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "drreddys.com", name: "Dr. Reddy's Laboratories", firstViewedBy: "Adi", firstViewedAt: daysAgo(22), lastViewedBy: "Adi", lastViewedAt: daysAgo(7), source: "apollo", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "amcor.com", name: "Amcor", firstViewedBy: "Satish", firstViewedAt: daysAgo(14), lastViewedBy: "Satish", lastViewedAt: daysAgo(1), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "sealedair.com", name: "Sealed Air", firstViewedBy: "Nikita", firstViewedAt: daysAgo(16), lastViewedBy: "Nikita", lastViewedAt: daysAgo(4), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "corbion.com", name: "Corbion", firstViewedBy: "Adi", firstViewedAt: daysAgo(8), lastViewedBy: "Adi", lastViewedAt: daysAgo(0), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "givaudan.com", name: "Givaudan", firstViewedBy: "Satish", firstViewedAt: daysAgo(11), lastViewedBy: "Satish", lastViewedAt: daysAgo(2), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "dow.com", name: "Dow Chemical", firstViewedBy: "Adi", firstViewedAt: daysAgo(30), lastViewedBy: "Adi", lastViewedAt: daysAgo(10), source: "apollo", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "solvay.com", name: "Solvay", firstViewedBy: "Nikita", firstViewedAt: daysAgo(13), lastViewedBy: "Nikita", lastViewedAt: daysAgo(3), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "sunpharma.com", name: "Sun Pharma", firstViewedBy: "Adi", firstViewedAt: daysAgo(28), lastViewedBy: "Adi", lastViewedAt: daysAgo(14), source: "apollo", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "graphicpkg.com", name: "Graphic Packaging", firstViewedBy: "Satish", firstViewedAt: daysAgo(9), lastViewedBy: "Satish", lastViewedAt: daysAgo(2), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "iff.com", name: "IFF (International Flavors & Fragrances)", firstViewedBy: "Adi", firstViewedAt: daysAgo(20), lastViewedBy: "Adi", lastViewedAt: daysAgo(0), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "croda.com", name: "Croda International", firstViewedBy: "Nikita", firstViewedAt: daysAgo(7), lastViewedBy: "Nikita", lastViewedAt: daysAgo(1), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "cipla.com", name: "Cipla", firstViewedBy: "Adi", firstViewedAt: daysAgo(26), lastViewedBy: "Adi", lastViewedAt: daysAgo(20), source: "apollo", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "berryglobal.com", name: "Berry Global", firstViewedBy: "Satish", firstViewedAt: daysAgo(12), lastViewedBy: "Satish", lastViewedAt: daysAgo(3), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "adm.com", name: "ADM (Archer Daniels Midland)", firstViewedBy: "Adi", firstViewedAt: daysAgo(15), lastViewedBy: "Adi", lastViewedAt: daysAgo(0), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "symrise.com", name: "Symrise", firstViewedBy: "Satish", firstViewedAt: daysAgo(10), lastViewedBy: "Satish", lastViewedAt: daysAgo(2), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "clariant.com", name: "Clariant", firstViewedBy: "Nikita", firstViewedAt: daysAgo(14), lastViewedBy: "Nikita", lastViewedAt: daysAgo(5), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "biocon.com", name: "Biocon", firstViewedBy: "Adi", firstViewedAt: daysAgo(32), lastViewedBy: "Adi", lastViewedAt: daysAgo(30), source: "apollo", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
-  { domain: "sonoco.com", name: "Sonoco Products", firstViewedBy: "Nikita", firstViewedAt: daysAgo(17), lastViewedBy: "Nikita", lastViewedAt: daysAgo(8), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null },
+  { domain: "ingredion.com", name: "Ingredion", firstViewedBy: "Adi", firstViewedAt: daysAgo(30), lastViewedBy: "Satish", lastViewedAt: daysAgo(0), source: "exa", noteCount: 2, lastNoteAt: daysAgo(7), extractionCount: 1, lastExtractionAt: daysAgo(5), excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "tateandlyle.com", name: "Tate & Lyle", firstViewedBy: "Satish", firstViewedAt: daysAgo(20), lastViewedBy: "Satish", lastViewedAt: daysAgo(1), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "kerry.com", name: "Kerry Group", firstViewedBy: "Nikita", firstViewedAt: daysAgo(15), lastViewedBy: "Nikita", lastViewedAt: daysAgo(2), source: "apollo", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "basf.com", name: "BASF", firstViewedBy: "Adi", firstViewedAt: daysAgo(25), lastViewedBy: "Adi", lastViewedAt: daysAgo(3), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "evonik.com", name: "Evonik Industries", firstViewedBy: "Satish", firstViewedAt: daysAgo(10), lastViewedBy: "Satish", lastViewedAt: daysAgo(1), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "ashland.com", name: "Ashland Global", firstViewedBy: "Nikita", firstViewedAt: daysAgo(18), lastViewedBy: "Nikita", lastViewedAt: daysAgo(5), source: "apollo", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "lonza.com", name: "Lonza Group", firstViewedBy: "Nikita", firstViewedAt: daysAgo(12), lastViewedBy: "Nikita", lastViewedAt: daysAgo(0), source: "exa", noteCount: 1, lastNoteAt: daysAgo(3), extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "drreddys.com", name: "Dr. Reddy's Laboratories", firstViewedBy: "Adi", firstViewedAt: daysAgo(22), lastViewedBy: "Adi", lastViewedAt: daysAgo(7), source: "apollo", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "amcor.com", name: "Amcor", firstViewedBy: "Satish", firstViewedAt: daysAgo(14), lastViewedBy: "Satish", lastViewedAt: daysAgo(1), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "sealedair.com", name: "Sealed Air", firstViewedBy: "Nikita", firstViewedAt: daysAgo(16), lastViewedBy: "Nikita", lastViewedAt: daysAgo(4), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "corbion.com", name: "Corbion", firstViewedBy: "Adi", firstViewedAt: daysAgo(8), lastViewedBy: "Adi", lastViewedAt: daysAgo(0), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "givaudan.com", name: "Givaudan", firstViewedBy: "Satish", firstViewedAt: daysAgo(11), lastViewedBy: "Satish", lastViewedAt: daysAgo(2), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "dow.com", name: "Dow Chemical", firstViewedBy: "Adi", firstViewedAt: daysAgo(30), lastViewedBy: "Adi", lastViewedAt: daysAgo(10), source: "apollo", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "solvay.com", name: "Solvay", firstViewedBy: "Nikita", firstViewedAt: daysAgo(13), lastViewedBy: "Nikita", lastViewedAt: daysAgo(3), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "sunpharma.com", name: "Sun Pharma", firstViewedBy: "Adi", firstViewedAt: daysAgo(28), lastViewedBy: "Adi", lastViewedAt: daysAgo(14), source: "apollo", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "graphicpkg.com", name: "Graphic Packaging", firstViewedBy: "Satish", firstViewedAt: daysAgo(9), lastViewedBy: "Satish", lastViewedAt: daysAgo(2), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "iff.com", name: "IFF (International Flavors & Fragrances)", firstViewedBy: "Adi", firstViewedAt: daysAgo(20), lastViewedBy: "Adi", lastViewedAt: daysAgo(0), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "croda.com", name: "Croda International", firstViewedBy: "Nikita", firstViewedAt: daysAgo(7), lastViewedBy: "Nikita", lastViewedAt: daysAgo(1), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "cipla.com", name: "Cipla", firstViewedBy: "Adi", firstViewedAt: daysAgo(26), lastViewedBy: "Adi", lastViewedAt: daysAgo(20), source: "apollo", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "berryglobal.com", name: "Berry Global", firstViewedBy: "Satish", firstViewedAt: daysAgo(12), lastViewedBy: "Satish", lastViewedAt: daysAgo(3), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "adm.com", name: "ADM (Archer Daniels Midland)", firstViewedBy: "Adi", firstViewedAt: daysAgo(15), lastViewedBy: "Adi", lastViewedAt: daysAgo(0), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "symrise.com", name: "Symrise", firstViewedBy: "Satish", firstViewedAt: daysAgo(10), lastViewedBy: "Satish", lastViewedAt: daysAgo(2), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "clariant.com", name: "Clariant", firstViewedBy: "Nikita", firstViewedAt: daysAgo(14), lastViewedBy: "Nikita", lastViewedAt: daysAgo(5), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "biocon.com", name: "Biocon", firstViewedBy: "Adi", firstViewedAt: daysAgo(32), lastViewedBy: "Adi", lastViewedAt: daysAgo(30), source: "apollo", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
+  { domain: "sonoco.com", name: "Sonoco Products", firstViewedBy: "Nikita", firstViewedAt: daysAgo(17), lastViewedBy: "Nikita", lastViewedAt: daysAgo(8), source: "exa", noteCount: 0, lastNoteAt: null, extractionCount: 0, lastExtractionAt: null, excluded: false, excludedBy: null, excludedAt: null, exclusionReason: null, status: "new", statusChangedBy: null, statusChangedAt: null, viewedBy: null },
 ];
 
 // ---------------------------------------------------------------------------
@@ -234,6 +235,7 @@ export const mockCompaniesEnriched: CompanyEnriched[] = mockCompanyAnchors.map((
       ...anchor,
       industry: "", vertical: "", employeeCount: 0, location: "", region: "",
       description: "", icpScore: 0, hubspotStatus: "none" as const,
+      freshsalesStatus: "none" as const, freshsalesIntel: null,
       sources: [], signals: [], contactCount: 0, lastRefreshed: anchor.lastViewedAt,
     };
   }
@@ -241,6 +243,8 @@ export const mockCompaniesEnriched: CompanyEnriched[] = mockCompanyAnchors.map((
     ...anchor,
     ...enrichment,
     hubspotStatus: enrichment.hubspotStatus as CompanyEnriched["hubspotStatus"],
+    freshsalesStatus: "none" as const,
+    freshsalesIntel: null,
     sources: enrichment.sources as CompanyEnriched["sources"],
     signals,
   };
@@ -258,17 +262,17 @@ export const mockExclusions: Exclusion[] = [
 export const mockPresets: SearchPreset[] = [
   {
     id: "sp1", name: "High-Value Food Ingredients",
-    filters: { sources: ["exa", "apollo"], verticals: ["Food Ingredients"], regions: [], sizes: ["201-1000", "1000+"], signals: [], hideExcluded: true, quickFilters: ["high_icp"] },
+    filters: { sources: ["exa", "apollo"], verticals: ["Food Ingredients"], regions: [], sizes: ["201-1000", "1000+"], signals: [], statuses: [], hideExcluded: true, quickFilters: ["high_icp"] },
     createdBy: "Adi", createdAt: daysAgo(60), updatedAt: daysAgo(10),
   },
   {
     id: "sp2", name: "European Chemicals",
-    filters: { sources: ["exa"], verticals: ["Chemicals"], regions: ["Europe"], sizes: [], signals: [], hideExcluded: true, quickFilters: [] },
+    filters: { sources: ["exa"], verticals: ["Chemicals"], regions: ["Europe"], sizes: [], signals: [], statuses: [], hideExcluded: true, quickFilters: [] },
     createdBy: "Satish", createdAt: daysAgo(45), updatedAt: daysAgo(45),
   },
   {
     id: "sp3", name: "Signal-Rich Targets",
-    filters: { sources: [], verticals: [], regions: [], sizes: [], signals: ["hiring", "funding", "expansion"], hideExcluded: true, quickFilters: ["has_signals"] },
+    filters: { sources: [], verticals: [], regions: [], sizes: [], signals: ["hiring", "funding", "expansion"], statuses: [], hideExcluded: true, quickFilters: ["has_signals"] },
     createdBy: "Nikita", createdAt: daysAgo(30), updatedAt: daysAgo(5),
   },
 ];
@@ -286,11 +290,14 @@ export const defaultEmailVerification: EmailVerificationSettings = {
   autoVerifyAboveConfidence: 90,
   dailyMaxVerifications: 500,
   verifyOnContactLoad: false,
+  emailFinderEnabled: true,
+  emailFinderMaxPerBatch: 10,
+  emailFinderMinConfidenceToSkip: 70,
 };
 
 export const defaultScoringSettings: ScoringSettings = {
   displayThreshold: 0,
-  perSourceConfidence: { exa: 80, apollo: 90, hubspot: 85 },
+  perSourceConfidence: { exa: 80, apollo: 90, hubspot: 85, freshsales: 75 },
   stalenessDecayDays: 30,
   stalenessDecayPercent: 10,
 };
@@ -301,6 +308,7 @@ export const defaultRateLimits: RateLimitSettings = {
     apollo: { maxPerMin: 100, warningAt: 80 },
     hubspot: { maxPerMin: 100, warningAt: 80 },
     clearout: { maxPerMin: 20, warningAt: 15 },
+    freshsales: { maxPerMin: 60, warningAt: 50 },
   },
   slackWebhookUrl: null,
   alertRecipients: [],
@@ -354,10 +362,37 @@ export const defaultEmailPrompts: EmailPromptsConfig = {
   defaultTemplate: "intro",
 };
 
+export const defaultFreshsalesSettings: FreshsalesSettings = {
+  enabled: true,
+  domain: "mordorintelligence",
+  sectionTitle: "Research Team Intel",
+  emptyStateLabel: "Not engaged by research team",
+  statusLabels: {
+    none: "Not Engaged",
+    new_lead: "In Research Pipeline",
+    contacted: "Research Team Contacted",
+    negotiation: "Research Deal Active",
+    won: "Research Customer",
+    customer: "Research Customer",
+    lost: "Research Deal Lost",
+  },
+  showDeals: true,
+  showContacts: true,
+  showActivity: true,
+  recentActivityDaysThreshold: 30,
+  cacheTtlMinutes: 30,
+  icpWeights: {
+    freshsalesLead: 10,
+    freshsalesCustomer: -40,
+    freshsalesRecentContact: 15,
+  },
+};
+
 export const defaultAdminConfig: AdminConfig = {
   icpWeights: {
     verticalMatch: 25, sizeMatch: 20, regionMatch: 15, buyingSignals: 15,
     negativeSignals: -10, exaRelevance: 10, hubspotLead: 10, hubspotCustomer: 5,
+    freshsalesLead: 10, freshsalesCustomer: -40, freshsalesRecentContact: 15,
   },
   verticals: ["Food Ingredients", "Chemicals", "Pharma", "Packaging", "Flavors & Fragrances", "Specialty Chemicals", "Biopharmaceuticals"],
   sizeSweetSpot: { min: 200, max: 50000 },
@@ -381,7 +416,7 @@ export const defaultAdminConfig: AdminConfig = {
     { name: "Aditya Prasad", email: "adityaprasad@ask-myra.ai", isAdmin: false },
     { name: "Vijay Ravi", email: "vijayravi@ask-myra.ai", isAdmin: false },
   ],
-  cacheDurations: { exa: 60, apollo: 120, hubspot: 30, clearout: 1440 },
+  cacheDurations: { exa: 60, apollo: 120, hubspot: 30, clearout: 1440, freshsales: 30 },
   copyFormats: [
     { id: "cf1", name: "Standard", template: "{name} <{email}> - {title} at {company}" },
     { id: "cf2", name: "Email Only", template: "{email}" },
@@ -400,6 +435,7 @@ export const defaultAdminConfig: AdminConfig = {
   uiPreferences: defaultUiPreferences,
   emailPrompts: defaultEmailPrompts,
   analyticsSettings: { kpiTargets: { exportsThisWeek: 20, avgIcpScore: 60 } },
+  freshsalesSettings: defaultFreshsalesSettings,
   authLog: [],
   authRequests: [],
 };
