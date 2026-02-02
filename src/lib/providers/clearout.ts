@@ -16,8 +16,9 @@ function clearoutHeaders(): Record<string, string> {
   };
 }
 
-function mapScore(status: string, safeToSend: boolean): number {
-  if (status === "valid" && safeToSend) return 95;
+function mapScore(status: string, safeToSend: boolean | string): number {
+  const safe = safeToSend === true || safeToSend === "yes";
+  if (status === "valid" && safe) return 95;
   if (status === "valid") return 70;
   if (status === "unknown") return 50;
   return 10; // invalid
@@ -109,7 +110,7 @@ export async function getClearoutCredits(): Promise<number | null> {
 
     if (!res.ok) return null;
     const json = await res.json();
-    return json.data?.credits ?? json.credits ?? null;
+    return json.data?.credits?.available ?? json.data?.available_credits ?? null;
   } catch {
     return null;
   }

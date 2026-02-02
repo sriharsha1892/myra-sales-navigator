@@ -163,7 +163,7 @@ describe("clearout provider", () => {
     it("returns credit count", async () => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ data: { credits: 500 } }),
+        json: async () => ({ data: { available_credits: 500, credits: { available: 500 } } }),
       });
       const credits = await getClearoutCredits();
       expect(credits).toBe(500);

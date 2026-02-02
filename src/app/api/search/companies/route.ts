@@ -1,7 +1,100 @@
 import { NextResponse } from "next/server";
 import { reformulateQuery } from "@/lib/exa/queryBuilder";
 import { searchExa, isExaAvailable } from "@/lib/providers/exa";
+import {
+  isApolloAvailable,
+  enrichCompany,
+  findContacts,
+} from "@/lib/providers/apollo";
+import { createServerClient } from "@/lib/supabase/server";
 import type { Company, FilterState } from "@/lib/types";
+
+// ---------------------------------------------------------------------------
+// Apollo structured search — enrich Exa domains + find contacts in parallel
+// Returns enriched companies (Apollo firmographics merged onto Exa shells)
+// ---------------------------------------------------------------------------
+
+async function apolloStructuredSearch(
+  exaCompanies: Company[]
+): Promise<Company[]> {
+  if (!isApolloAvailable() || exaCompanies.length === 0) return [];
+
+  // Pick up to 25 unique domains from Exa results for Apollo enrichment
+  const domains = [...new Set(exaCompanies.map((c) => c.domain))].slice(0, 25);
+
+  const enriched = await Promise.allSettled(
+    domains.map(async (domain) => {
+      const apolloData = await enrichCompany(domain);
+      if (!apolloData) return null;
+
+      // Find the original Exa company shell to merge onto
+      const base = exaCompanies.find((c) => c.domain === domain);
+      if (!base) return null;
+
+      const merged: Company = {
+        ...base,
+        name: apolloData.name || base.name,
+        industry: apolloData.industry || base.industry,
+        employeeCount: apolloData.employeeCount || base.employeeCount,
+        location: apolloData.location || base.location,
+        region: apolloData.region || base.region,
+        description: apolloData.description || base.description,
+        website: apolloData.website || base.website,
+        logoUrl: apolloData.logoUrl || base.logoUrl,
+        revenue: apolloData.revenue || base.revenue,
+        founded: apolloData.founded || base.founded,
+        sources: [...new Set([...base.sources, "apollo" as const])],
+        lastRefreshed: new Date().toISOString(),
+      };
+      return merged;
+    })
+  );
+
+  const results: Company[] = [];
+  for (const r of enriched) {
+    if (r.status === "fulfilled" && r.value !== null) {
+      results.push(r.value);
+    }
+  }
+  return results;
+}
+
+// ---------------------------------------------------------------------------
+// Exclusion filter — pull domains/companies/emails from Supabase exclusions
+// ---------------------------------------------------------------------------
+
+async function getExcludedValues(): Promise<Set<string>> {
+  try {
+    const supabase = createServerClient();
+    const { data } = await supabase.from("exclusions").select("type, value");
+    if (!data) return new Set();
+
+    const values = new Set<string>();
+    for (const row of data) {
+      // Normalize: lowercase for case-insensitive matching
+      values.add(String(row.value).toLowerCase());
+    }
+    return values;
+  } catch {
+    return new Set();
+  }
+}
+
+function applyExclusionFilter(
+  companies: Company[],
+  excluded: Set<string>
+): Company[] {
+  if (excluded.size === 0) return companies;
+  return companies.filter((c) => {
+    const domainLower = c.domain.toLowerCase();
+    const nameLower = c.name.toLowerCase();
+    return !excluded.has(domainLower) && !excluded.has(nameLower);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// POST handler
+// ---------------------------------------------------------------------------
 
 export async function POST(request: Request) {
   let body: { filters?: FilterState; freeText?: string };
@@ -48,23 +141,38 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Use first reformulated query (best semantic expansion).
-    // Single query = 2 Exa calls (company + news), well within 5 req/s limit.
     const primaryQuery = reformulatedQueries[0] || freeText || "";
-    const result = await searchExa({ query: primaryQuery, numResults: 25 });
 
-    const companies = result.companies.slice(0, 25);
-    const allSignals = result.signals;
+    // Parallel: Exa semantic search + exclusion list fetch
+    const [exaResult, excluded] = await Promise.all([
+      searchExa({ query: primaryQuery, numResults: 25 }),
+      filters?.hideExcluded !== false ? getExcludedValues() : Promise.resolve(new Set<string>()),
+    ]);
 
-    // TODO: Apply exclusion filter from Supabase
+    // Apply exclusion filter to Exa results
+    const filteredExa = applyExclusionFilter(exaResult.companies, excluded);
+    const exaCompanies = filteredExa.slice(0, 25);
+
+    // Apollo structured enrichment — runs in parallel on Exa domains
+    // Merges firmographic data (industry, size, location) onto Exa shells
+    const apolloEnriched = await apolloStructuredSearch(exaCompanies);
+
+    // Build final company list: Apollo-enriched where available, raw Exa otherwise
+    const enrichedDomains = new Set(apolloEnriched.map((c) => c.domain));
+    const companies = exaCompanies.map(
+      (c) =>
+        enrichedDomains.has(c.domain)
+          ? apolloEnriched.find((e) => e.domain === c.domain)!
+          : c
+    );
 
     return NextResponse.json({
       companies,
-      signals: allSignals,
+      signals: exaResult.signals,
       reformulatedQueries,
     });
   } catch (err) {
-    console.error("[Search] Exa search failed:", err);
+    console.error("[Search] search failed:", err);
     return NextResponse.json({
       companies: [],
       signals: [],
