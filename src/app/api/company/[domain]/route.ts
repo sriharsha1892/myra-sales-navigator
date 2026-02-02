@@ -1,16 +1,22 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { completeWithFallback, isGroqAvailable } from "@/lib/llm/client";
 import { getCached, setCached, normalizeDomain } from "@/lib/cache";
 import { enrichCompany, isApolloAvailable } from "@/lib/providers/apollo";
 import { getHubSpotStatus, isHubSpotAvailable } from "@/lib/providers/hubspot";
+import { createServerClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
 
 export async function GET(
-  _request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ domain: string }> }
 ) {
   const { domain } = await params;
   const decoded = decodeURIComponent(domain);
   const normalized = normalizeDomain(decoded);
+
+  // Get viewer name from cookie for anchor tracking
+  const cookieStore = await cookies();
+  const userName = cookieStore.get("user_name")?.value || "Unknown";
 
   // Fetch Apollo enrichment + HubSpot status + AI summary in parallel
   const [apolloData, hubspotStatus, aiSummary] = await Promise.all([
@@ -24,6 +30,43 @@ export async function GET(
   // Merge HubSpot status into company object
   if (company && hubspotStatus) {
     company.hubspotStatus = hubspotStatus.status;
+  }
+
+  // Track company view in Supabase (anchor: first_viewed + last_viewed)
+  try {
+    const supabase = createServerClient();
+    const companyName = company?.name || normalized;
+    const source = company?.sources?.[0] || "exa";
+
+    // Try update first (faster for existing companies)
+    const { data: existing } = await supabase
+      .from("companies")
+      .select("domain")
+      .eq("domain", normalized)
+      .single();
+
+    if (existing) {
+      await supabase
+        .from("companies")
+        .update({
+          last_viewed_by: userName,
+          last_viewed_at: new Date().toISOString(),
+        })
+        .eq("domain", normalized);
+    } else {
+      await supabase.from("companies").insert({
+        domain: normalized,
+        name: companyName,
+        first_viewed_by: userName,
+        first_viewed_at: new Date().toISOString(),
+        last_viewed_by: userName,
+        last_viewed_at: new Date().toISOString(),
+        source,
+      });
+    }
+  } catch (anchorErr) {
+    // Don't fail the response if anchor tracking fails
+    console.warn("[Company] Anchor tracking failed:", anchorErr);
   }
 
   return NextResponse.json({

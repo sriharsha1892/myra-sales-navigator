@@ -97,7 +97,7 @@ function applyExclusionFilter(
 // ---------------------------------------------------------------------------
 
 export async function POST(request: Request) {
-  let body: { filters?: FilterState; freeText?: string };
+  let body: { filters?: FilterState; freeText?: string; userName?: string };
   try {
     body = await request.json();
   } catch {
@@ -165,6 +165,21 @@ export async function POST(request: Request) {
           ? apolloEnriched.find((e) => e.domain === c.domain)!
           : c
     );
+
+    // Log search to history (fire-and-forget)
+    if (body.userName) {
+      const supabase = createServerClient();
+      supabase
+        .from("search_history")
+        .insert({
+          user_name: body.userName,
+          filters: filters || { freeText },
+          result_count: companies.length,
+        })
+        .then(({ error: histErr }) => {
+          if (histErr) console.warn("[Search] Failed to log history:", histErr);
+        });
+    }
 
     return NextResponse.json({
       companies,
