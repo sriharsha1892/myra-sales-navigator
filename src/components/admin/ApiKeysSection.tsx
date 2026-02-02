@@ -1,11 +1,118 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useStore } from "@/lib/store";
 import { AdminSection } from "./AdminSection";
 import type { ApiKeyEntry } from "@/lib/types";
 
 const KNOWN_SOURCES = ["exa", "apollo", "hubspot", "clearout"];
+
+interface CreditData {
+  clearout: { available: number; total: number } | null;
+  apollo: null;
+  exa: null;
+  hubspot: null;
+}
+
+const PROVIDER_DASHBOARDS: Record<string, string> = {
+  apollo: "https://app.apollo.io/#/settings/credits",
+  exa: "https://dashboard.exa.ai",
+  hubspot: "https://app.hubspot.com/usage-reporting",
+};
+
+function CreditBadge({ available }: { available: number }) {
+  if (available > 10000) {
+    return <span className="rounded-badge bg-success/15 px-1.5 py-0.5 text-[10px] font-medium text-success">{available.toLocaleString()} credits</span>;
+  }
+  if (available >= 1000) {
+    return <span className="rounded-badge bg-accent-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-accent-primary">{available.toLocaleString()} credits</span>;
+  }
+  return (
+    <span className="rounded-badge bg-danger/15 px-1.5 py-0.5 text-[10px] font-medium text-danger">
+      {available.toLocaleString()} credits — running low
+    </span>
+  );
+}
+
+function CreditUsageBanner() {
+  const [credits, setCredits] = useState<CreditData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchCredits = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/credits");
+      if (res.ok) {
+        setCredits(await res.json());
+      }
+    } catch {
+      // silently fail — banner is informational
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCredits();
+  }, [fetchCredits]);
+
+  return (
+    <div className="mb-5 rounded-card border border-surface-3 bg-surface-2 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-xs font-medium text-text-primary">Credit Usage</h3>
+        <button
+          onClick={fetchCredits}
+          disabled={loading}
+          className="text-[10px] text-accent-secondary hover:text-accent-secondary/80 disabled:opacity-50"
+        >
+          {loading ? "Refreshing..." : "Refresh"}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-4 gap-3">
+        {/* Clearout */}
+        <div className="rounded-input border border-surface-3 bg-surface-1 px-3 py-2">
+          <p className="mb-1 text-[10px] font-medium uppercase text-text-tertiary">Clearout</p>
+          {loading ? (
+            <div className="h-4 w-24 animate-pulse rounded bg-surface-3" />
+          ) : credits?.clearout ? (
+            <CreditBadge available={credits.clearout.available} />
+          ) : (
+            <span className="text-[10px] text-text-tertiary">Unavailable</span>
+          )}
+        </div>
+
+        {/* Apollo */}
+        <div className="rounded-input border border-surface-3 bg-surface-1 px-3 py-2">
+          <p className="mb-1 text-[10px] font-medium uppercase text-text-tertiary">Apollo</p>
+          <a href={PROVIDER_DASHBOARDS.apollo} target="_blank" rel="noopener noreferrer" className="text-[10px] text-accent-secondary hover:underline">
+            Check in Apollo dashboard
+          </a>
+        </div>
+
+        {/* Exa */}
+        <div className="rounded-input border border-surface-3 bg-surface-1 px-3 py-2">
+          <p className="mb-1 text-[10px] font-medium uppercase text-text-tertiary">Exa</p>
+          <a href={PROVIDER_DASHBOARDS.exa} target="_blank" rel="noopener noreferrer" className="text-[10px] text-accent-secondary hover:underline">
+            Check in Exa dashboard
+          </a>
+        </div>
+
+        {/* HubSpot */}
+        <div className="rounded-input border border-surface-3 bg-surface-1 px-3 py-2">
+          <p className="mb-1 text-[10px] font-medium uppercase text-text-tertiary">HubSpot</p>
+          <a href={PROVIDER_DASHBOARDS.hubspot} target="_blank" rel="noopener noreferrer" className="text-[10px] text-accent-secondary hover:underline">
+            Check in HubSpot dashboard
+          </a>
+        </div>
+      </div>
+
+      <p className="mt-2 text-[10px] text-text-tertiary">
+        Credit balances update when you refresh. Clearout uses ~1 credit per email verified.
+      </p>
+    </div>
+  );
+}
 
 export function ApiKeysSection() {
   const config = useStore((s) => s.adminConfig);
@@ -120,6 +227,8 @@ export function ApiKeysSection() {
 
   return (
     <AdminSection title="API Key Management">
+      <CreditUsageBanner />
+
       <div className="space-y-2 mb-4">
         {config.apiKeys.length === 0 && !adding && (
           <p className="text-xs italic text-text-tertiary">No API keys configured. Add keys for Exa, Apollo, HubSpot, or Clearout.</p>

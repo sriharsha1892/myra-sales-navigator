@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { AdminSection } from "./AdminSection";
 import type { NotificationSettings } from "@/lib/types";
@@ -9,8 +10,25 @@ export function NotificationSection() {
   const updateConfig = useStore((s) => s.updateAdminConfig);
   const settings = config.notifications;
 
+  const [newRecipient, setNewRecipient] = useState("");
+
   const update = (partial: Partial<NotificationSettings>) => {
     updateConfig({ notifications: { ...settings, ...partial } });
+  };
+
+  const addRecipient = () => {
+    const val = newRecipient.trim();
+    if (!val) return;
+    if (settings.digestRecipients.includes(val)) {
+      setNewRecipient("");
+      return;
+    }
+    update({ digestRecipients: [...settings.digestRecipients, val] });
+    setNewRecipient("");
+  };
+
+  const removeRecipient = (recipient: string) => {
+    update({ digestRecipients: settings.digestRecipients.filter((r) => r !== recipient) });
   };
 
   return (
@@ -28,10 +46,52 @@ export function NotificationSection() {
 
         <div>
           <label className="mb-1.5 block text-[10px] font-medium uppercase text-text-tertiary">Digest Recipients</label>
-          <p className="text-[10px] text-text-tertiary">
-            {settings.digestRecipients.length === 0
-              ? "No recipients"
-              : settings.digestRecipients.join(", ")}
+
+          {/* Tags */}
+          {settings.digestRecipients.length > 0 ? (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {settings.digestRecipients.map((r) => (
+                <span
+                  key={r}
+                  className="inline-flex items-center gap-1 rounded-badge bg-surface-3 px-2 py-0.5 text-[10px] text-text-secondary"
+                >
+                  {r}
+                  <button
+                    onClick={() => removeRecipient(r)}
+                    className="ml-0.5 text-text-tertiary hover:text-danger"
+                    title="Remove"
+                  >
+                    &times;
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="mb-2 text-[10px] italic text-text-tertiary">
+              No digest recipients. Add team members to receive the daily summary email.
+            </p>
+          )}
+
+          {/* Add input */}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newRecipient}
+              onChange={(e) => setNewRecipient(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") addRecipient(); }}
+              placeholder="Add email or name..."
+              className="flex-1 rounded-input border border-surface-3 bg-surface-2 px-3 py-1.5 text-xs text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
+            />
+            <button
+              onClick={addRecipient}
+              disabled={!newRecipient.trim()}
+              className="rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-text-inverse disabled:opacity-50"
+            >
+              Add
+            </button>
+          </div>
+          <p className="mt-1.5 text-[10px] text-text-tertiary">
+            Daily digest includes: total searches, exports, new exclusions, and credit usage from the past 24 hours.
           </p>
         </div>
 

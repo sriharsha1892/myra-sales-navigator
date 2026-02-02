@@ -160,13 +160,22 @@ describe("clearout provider", () => {
   });
 
   describe("getClearoutCredits", () => {
-    it("returns credit count", async () => {
+    it("returns available and total credits", async () => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ data: { available_credits: 500, credits: { available: 500 } } }),
+        json: async () => ({ data: { credits: { available: 500, total: 1000 } } }),
       });
       const credits = await getClearoutCredits();
-      expect(credits).toBe(500);
+      expect(credits).toEqual({ available: 500, total: 1000 });
+    });
+
+    it("uses available as total when total is missing", async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: { available_credits: 500 } }),
+      });
+      const credits = await getClearoutCredits();
+      expect(credits).toEqual({ available: 500, total: 500 });
     });
 
     it("returns null on error", async () => {

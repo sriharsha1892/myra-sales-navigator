@@ -99,7 +99,7 @@ export async function verifyEmails(emails: string[]): Promise<VerificationResult
   );
 }
 
-export async function getClearoutCredits(): Promise<number | null> {
+export async function getClearoutCredits(): Promise<{ available: number; total: number } | null> {
   if (!isClearoutAvailable()) return null;
 
   try {
@@ -110,7 +110,11 @@ export async function getClearoutCredits(): Promise<number | null> {
 
     if (!res.ok) return null;
     const json = await res.json();
-    return json.data?.credits?.available ?? json.data?.available_credits ?? null;
+    const credits = json.data?.credits ?? json.data;
+    const available = credits?.available ?? credits?.available_credits ?? null;
+    const total = credits?.total ?? credits?.total_credits ?? null;
+    if (available === null) return null;
+    return { available, total: total ?? available };
   } catch {
     return null;
   }
