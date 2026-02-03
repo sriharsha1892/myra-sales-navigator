@@ -47,9 +47,11 @@ export default function LoginPage() {
         body: JSON.stringify({ name, password: password.trim() }),
       });
       if (res.ok) {
-        // Remember name for next time
+        // Remember name for next time + mark fresh login for welcome toast
         document.cookie = `myra_last_name=${encodeURIComponent(name)}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;
-        router.push("/");
+        document.cookie = "myra_just_logged_in=1; path=/; max-age=30; SameSite=Lax";
+        // Full reload so AuthProvider re-fetches /api/auth/me with fresh session cookie
+        window.location.href = "/";
       } else {
         const data = await res.json();
         setError(data.error || "Login failed.");

@@ -8,7 +8,7 @@ import {
 } from "@/lib/providers/apollo";
 import { createServerClient } from "@/lib/supabase/server";
 import { calculateIcpScore } from "@/lib/scoring";
-import { getCached, setCached } from "@/lib/cache";
+import { getCached, setCached, CacheKeys, CacheTTL } from "@/lib/cache";
 import type { Company, FilterState, IcpWeights } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -30,6 +30,16 @@ async function apolloStructuredSearch(
         enrichCompany(domain),
         findContacts(domain),
       ]);
+
+      // Pre-warm enriched contacts cache (fire-and-forget — don't slow search)
+      if (contacts.length > 0) {
+        setCached(
+          CacheKeys.enrichedContacts(domain),
+          { contacts, sources: { apollo: true, hubspot: false, freshsales: false } },
+          CacheTTL.enrichedContacts
+        ).catch(() => {});
+      }
+
       if (!apolloData) {
         if (contacts.length > 0) {
           const base = exaCompanies.find((c) => c.domain === domain);

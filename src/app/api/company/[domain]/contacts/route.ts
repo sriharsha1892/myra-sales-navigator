@@ -3,6 +3,9 @@ import { normalizeDomain, getCached, setCached, deleteCached, CacheKeys, CacheTT
 import { findContacts, enrichContact, isApolloAvailable } from "@/lib/providers/apollo";
 import { getHubSpotContacts, isHubSpotAvailable } from "@/lib/providers/hubspot";
 import { getFreshsalesContacts, isFreshsalesAvailable } from "@/lib/providers/freshsales";
+import { findEmailsBatch, isClearoutAvailable } from "@/lib/providers/clearout";
+import { pLimit } from "@/lib/utils";
+import { createServerClient } from "@/lib/supabase/server";
 import type { Contact } from "@/lib/types";
 
 export async function GET(
@@ -25,6 +28,8 @@ export async function GET(
     }
   } else {
     await deleteCached(enrichedCacheKey);
+    // Also clear Apollo contacts list cache so we get fresh data
+    await deleteCached(`apollo:contacts:${normalized}`);
   }
 
   const apolloAvailable = isApolloAvailable();
@@ -53,6 +58,8 @@ export async function GET(
     const merged = mergeContacts(apolloContacts, hubspotContacts, freshsalesContacts);
 
     // Auto-enrich all contacts by seniority that have no email (Apollo contacts only)
+    // Cap at 5 concurrent. Apollo is 100 req/min shared. Don't be a hero.
+    const limit = pLimit(5);
     const seniorityOrder: Record<string, number> = { c_level: 0, vp: 1, director: 2, manager: 3, staff: 4 };
     const needsEnrich = merged
       .filter((c) => !c.email && c.id && !c.id.startsWith("hubspot-") && !c.id.startsWith("freshsales-"))
@@ -61,11 +68,11 @@ export async function GET(
     if (needsEnrich.length > 0 && apolloAvailable) {
       const enrichResults = await Promise.allSettled(
         needsEnrich.map((c) =>
-          enrichContact(c.id, {
+          limit(() => enrichContact(c.id, {
             firstName: c.firstName,
             lastName: c.lastName,
             domain: normalized,
-          })
+          }))
         )
       );
       for (let i = 0; i < needsEnrich.length; i++) {
@@ -76,12 +83,10 @@ export async function GET(
           if (idx !== -1) {
             merged[idx] = {
               ...merged[idx],
-              // Always update names if enriched ones are better (not obfuscated)
               firstName: (enriched.firstName && !enriched.firstName.includes("*"))
                 ? enriched.firstName : merged[idx].firstName,
               lastName: (enriched.lastName && !enriched.lastName.includes("*"))
                 ? enriched.lastName : merged[idx].lastName,
-              // Update email/phone if found
               email: enriched.email || merged[idx].email,
               emailConfidence: enriched.email ? enriched.emailConfidence : merged[idx].emailConfidence,
               confidenceLevel: enriched.email ? enriched.confidenceLevel : merged[idx].confidenceLevel,
@@ -93,6 +98,53 @@ export async function GET(
         }
       }
     }
+
+    // Clearout-first fallback: find emails for contacts still missing after Apollo enrichment
+    const stillMissing = merged.filter((c) => !c.email && c.firstName);
+    if (stillMissing.length > 0 && isClearoutAvailable()) {
+      try {
+        const batch = stillMissing.slice(0, 10).map((c) => ({
+          contactId: c.id,
+          firstName: c.firstName,
+          lastName: c.lastName,
+        }));
+        const clearoutResults = await findEmailsBatch(batch, normalized, 10);
+        for (const cr of clearoutResults) {
+          if (!cr.email) continue;
+          const idx = merged.findIndex((c) => c.id === cr.contactId);
+          if (idx !== -1) {
+            merged[idx] = {
+              ...merged[idx],
+              email: cr.email,
+              emailConfidence: cr.confidence ?? 70,
+              confidenceLevel: (cr.confidence ?? 70) >= 90 ? "high" : (cr.confidence ?? 70) >= 70 ? "medium" : "low",
+              sources: [...new Set([...merged[idx].sources, "clearout" as const])],
+            };
+          }
+        }
+        console.log(`[Contacts] ${normalized}: Clearout found ${clearoutResults.filter((r) => r.email).length}/${batch.length} emails`);
+      } catch (err) {
+        console.warn("[Contacts] Clearout fallback failed:", err);
+      }
+    }
+
+    // Filter out contact_id exclusions
+    try {
+      const supabase = createServerClient();
+      const { data: contactIdExclusions } = await supabase
+        .from("exclusions")
+        .select("value")
+        .eq("type", "contact_id");
+      if (contactIdExclusions && contactIdExclusions.length > 0) {
+        const excludedIds = new Set(contactIdExclusions.map((e) => e.value));
+        const beforeCount = merged.length;
+        const filtered = merged.filter((c) => !excludedIds.has(c.id));
+        if (filtered.length < beforeCount) {
+          console.log(`[Contacts] ${normalized}: filtered ${beforeCount - filtered.length} contact_id exclusions`);
+        }
+        merged.splice(0, merged.length, ...filtered);
+      }
+    } catch { /* non-fatal */ }
 
     const responseData = {
       contacts: merged,

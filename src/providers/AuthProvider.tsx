@@ -120,10 +120,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
 
         if (res.status === 401) {
-          // Session expired — show overlay instead of hard redirect
-          setSessionExpired(true);
+          // Session expired — redirect to password login (skip if already there)
           setUserName(null);
           setIsLoading(false);
+          if (window.location.pathname !== "/login") {
+            window.location.href = "/login";
+          }
           return;
         }
 

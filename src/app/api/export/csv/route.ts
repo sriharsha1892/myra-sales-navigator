@@ -36,12 +36,16 @@ const ALL_COLUMNS: { key: string; header: string; extract: (c: ContactPayload) =
 
 export async function POST(request: NextRequest) {
   try {
-    const { contacts, companyDomain, userName, csvColumns } = (await request.json()) as {
+    const { contacts: rawContacts, companyDomain, companyDomains, userName, csvColumns } = (await request.json()) as {
       contacts: ContactPayload[];
       companyDomain?: string;
+      companyDomains?: string[];
       userName?: string;
       csvColumns?: string[];
     };
+
+    // Filter out contacts without email
+    const contacts = rawContacts.filter((c) => c.email);
 
     if (!contacts || !Array.isArray(contacts) || contacts.length === 0) {
       return NextResponse.json({ error: "contacts array is required" }, { status: 400 });
@@ -58,35 +62,48 @@ export async function POST(request: NextRequest) {
 
     const csv = [columns.map((col) => col.header).join(","), ...rows].join("\n");
 
-    // Log extraction to Supabase
-    if (companyDomain && userName) {
+    // Log extraction to Supabase — per-domain
+    const domains = companyDomains ?? (companyDomain ? [companyDomain] : []);
+    if (domains.length > 0 && userName) {
       try {
         const supabase = createServerClient();
 
-        await supabase.from("companies").upsert(
-          {
-            domain: companyDomain,
-            name: companyDomain,
-            first_viewed_by: userName,
-            last_viewed_by: userName,
-            source: "export",
-          },
-          { onConflict: "domain", ignoreDuplicates: true }
-        );
+        // Group contacts by domain
+        const byDomain = new Map<string, ContactPayload[]>();
+        for (const c of contacts) {
+          const d = c.companyDomain ?? companyDomain ?? "";
+          if (!d) continue;
+          const arr = byDomain.get(d) ?? [];
+          arr.push(c);
+          byDomain.set(d, arr);
+        }
 
-        await supabase.from("contact_extractions").insert({
-          company_domain: companyDomain,
-          extracted_by: userName,
-          destination: "csv",
-          contacts: JSON.stringify(
-            contacts.map((c) => ({
-              name: `${c.firstName} ${c.lastName}`.trim(),
-              title: c.title,
-              email: c.email,
-              company: c.companyName,
-            }))
-          ),
-        });
+        for (const [domain, domainContacts] of byDomain) {
+          await supabase.from("companies").upsert(
+            {
+              domain,
+              name: domain,
+              first_viewed_by: userName,
+              last_viewed_by: userName,
+              source: "export",
+            },
+            { onConflict: "domain", ignoreDuplicates: true }
+          );
+
+          await supabase.from("contact_extractions").insert({
+            company_domain: domain,
+            extracted_by: userName,
+            destination: "csv",
+            contacts: JSON.stringify(
+              domainContacts.map((c) => ({
+                name: `${c.firstName} ${c.lastName}`.trim(),
+                title: c.title,
+                email: c.email,
+                company: c.companyName,
+              }))
+            ),
+          });
+        }
       } catch (logErr) {
         console.warn("[Export/CSV] Failed to log extraction:", logErr);
       }

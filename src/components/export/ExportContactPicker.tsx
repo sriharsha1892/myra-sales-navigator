@@ -19,22 +19,44 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
   const companies = useStore((s) => s.companies);
   const selectedCompanyDomains = useStore((s) => s.selectedCompanyDomains);
   const [selected, setSelected] = useState<Set<string>>(new Set(contactIds));
+  const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
 
-  // Prefetch contacts for all selected companies on modal open
+  // Fetch contacts for all selected companies on modal open, populate Zustand
   useEffect(() => {
-    selectedCompanyDomains.forEach((domain) => {
-      queryClient.prefetchQuery({
-        queryKey: ["company-contacts", domain],
-        queryFn: async () => {
-          const res = await fetch(`/api/company/${encodeURIComponent(domain)}/contacts`);
-          if (!res.ok) throw new Error("Failed");
-          const data = await res.json();
-          return data.contacts ?? [];
-        },
-        staleTime: 5 * 60 * 1000,
-      });
+    let cancelled = false;
+    const domainsToFetch = [...selectedCompanyDomains].filter(
+      (d) => !useStore.getState().contactsByDomain[d]
+    );
+
+    if (domainsToFetch.length === 0) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    Promise.all(
+      domainsToFetch.map((domain) =>
+        queryClient.fetchQuery({
+          queryKey: ["company-contacts", domain],
+          queryFn: async () => {
+            const res = await fetch(`/api/company/${encodeURIComponent(domain)}/contacts`);
+            if (!res.ok) throw new Error("Failed");
+            const data = await res.json();
+            return data.contacts ?? [];
+          },
+          staleTime: 5 * 60 * 1000,
+        }).then((contacts) => {
+          if (!cancelled) {
+            useStore.getState().setContactsForDomain(domain, contacts);
+          }
+        }).catch(() => {})
+      )
+    ).finally(() => {
+      if (!cancelled) setLoading(false);
     });
+
+    return () => { cancelled = true; };
   }, [selectedCompanyDomains, queryClient]);
 
   const allContacts = Object.values(contactsByDomain).flat();
@@ -81,6 +103,13 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
         </div>
 
         <div className="max-h-80 overflow-y-auto px-5 py-3">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-surface-3 border-t-accent-primary" />
+              <span className="ml-2 text-xs text-text-tertiary">Loading contacts...</span>
+            </div>
+          ) : (
+          <>
           <div className="mb-2 flex items-center gap-2">
             <input
               type="checkbox"
@@ -131,6 +160,8 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
               </div>
             );
           })}
+          </>
+          )}
         </div>
 
         <div className="flex items-center justify-between border-t border-surface-3 px-5 py-3">

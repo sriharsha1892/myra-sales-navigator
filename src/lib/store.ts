@@ -164,7 +164,7 @@ interface AppState {
   toggleContactGroupCollapsed: (domain: string) => void;
   collapseAllContactGroups: () => void;
   expandAllContactGroups: () => void;
-  excludeContact: (email: string) => void;
+  excludeContact: (value: string, type?: "email" | "contact_id") => void;
   focusedContactId: string | null;
   setFocusedContactId: (id: string | null) => void;
 
@@ -805,12 +805,12 @@ export const useStore = create<AppState>((set, get) => ({
 
   expandAllContactGroups: () => set({ contactGroupsCollapsed: {} }),
 
-  excludeContact: (email) => {
+  excludeContact: (value, type = "email") => {
     const userName = get().userName ?? "Unknown";
     fetch("/api/exclusions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "email", value: email, addedBy: userName }),
+      body: JSON.stringify({ type, value, addedBy: userName }),
     })
       .then(async (res) => {
         if (!res.ok) throw new Error("Failed to exclude");
@@ -818,7 +818,7 @@ export const useStore = create<AppState>((set, get) => ({
         if (data.exclusion) {
           set((state) => ({ exclusions: [...state.exclusions, data.exclusion] }));
         }
-        get().addToast({ message: `Excluded ${email}`, type: "success" });
+        get().addToast({ message: `Excluded ${type === "email" ? value : "contact"}`, type: "success" });
       })
       .catch(() => {
         get().addToast({ message: "Failed to exclude contact", type: "error" });

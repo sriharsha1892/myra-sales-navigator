@@ -73,6 +73,7 @@ export function useExport() {
     const handle = addProgressToast(`Exporting ${contacts.length} contacts...`);
     const userName = useStore.getState().userName ?? "Unknown";
     const companyDomain = contacts[0]?.companyDomain;
+    const companyDomains = [...new Set(contacts.map((c) => c.companyDomain).filter(Boolean))];
     const payloads = contacts.map(buildContactPayload);
 
     try {
@@ -84,12 +85,13 @@ export function useExport() {
           const res = await fetch("/api/export/clipboard", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ contacts: payloads, format: template, companyDomain, userName }),
+            body: JSON.stringify({ contacts: payloads, format: template, companyDomain, companyDomains, userName }),
           });
           if (!res.ok) throw new Error("Server error");
-          const { text, count } = await res.json();
+          const { text, count, skipped } = await res.json();
           await navigator.clipboard.writeText(text);
-          handle.resolve(`Copied ${count} contacts to clipboard`);
+          const skipMsg = skipped > 0 ? ` (${skipped} skipped — no email)` : "";
+          handle.resolve(`Copied ${count} contacts to clipboard${skipMsg}`);
         } catch {
           // Fallback: client-side formatting
           const lines = contacts
@@ -148,7 +150,7 @@ export function useExport() {
           const res = await fetch("/api/export/csv", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ contacts: payloads, companyDomain, userName, csvColumns }),
+            body: JSON.stringify({ contacts: payloads, companyDomain, companyDomains, userName, csvColumns }),
           });
           if (!res.ok) throw new Error("Server error");
           const blob = await res.blob();

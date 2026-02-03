@@ -466,6 +466,18 @@ ADMIN_USERS=adi,jvs
 
 ---
 
+## Current State (Post-Audit, Feb 2026)
+
+- **Enrichment:** All contacts auto-enriched via Apollo (pLimit(5) concurrency cap). Clearout-first fallback for contacts still missing email after Apollo — capped at 10/company.
+- **Confidence:** Default 70 when Apollo returns email but null confidence (was incorrectly 0).
+- **Cache TTLs:** Enriched contacts 2h, Apollo contacts list 2h, Apollo person 24h (credit-bearing), Clearout 30d. Search pre-warms enriched contacts cache fire-and-forget. Refresh clears both enriched + Apollo contacts caches.
+- **Export:** Filters out contacts without email server-side (clipboard + CSV routes). Per-domain extraction logging (one `contact_extractions` row per company domain). Skip count shown in toast.
+- **Exclusion:** Supports `email` and `contact_id` types. Contacts without email can be excluded by apolloId. Server-side filtering of contact_id exclusions in contacts route.
+- **Contacts tab:** 300ms minimum skeleton display prevents "0 contacts" flash. Re-fetches when filtered companies change (companyDomainKey in effect deps).
+- **Export picker:** Fetches contacts on demand (fetchQuery + Zustand write), shows spinner until loaded.
+
+---
+
 ## Pending Items (Cross-Project)
 
 - Roadmap feature streamlining: master roadmap entries can't be made separately — wrong approach. Will address after bulk import consolidation.

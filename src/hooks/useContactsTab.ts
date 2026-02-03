@@ -117,6 +117,9 @@ export function useContactsTab(): ContactsTabState {
     return searchResults.reduce((sum, c) => sum + (c.contactCount || 0), 0);
   }, [searchResults]);
 
+  // Track filtered company domains so we re-fetch when filters change
+  const companyDomainKey = companies.map((c) => c.domain).sort().join(",");
+
   // Trigger fetch when switching to contacts view
   useEffect(() => {
     if (viewMode !== "contacts" || !searchResults || searchResults.length === 0) return;
@@ -181,15 +184,23 @@ export function useContactsTab(): ContactsTabState {
     return () => {
       controller.abort();
     };
-    // Only re-run when viewMode switches to contacts or search results change
+    // Re-run when viewMode switches to contacts, search results change, or filtered companies change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode, searchResults]);
+  }, [viewMode, searchResults, companyDomainKey]);
 
-  // Build excluded emails set
+  // Build excluded emails + contact_ids sets
   const excludedEmails = useMemo(() => {
     const set = new Set<string>();
     for (const ex of exclusions) {
       if (ex.type === "email") set.add(ex.value.toLowerCase());
+    }
+    return set;
+  }, [exclusions]);
+
+  const excludedContactIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const ex of exclusions) {
+      if (ex.type === "contact_id") set.add(ex.value);
     }
     return set;
   }, [exclusions]);
@@ -208,9 +219,9 @@ export function useContactsTab(): ContactsTabState {
 
       let contacts = [...raw];
 
-      // Filter out excluded emails
+      // Filter out excluded emails and contact_ids
       contacts = contacts.filter(
-        (c) => !c.email || !excludedEmails.has(c.email.toLowerCase())
+        (c) => (!c.email || !excludedEmails.has(c.email.toLowerCase())) && !excludedContactIds.has(c.id)
       );
 
       // Apply contact filters
@@ -264,7 +275,7 @@ export function useContactsTab(): ContactsTabState {
     }
 
     return groups;
-  }, [companies, contactsByDomain, contactFilters, excludedEmails]);
+  }, [companies, contactsByDomain, contactFilters, excludedEmails, excludedContactIds]);
 
   // Build persona groups from all contacts
   const personaGroups = useMemo((): PersonaGroup[] => {
@@ -283,7 +294,10 @@ export function useContactsTab(): ContactsTabState {
       operations: [],
     };
 
+    const seenIds = new Set<string>();
     for (const c of allContacts) {
+      if (seenIds.has(c.id)) continue;
+      seenIds.add(c.id);
       groups[c.persona].push(c);
     }
 

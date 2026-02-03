@@ -147,8 +147,11 @@ export function ContactCard({
 
   const handleExclude = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!contact.email) return;
-    excludeContact(contact.email);
+    if (contact.email) {
+      excludeContact(contact.email, "email");
+    } else {
+      excludeContact(contact.id, "contact_id");
+    }
   };
 
   const handleViewDossier = (e: React.MouseEvent) => {
@@ -506,8 +509,7 @@ export function ContactCard({
             </button>
             <button
               onClick={handleExclude}
-              disabled={!contact.email}
-              className="ml-auto rounded-input border border-danger/30 px-2.5 py-1 text-[10px] font-medium text-danger/70 transition-colors hover:bg-danger/10 disabled:opacity-40"
+              className="ml-auto rounded-input border border-danger/30 px-2.5 py-1 text-[10px] font-medium text-danger/70 transition-colors hover:bg-danger/10"
             >
               Exclude
             </button>

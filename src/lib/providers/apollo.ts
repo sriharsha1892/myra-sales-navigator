@@ -1,8 +1,10 @@
 import type { CompanyEnriched, Contact } from "../types";
 import { getCached, setCached, CacheKeys, normalizeDomain } from "../cache";
 
-// Cache TTL: 24 hours in minutes
+// Cache TTL: 24 hours in minutes (for person enrichment — credit-bearing)
 const APOLLO_CACHE_TTL = 1440;
+// Cache TTL: 2 hours for contacts list (free endpoint, refresh more often)
+const APOLLO_CONTACTS_CACHE_TTL = 120;
 
 const APOLLO_BASE_URL = "https://api.apollo.io/api/v1";
 
@@ -172,7 +174,7 @@ export async function findContacts(domain: string): Promise<Contact[]> {
       }
     );
 
-    await setCached(cacheKey, contacts, APOLLO_CACHE_TTL);
+    await setCached(cacheKey, contacts, APOLLO_CONTACTS_CACHE_TTL);
     return contacts;
   } catch (err) {
     console.error("[Apollo] findContacts error:", err);
@@ -263,11 +265,13 @@ export async function enrichContact(
       email: p.email || null,
       phone: p.phone_numbers?.[0]?.sanitized_number || null,
       linkedinUrl: p.linkedin_url || null,
-      emailConfidence: p.email_confidence ? Math.round(p.email_confidence) : 0,
+      emailConfidence: p.email
+        ? Math.round(p.email_confidence ?? 70)
+        : 0,
       confidenceLevel: p.email
-        ? p.email_confidence >= 90
+        ? (p.email_confidence ?? 70) >= 90
           ? "high"
-          : p.email_confidence >= 70
+          : (p.email_confidence ?? 70) >= 70
             ? "medium"
             : "low"
         : "none",

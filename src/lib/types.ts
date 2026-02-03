@@ -232,7 +232,7 @@ export interface Signal {
 
 export interface Exclusion {
   id: string;
-  type: "company" | "domain" | "email";
+  type: "company" | "domain" | "email" | "contact_id";
   value: string;
   reason?: string;
   addedBy: string;

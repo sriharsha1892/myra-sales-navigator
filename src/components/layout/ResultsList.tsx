@@ -734,8 +734,20 @@ function ContactsView({
   failedDomains: Set<string>;
   retryDomain: (domain: string) => void;
 }) {
+  // 300ms minimum skeleton display to prevent "0 contacts" flash on tab switch
+  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
+  useEffect(() => {
+    if (contactsLoading) {
+      setMinTimeElapsed(false);
+      const timer = setTimeout(() => setMinTimeElapsed(true), 300);
+      return () => clearTimeout(timer);
+    } else {
+      setMinTimeElapsed(true);
+    }
+  }, [contactsLoading]);
+
   // Loading with no contacts yet
-  if (contactsLoading && totalContactsDisplayed === 0) {
+  if ((contactsLoading || !minTimeElapsed) && totalContactsDisplayed === 0) {
     return (
       <div className="space-y-1.5">
         <p className="mb-2 text-xs text-text-tertiary">Loading contacts...</p>
@@ -746,8 +758,8 @@ function ContactsView({
     );
   }
 
-  // Done loading, no contacts
-  if (!contactsLoading && groupedContacts.length === 0) {
+  // Done loading, no contacts — only show after minTimeElapsed to prevent flash
+  if (!contactsLoading && minTimeElapsed && groupedContacts.length === 0) {
     if (failedDomains.size > 0) {
       return (
         <div className="flex flex-col items-center gap-3 py-12">
@@ -856,7 +868,7 @@ function ContactsView({
                   const company = companyByDomain.get(contact.companyDomain) ?? null;
                   return (
                     <ContactCard
-                      key={contact.id}
+                      key={`${group.persona}-${contact.id}`}
                       contact={contact}
                       isChecked={selectedContactIds.has(contact.id)}
                       onToggleCheck={() => toggleContactSelection(contact.id)}
