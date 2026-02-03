@@ -108,12 +108,14 @@ export async function GET(
       }
     } catch { /* use defaults */ }
 
-    const companyForScoring = company as unknown as CompanyEnriched;
-    if (companyForScoring.sources && companyForScoring.signals) {
-      const { score, breakdown } = calculateIcpScore(companyForScoring, icpWeights);
-      company.icpScore = score;
-      company.icpBreakdown = breakdown;
-    }
+    const companyForScoring = {
+      ...company,
+      sources: (company.sources as string[]) || [],
+      signals: (company.signals as unknown[]) || [],
+    } as unknown as CompanyEnriched;
+    const { score, breakdown } = calculateIcpScore(companyForScoring, icpWeights);
+    company.icpScore = score;
+    company.icpBreakdown = breakdown;
 
     return NextResponse.json({
       company,
