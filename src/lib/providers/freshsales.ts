@@ -1,6 +1,5 @@
 import type { Contact, FreshsalesIntel, FreshsalesStatus, FreshsalesDeal, FreshsalesActivity, FreshsalesSettings } from "../types";
 import { getCached, setCached, CacheKeys, CacheTTL, normalizeDomain } from "../cache";
-import { sanitizeContacts } from "./hubspot";
 import { defaultFreshsalesSettings } from "../mock-data";
 
 // ---------------------------------------------------------------------------
@@ -127,13 +126,25 @@ const EMPTY_INTEL = (domain: string): FreshsalesIntel => ({
 });
 
 export async function getFreshsalesIntel(
-  domain: string
+  domain: string,
+  companyName?: string
 ): Promise<FreshsalesIntel> {
   const normalized = normalizeDomain(domain);
-  const cacheKey = CacheKeys.freshsales(normalized);
+  // Cache key encodes whether name-fallback was available, so a domain-only
+  // lookup doesn't shadow a later domain+name lookup.
+  const cacheKey = companyName
+    ? CacheKeys.freshsales(`${normalized}:${companyName}`)
+    : CacheKeys.freshsales(normalized);
 
   const cached = await getCached<FreshsalesIntel>(cacheKey);
-  if (cached) return cached;
+  if (cached) {
+    // Positive results: always return from cache
+    if (cached.status !== "none") return cached;
+    // Empty result cached WITH companyName (full search exhausted): return it
+    if (companyName) return cached;
+    // Empty result from domain-only search: skip cache — a call with
+    // companyName might find the account via name fallback.
+  }
 
   const settings = await getFreshsalesConfig();
 
@@ -163,23 +174,85 @@ export async function getFreshsalesIntel(
       console.warn(
         `[Freshsales] Account search failed for ${normalized}: ${accountRes.status}`
       );
-      const result = EMPTY_INTEL(normalized);
-      await setCached(cacheKey, result, cacheTtl);
-      return result;
+      // Don't cache failures — transient errors shouldn't block retries
+      return EMPTY_INTEL(normalized);
     }
 
     checkRateLimit(accountRes.headers);
-    const accountData = await accountRes.json();
-    const accounts = accountData.sales_accounts ?? [];
+    let accountData: Record<string, unknown>;
+    try {
+      accountData = await accountRes.json();
+    } catch {
+      console.error("[Freshsales] Malformed JSON in account search response");
+      return EMPTY_INTEL(normalized);
+    }
+    const accounts = (accountData.sales_accounts as unknown[]) ?? [];
+
+    if (accounts.length === 0 && companyName) {
+      // Fallback: search by company name
+      console.log("[Freshsales] domain search empty, trying name fallback:", companyName);
+      const nameRes = await fetch(`${baseUrl}/filtered_search/sales_account`, {
+        method: "POST",
+        headers: freshsalesHeaders(),
+        body: JSON.stringify({
+          filter_rule: [
+            {
+              attribute: "name",
+              operator: "contains",
+              value: companyName,
+            },
+          ],
+        }),
+      });
+
+      if (nameRes.ok) {
+        checkRateLimit(nameRes.headers);
+        try {
+          const nameData = await nameRes.json();
+          const nameAccounts = nameData.sales_accounts ?? [];
+          if (nameAccounts.length > 0) {
+            accounts.push(...nameAccounts);
+          }
+        } catch {
+          console.error("[Freshsales] Malformed JSON in name fallback response");
+        }
+      }
+    }
 
     if (accounts.length === 0) {
+      // Last resort: direct contact search by company name (no account match needed)
+      if (companyName) {
+        const directContacts = await fetchFreshsalesContactsByCompanyName(baseUrl, companyName, normalized);
+        if (directContacts.length > 0) {
+          console.log(`[Freshsales] Found ${directContacts.length} contacts via direct company_name search for "${companyName}"`);
+          const result: FreshsalesIntel = {
+            domain: normalized,
+            status: "none",
+            account: null,
+            contacts: directContacts,
+            deals: [],
+            recentActivity: [],
+            lastContactDate: null,
+          };
+          await setCached(cacheKey, result, cacheTtl);
+          return result;
+        }
+      }
       const result = EMPTY_INTEL(normalized);
-      await setCached(cacheKey, result, cacheTtl);
+      // Only cache empty results if companyName was provided (exhausted all search paths).
+      // Without companyName, a subsequent call with name might find the account.
+      if (companyName) {
+        await setCached(cacheKey, result, cacheTtl);
+      }
       return result;
     }
 
-    const account = accounts[0];
-    const accountId = account.id;
+    if (accounts.length > 1) {
+      console.warn(`[Freshsales] ${accounts.length} accounts found for ${normalized}, using first`);
+    }
+
+    const account = accounts[0] as Record<string, unknown>;
+    const accountId = account.id as number;
 
     // Step 2: Parallel fetch contacts + deals
     const [contactsData, dealsData] = await Promise.all([
@@ -191,10 +264,25 @@ export async function getFreshsalesIntel(
       ? deriveStatus(dealsData)
       : "new_lead";
 
+    // Tag contacts with CRM status derived from deals (immutable — map to new objects)
+    const crmStatusLabel: Record<FreshsalesStatus, string> = {
+      none: "",
+      new_lead: "New Lead",
+      contacted: "Contacted",
+      negotiation: "Negotiation",
+      won: "Customer",
+      lost: "Lost",
+      customer: "Customer",
+    };
+    const statusTag = crmStatusLabel[status] || "";
+    const taggedContacts = statusTag
+      ? contactsData.map((c) => ({ ...c, crmStatus: statusTag }))
+      : contactsData;
+
     // Derive last contact date from most recent activity or deal
     let lastContactDate: string | null = null;
-    if (contactsData.length > 0) {
-      const verified = contactsData
+    if (taggedContacts.length > 0) {
+      const verified = taggedContacts
         .map((c) => c.lastVerified)
         .filter(Boolean) as string[];
       if (verified.length > 0) {
@@ -208,12 +296,14 @@ export async function getFreshsalesIntel(
       status,
       account: {
         id: accountId,
-        name: account.name || normalized,
-        website: account.website || null,
-        industry: account.industry_type?.name || account.industry_type || null,
-        employees: account.number_of_employees || null,
+        name: (account.name as string) || normalized,
+        website: (account.website as string) || null,
+        industry: (account.industry_type as Record<string, unknown>)?.name as string
+          || (account.industry_type as string)
+          || null,
+        employees: (account.number_of_employees as number) || null,
       },
-      contacts: contactsData,
+      contacts: taggedContacts,
       deals: dealsData,
       recentActivity: [], // Activity fetch can be added later if needed
       lastContactDate,
@@ -257,9 +347,19 @@ async function fetchFreshsalesContacts(
     }
 
     checkRateLimit(res.headers);
-    const data = await res.json();
-    const rawContacts = data.contacts ?? [];
+    let data: Record<string, unknown>;
+    try {
+      data = await res.json();
+    } catch {
+      console.error("[Freshsales] Malformed JSON in contacts response");
+      return [];
+    }
+    const rawContacts = (data.contacts as Record<string, unknown>[]) ?? [];
 
+    // Freshsales contacts are CRM records — do NOT run sanitizeContacts on them.
+    // sanitizeContacts filters out contacts whose email domain matches the company
+    // domain, which is exactly wrong for CRM data (we want our known contacts AT
+    // the company).
     const contacts: Contact[] = rawContacts.map(
       (raw: Record<string, unknown>, i: number) => ({
         id: `freshsales-${raw.id || i}`,
@@ -279,9 +379,72 @@ async function fetchFreshsalesContacts(
       })
     );
 
-    return sanitizeContacts(contacts, domain);
+    return contacts;
   } catch (err) {
     console.error("[Freshsales] fetchFreshsalesContacts error:", err);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Fetch contacts by company_name (no account match needed)
+// ---------------------------------------------------------------------------
+
+async function fetchFreshsalesContactsByCompanyName(
+  baseUrl: string,
+  companyName: string,
+  domain: string
+): Promise<Contact[]> {
+  try {
+    const res = await fetch(`${baseUrl}/filtered_search/contact`, {
+      method: "POST",
+      headers: freshsalesHeaders(),
+      body: JSON.stringify({
+        filter_rule: [
+          {
+            attribute: "company_name",
+            operator: "contains",
+            value: companyName,
+          },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      console.warn(`[Freshsales] Direct contact search failed: ${res.status}`);
+      return [];
+    }
+
+    checkRateLimit(res.headers);
+    let data: Record<string, unknown>;
+    try {
+      data = await res.json();
+    } catch {
+      console.error("[Freshsales] Malformed JSON in direct contact search response");
+      return [];
+    }
+    const rawContacts = (data.contacts as Record<string, unknown>[]) ?? [];
+
+    return rawContacts.map(
+      (raw: Record<string, unknown>, i: number) => ({
+        id: `freshsales-${raw.id || i}`,
+        companyDomain: domain,
+        companyName: (raw.company as Record<string, unknown>)?.name as string || companyName,
+        firstName: (raw.first_name as string) || "",
+        lastName: (raw.last_name as string) || "",
+        title: (raw.job_title as string) || "",
+        email: (raw.email as string) || null,
+        phone: (raw.mobile_number as string) || (raw.work_number as string) || null,
+        linkedinUrl: (raw.linkedin as string) || null,
+        emailConfidence: raw.email ? 75 : 0,
+        confidenceLevel: raw.email ? "medium" : "none",
+        sources: ["freshsales"] as Contact["sources"],
+        seniority: mapSeniority(raw.job_title as string),
+        lastVerified: (raw.updated_at as string) || null,
+      })
+    );
+  } catch (err) {
+    console.error("[Freshsales] fetchFreshsalesContactsByCompanyName error:", err);
     return [];
   }
 }
@@ -315,8 +478,14 @@ async function fetchFreshsalesDeals(
     }
 
     checkRateLimit(res.headers);
-    const data = await res.json();
-    const rawDeals = data.deals ?? [];
+    let data: Record<string, unknown>;
+    try {
+      data = await res.json();
+    } catch {
+      console.error("[Freshsales] Malformed JSON in deals response");
+      return [];
+    }
+    const rawDeals = (data.deals as Record<string, unknown>[]) ?? [];
 
     return rawDeals.map((raw: Record<string, unknown>) => ({
       id: raw.id as number,
@@ -338,12 +507,12 @@ async function fetchFreshsalesDeals(
 // Thin wrappers
 // ---------------------------------------------------------------------------
 
-export async function getFreshsalesContacts(domain: string): Promise<Contact[]> {
-  const intel = await getFreshsalesIntel(domain);
+export async function getFreshsalesContacts(domain: string, companyName?: string): Promise<Contact[]> {
+  const intel = await getFreshsalesIntel(domain, companyName);
   return intel.contacts;
 }
 
-export async function getFreshsalesStatus(domain: string): Promise<FreshsalesStatus> {
-  const intel = await getFreshsalesIntel(domain);
+export async function getFreshsalesStatus(domain: string, companyName?: string): Promise<FreshsalesStatus> {
+  const intel = await getFreshsalesIntel(domain, companyName);
   return intel.status;
 }

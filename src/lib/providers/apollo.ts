@@ -185,7 +185,10 @@ export async function findContacts(domain: string): Promise<Contact[]> {
 // On-demand: call when user clicks "Reveal" on a contact
 // ---------------------------------------------------------------------------
 
-export async function enrichContact(apolloId: string): Promise<Contact | null> {
+export async function enrichContact(
+  apolloId: string,
+  hint?: { firstName?: string; lastName?: string; domain?: string }
+): Promise<Contact | null> {
   if (!isApolloAvailable()) return null;
 
   const cacheKey = `apollo:person:${apolloId}`;
@@ -193,25 +196,60 @@ export async function enrichContact(apolloId: string): Promise<Contact | null> {
   if (cached) return cached;
 
   try {
+    // Try ID-based match first
     const res = await fetch(`${APOLLO_BASE_URL}/people/match`, {
       method: "POST",
       headers: apolloHeaders(),
       body: JSON.stringify({
         id: apolloId,
-        reveal_personal_emails: false,
-        reveal_phone_number: false,
+        reveal_personal_emails: true,
+        reveal_phone_number: true,
       }),
     });
 
-    if (!res.ok) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let p: any = null;
+
+    if (res.ok) {
+      const data = await res.json();
+      p = data.person ?? null;
+    } else {
       console.warn(
-        `[Apollo] enrichContact failed for ${apolloId}: ${res.status} ${res.statusText}`
+        `[Apollo] enrichContact ID match failed for ${apolloId}: ${res.status} ${res.statusText}`
       );
-      return null;
     }
 
-    const data = await res.json();
-    const p = data.person;
+    // Fallback: name + domain match if ID didn't resolve or returned no email
+    if ((!p || !p.email) && hint?.firstName && hint?.domain) {
+      try {
+        const fallbackBody: Record<string, unknown> = {
+          first_name: hint.firstName,
+          domain: hint.domain,
+          reveal_personal_emails: true,
+          reveal_phone_number: true,
+        };
+        // Only include last_name if it's not obfuscated (contains ***)
+        if (hint.lastName && !hint.lastName.includes("*")) {
+          fallbackBody.last_name = hint.lastName;
+        }
+
+        const fallbackRes = await fetch(`${APOLLO_BASE_URL}/people/match`, {
+          method: "POST",
+          headers: apolloHeaders(),
+          body: JSON.stringify(fallbackBody),
+        });
+
+        if (fallbackRes.ok) {
+          const fallbackData = await fallbackRes.json();
+          if (fallbackData.person?.email) {
+            p = fallbackData.person;
+          }
+        }
+      } catch (fallbackErr) {
+        console.warn("[Apollo] enrichContact name fallback failed:", fallbackErr);
+      }
+    }
+
     if (!p) return null;
 
     const org = p.organization || {};
@@ -244,6 +282,32 @@ export async function enrichContact(apolloId: string): Promise<Contact | null> {
     return contact;
   } catch (err) {
     console.error("[Apollo] enrichContact error:", err);
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// getApolloCredits — GET /auth/health for plan/credit info
+// ---------------------------------------------------------------------------
+
+export async function getApolloCredits(): Promise<{ available: number; total: number } | null> {
+  if (!isApolloAvailable()) return null;
+
+  try {
+    const res = await fetch(`${APOLLO_BASE_URL}/auth/health`, {
+      method: "GET",
+      headers: apolloHeaders(),
+    });
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const plan = data.plan ?? data;
+    const available = plan.credits_remaining ?? plan.credits_available ?? null;
+    const total = plan.credits_limit ?? plan.credits_total ?? null;
+    if (available === null) return null;
+    return { available, total: total ?? available };
+  } catch {
     return null;
   }
 }

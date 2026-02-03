@@ -1,46 +1,62 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { enrichContact, isApolloAvailable } from "@/lib/providers/apollo";
+import { findEmail, isClearoutAvailable } from "@/lib/providers/clearout";
 
-export async function POST(request: Request) {
-  if (!isApolloAvailable()) {
-    return NextResponse.json(
-      { contact: null, error: "APOLLO_API_KEY not configured." },
-      { status: 503 }
-    );
-  }
-
-  let body: { apolloId?: string };
+export async function POST(request: NextRequest) {
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(
-      { contact: null, error: "Invalid request body." },
-      { status: 400 }
-    );
-  }
+    const body = await request.json();
+    const { apolloId, firstName, lastName, domain } = body;
 
-  const { apolloId } = body;
-  if (!apolloId) {
-    return NextResponse.json(
-      { contact: null, error: "apolloId is required." },
-      { status: 400 }
-    );
-  }
-
-  try {
-    const contact = await enrichContact(apolloId);
-    if (!contact) {
+    if (!apolloId) {
       return NextResponse.json(
-        { contact: null, error: "Contact not found or enrichment failed." },
-        { status: 404 }
+        { error: "apolloId is required" },
+        { status: 400 }
       );
+    }
+
+    if (!isApolloAvailable()) {
+      return NextResponse.json(
+        { error: "Apollo not configured", contact: null },
+        { status: 503 }
+      );
+    }
+
+    const contact = await enrichContact(apolloId, {
+      firstName: firstName || undefined,
+      lastName: lastName || undefined,
+      domain: domain || undefined,
+    });
+
+    if (!contact) {
+      return NextResponse.json({ contact: null, message: "No data found" });
+    }
+
+    // Clearout fallback: if Apollo returned contact but no email, try Clearout
+    if (!contact.email && firstName && domain && isClearoutAvailable()) {
+      try {
+        const clearoutResult = await findEmail(
+          `${firstName} ${lastName || ""}`.trim(),
+          domain
+        );
+        if (clearoutResult.status === "found" && clearoutResult.email) {
+          contact.email = clearoutResult.email;
+          contact.emailConfidence = clearoutResult.confidence;
+          contact.confidenceLevel =
+            clearoutResult.confidence >= 90 ? "high" : clearoutResult.confidence >= 70 ? "medium" : "low";
+          if (!contact.sources.includes("clearout")) {
+            contact.sources = [...contact.sources, "clearout"];
+          }
+        }
+      } catch (clearoutErr) {
+        console.warn("[Contact Enrich] Clearout fallback failed:", clearoutErr);
+      }
     }
 
     return NextResponse.json({ contact });
   } catch (err) {
-    console.error("[Contact Enrich] failed:", err);
+    console.error("[Contact Enrich] error:", err);
     return NextResponse.json(
-      { contact: null, error: "Enrichment failed." },
+      { error: "Failed to enrich contact", contact: null },
       { status: 500 }
     );
   }
