@@ -2,6 +2,7 @@
 
 import type { CompanyEnriched, FreshsalesIntel, FreshsalesStatus } from "@/lib/types";
 import { useStore } from "@/lib/store";
+import { defaultFreshsalesSettings } from "@/lib/mock-data";
 import { MissingData } from "@/components/shared/MissingData";
 
 interface DossierFreshsalesProps {
@@ -46,13 +47,21 @@ function daysAgo(dateStr: string): number {
 }
 
 export function DossierFreshsales({ company }: DossierFreshsalesProps) {
-  const settings = useStore((s) => s.adminConfig.freshsalesSettings);
+  const raw = useStore((s) => s.adminConfig.freshsalesSettings);
+  const settings = { ...defaultFreshsalesSettings, ...raw };
+  const isAdmin = useStore((s) => s.isAdmin);
   const intel: FreshsalesIntel | null = company.freshsalesIntel ?? null;
   const status = company.freshsalesStatus ?? "none";
   const colors = statusColors[status] ?? statusColors.none;
   const statusLabel = settings.statusLabels[status] ?? status;
+  const freshsalesAvailable = company.freshsalesAvailable ?? true;
 
   if (!settings.enabled) return null;
+
+  // Safe array accessors for intel fields
+  const deals = (intel && Array.isArray(intel.deals)) ? intel.deals : [];
+  const contacts = (intel && Array.isArray(intel.contacts)) ? intel.contacts : [];
+  const recentActivity = (intel && Array.isArray(intel.recentActivity)) ? intel.recentActivity : [];
 
   // Recency banner
   const showRecencyBanner =
@@ -83,8 +92,14 @@ export function DossierFreshsales({ company }: DossierFreshsalesProps) {
         </div>
       )}
 
-      {status === "none" || !intel ? (
-        <MissingData label={settings.emptyStateLabel} />
+      {settings.enabled && !freshsalesAvailable ? (
+        isAdmin ? (
+          <p className="text-xs text-warning/80">Freshsales integration not configured (API key or domain missing)</p>
+        ) : (
+          <MissingData label={settings.emptyStateLabel} />
+        )
+      ) : status === "none" || !intel ? (
+        <MissingData label={`No Freshsales records for ${company.domain}`} />
       ) : (
         <div className="space-y-3">
           {/* Account info */}
@@ -106,13 +121,13 @@ export function DossierFreshsales({ company }: DossierFreshsalesProps) {
           )}
 
           {/* Deals */}
-          {settings.showDeals && intel.deals.length > 0 && (
+          {settings.showDeals !== false && deals.length > 0 && (
             <div>
               <span className="block text-[10px] text-text-tertiary mb-1">
-                Deals ({intel.deals.length})
+                Deals ({deals.length})
               </span>
               <div className="space-y-1.5">
-                {intel.deals.slice(0, 5).map((deal) => (
+                {deals.slice(0, 5).map((deal) => (
                   <div
                     key={deal.id}
                     className="flex items-center justify-between rounded-input bg-surface-1 px-2 py-1.5"
@@ -138,13 +153,13 @@ export function DossierFreshsales({ company }: DossierFreshsalesProps) {
           )}
 
           {/* Contacts */}
-          {settings.showContacts && intel.contacts.length > 0 && (
+          {settings.showContacts !== false && contacts.length > 0 && (
             <div>
               <span className="block text-[10px] text-text-tertiary mb-1">
-                Contacts ({intel.contacts.length})
+                Contacts ({contacts.length})
               </span>
               <div className="space-y-1.5">
-                {intel.contacts.slice(0, 5).map((c) => (
+                {contacts.slice(0, 5).map((c) => (
                   <div
                     key={c.id}
                     className="flex items-center justify-between rounded-input bg-surface-1 px-2 py-1.5"
@@ -164,13 +179,13 @@ export function DossierFreshsales({ company }: DossierFreshsalesProps) {
           )}
 
           {/* Recent Activity */}
-          {settings.showActivity && intel.recentActivity.length > 0 && (
+          {settings.showActivity !== false && recentActivity.length > 0 && (
             <div>
               <span className="block text-[10px] text-text-tertiary mb-1">
                 Recent Activity
               </span>
               <div className="space-y-1">
-                {intel.recentActivity.slice(0, 5).map((act, i) => (
+                {recentActivity.slice(0, 5).map((act, i) => (
                   <div key={i} className="flex items-start gap-2 text-[11px]">
                     <span className="flex-shrink-0 text-text-tertiary">
                       {formatDate(act.date)}

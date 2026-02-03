@@ -155,6 +155,7 @@ export interface CompanyEnriched {
   hubspotStatus: HubSpotStatus;
   freshsalesStatus: FreshsalesStatus;
   freshsalesIntel: FreshsalesIntel | null;
+  freshsalesAvailable?: boolean;
   sources: ResultSource[];
   signals: Signal[];
   contactCount: number;
@@ -165,6 +166,8 @@ export interface CompanyEnriched {
   website?: string;
   phone?: string;
   aiSummary?: string;
+  exactMatch?: boolean;
+  icpBreakdown?: { factor: string; points: number; matched: boolean }[];
 }
 
 
@@ -210,6 +213,10 @@ export interface Contact {
   sources: ResultSource[];
   seniority: "c_level" | "vp" | "director" | "manager" | "staff";
   lastVerified: string | null;
+  fieldSources?: Partial<Record<"email" | "phone" | "title" | "linkedinUrl", ResultSource>>;
+  crmStatus?: string;
+  verificationStatus?: "unverified" | "valid" | "valid_risky" | "invalid" | "unknown";
+  safeToSend?: boolean;
 }
 
 export interface Signal {
@@ -264,6 +271,15 @@ export interface FilterState {
 }
 
 export type SizeBucket = "1-50" | "51-200" | "201-1000" | "1000+";
+
+export type ContactSortField = "seniority" | "email_confidence" | "icp_score" | "last_contacted";
+
+export interface ContactTabFilters {
+  seniority: string[];
+  hasEmail: boolean;
+  sources: string[];
+  sortBy: ContactSortField;
+}
 
 export type QuickFilter =
   | "high_icp"
@@ -412,7 +428,7 @@ export interface ExportFlowState {
   verifiedCount: number;
   totalCount: number;
   errorMessage?: string;
-  mode: "csv" | "clipboard";
+  mode: "csv" | "clipboard" | "excel";
 }
 
 export interface VerificationResult {
@@ -628,4 +644,14 @@ export interface EmailPromptsConfig {
   systemPromptSuffix: string;
   defaultTone: EmailTone;
   defaultTemplate: EmailTemplate;
+}
+
+// ---------------------------------------------------------------------------
+// Extracted Entities from NL search (for editable chips)
+// ---------------------------------------------------------------------------
+
+export interface ExtractedEntities {
+  verticals: string[];
+  regions: string[];
+  signals: string[];
 }

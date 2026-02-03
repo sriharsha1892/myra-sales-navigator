@@ -3,7 +3,6 @@ import { normalizeDomain, getCached, setCached, deleteCached, CacheKeys, CacheTT
 import { findContacts, enrichContact, isApolloAvailable } from "@/lib/providers/apollo";
 import { getHubSpotContacts, isHubSpotAvailable } from "@/lib/providers/hubspot";
 import { getFreshsalesContacts, isFreshsalesAvailable } from "@/lib/providers/freshsales";
-import { findEmailsBatch, isClearoutAvailable } from "@/lib/providers/clearout";
 import type { Contact } from "@/lib/types";
 
 export async function GET(
@@ -93,36 +92,6 @@ export async function GET(
             };
           }
         }
-      }
-    }
-
-    // Clearout fallback: find emails for contacts still missing them
-    const stillNeedsEmail = merged
-      .filter((c) => !c.email && c.firstName && c.lastName)
-      .slice(0, 10);
-    if (stillNeedsEmail.length > 0 && isClearoutAvailable()) {
-      console.log(`[Contacts] ${normalized}: trying Clearout for ${stillNeedsEmail.length} contacts without email`);
-      try {
-        const clearoutResults = await findEmailsBatch(
-          stillNeedsEmail.map((c) => ({ contactId: c.id, firstName: c.firstName, lastName: c.lastName })),
-          normalized
-        );
-        for (const cr of clearoutResults) {
-          if (cr.status === "found" && cr.email) {
-            const idx = merged.findIndex((c) => c.id === cr.contactId);
-            if (idx !== -1) {
-              merged[idx].email = cr.email;
-              merged[idx].emailConfidence = cr.confidence;
-              merged[idx].confidenceLevel = cr.confidence >= 90 ? "high" : cr.confidence >= 70 ? "medium" : "low";
-              if (!merged[idx].sources.includes("clearout")) {
-                merged[idx].sources = [...merged[idx].sources, "clearout"];
-              }
-              merged[idx].fieldSources = { ...merged[idx].fieldSources, email: "clearout" };
-            }
-          }
-        }
-      } catch (clearoutErr) {
-        console.warn("[Contacts] Clearout fallback failed:", clearoutErr);
       }
     }
 

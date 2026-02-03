@@ -2,14 +2,19 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { useStore } from "@/lib/store";
-import type { CompanyEnriched, FilterState } from "@/lib/types";
+import type { CompanyEnriched, FilterState, ExtractedEntities } from "@/lib/types";
 
 interface SearchParams {
   filters?: FilterState;
   freeText?: string;
 }
 
-async function searchCompanies(params: SearchParams): Promise<CompanyEnriched[]> {
+interface SearchResponse {
+  companies: CompanyEnriched[];
+  extractedEntities?: ExtractedEntities;
+}
+
+async function searchCompanies(params: SearchParams): Promise<SearchResponse> {
   const res = await fetch("/api/search/companies", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -20,18 +25,25 @@ async function searchCompanies(params: SearchParams): Promise<CompanyEnriched[]>
     throw new Error(err.error || "Search failed");
   }
   const data = await res.json();
-  return data.companies ?? [];
+  return {
+    companies: data.companies ?? [],
+    extractedEntities: data.extractedEntities ?? undefined,
+  };
 }
 
 export function useSearch() {
   const setSearchResults = useStore((s) => s.setSearchResults);
   const setSearchError = useStore((s) => s.setSearchError);
+  const setExtractedEntities = useStore((s) => s.setExtractedEntities);
 
   const mutation = useMutation({
     mutationFn: searchCompanies,
     onSuccess: (data) => {
-      setSearchResults(data);
+      setSearchResults(data.companies);
       setSearchError(null);
+      if (data.extractedEntities) {
+        setExtractedEntities(data.extractedEntities);
+      }
     },
     onError: (error: Error) => {
       setSearchResults([]);
@@ -43,11 +55,12 @@ export function useSearch() {
     search: mutation.mutate,
     isSearching: mutation.isPending,
     searchError: mutation.error?.message ?? null,
-    searchResults: mutation.data ?? null,
+    searchResults: mutation.data?.companies ?? null,
     reset: () => {
       mutation.reset();
       setSearchResults(null);
       setSearchError(null);
+      setExtractedEntities(null);
     },
   };
 }

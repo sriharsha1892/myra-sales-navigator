@@ -55,14 +55,18 @@ const GENERIC_EMAIL_DOMAINS = new Set([
   "rediffmail.com",
 ]);
 
-export function sanitizeContacts(contacts: Contact[], _domain: string): Contact[] {
+export function sanitizeContacts(contacts: Contact[], domain: string): Contact[] {
+  const normalizedDomain = domain.toLowerCase();
   return contacts
     .filter((c) => {
       // Keep contacts with no email — they may still have phone/name info
       if (!c.email) return true;
-      // Filter out contacts with generic/personal email providers
-      // (e.g. gmail.com, yahoo.com) — these aren't useful corporate contacts
       const emailDomain = c.email.toLowerCase().split("@")[1];
+      // Exclude contacts whose email matches the queried company domain (own-domain)
+      if (emailDomain === normalizedDomain) {
+        return false;
+      }
+      // Filter out contacts with generic/personal email providers
       if (emailDomain && GENERIC_EMAIL_DOMAINS.has(emailDomain)) {
         return false;
       }
@@ -374,9 +378,27 @@ export async function getHubSpotContacts(
       }
     );
 
-    // If domain-based search returned nothing, try company-association approach
-    if (contacts.length === 0 && status.status !== "none") {
-      return await getContactsViaCompanyAssociation(normalized);
+    // If domain-based search returned nothing or few results, try company-association approach
+    if (status.status !== "none") {
+      if (contacts.length === 0) {
+        return await getContactsViaCompanyAssociation(normalized);
+      }
+      // Supplement: also check company associations for contacts with different email domains
+      try {
+        const assocContacts = await getContactsViaCompanyAssociation(normalized);
+        // Merge any new contacts not already found by domain search
+        const existingEmails = new Set(contacts.filter((c) => c.email).map((c) => c.email!.toLowerCase()));
+        const existingNames = new Set(contacts.map((c) => `${c.firstName.toLowerCase()}|${c.lastName.toLowerCase()}`));
+        for (const ac of assocContacts) {
+          const emailKey = ac.email?.toLowerCase();
+          const nameKey = `${ac.firstName.toLowerCase()}|${ac.lastName.toLowerCase()}`;
+          if ((!emailKey || !existingEmails.has(emailKey)) && !existingNames.has(nameKey)) {
+            contacts.push(ac);
+          }
+        }
+      } catch {
+        // Association fallback is best-effort
+      }
     }
 
     const sanitized = sanitizeContacts(contacts, normalized);

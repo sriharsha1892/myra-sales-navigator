@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, beforeAll, vi } from "vitest";
+import { describe, it, expect, afterEach, beforeAll, beforeEach, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import type { Contact } from "@/lib/types";
 
@@ -6,6 +6,17 @@ import type { Contact } from "@/lib/types";
 beforeAll(() => {
   Element.prototype.scrollTo = vi.fn();
 });
+
+// ---------------------------------------------------------------------------
+// Mock @tanstack/react-query (ContactCard uses useQueryClient)
+// ---------------------------------------------------------------------------
+
+vi.mock("@tanstack/react-query", () => ({
+  useQueryClient: () => ({
+    setQueriesData: vi.fn(),
+    invalidateQueries: vi.fn(),
+  }),
+}));
 
 // ---------------------------------------------------------------------------
 // Mock hooks
@@ -19,6 +30,21 @@ vi.mock("@/hooks/useContactsTab", () => ({
 
 vi.mock("@/hooks/useSearchHistory", () => ({
   useSearchHistory: () => ({ history: [], isLoading: false }),
+}));
+
+vi.mock("@/hooks/useInlineFeedback", () => ({
+  useInlineFeedback: () => ({
+    trigger: vi.fn(),
+    FeedbackLabel: null,
+  }),
+}));
+
+vi.mock("@/lib/ui-copy", () => ({
+  pick: (key: string) => key,
+}));
+
+vi.mock("@/components/layout/MyProspects", () => ({
+  MyProspects: () => null,
 }));
 
 // ---------------------------------------------------------------------------
@@ -64,12 +90,14 @@ vi.mock("@/lib/store", async () => {
     slideOverOpen: false,
     slideOverMode: "dossier",
     recentDomains: [] as string[],
+    triggerDossierScrollToTop: vi.fn(),
 
     // Actions
     toggleContactSelection: vi.fn(),
     toggleCompanySelection: vi.fn(),
     toggleContactGroupCollapsed: vi.fn(),
     selectCompany: vi.fn(),
+    updateContact: vi.fn(),
     setViewMode: vi.fn(),
     setContactFilters: vi.fn(),
     setContactVisibleFields: vi.fn(),
@@ -126,9 +154,24 @@ function makeContact(overrides: Partial<Contact> = {}): Contact {
   };
 }
 
+beforeEach(() => {
+  // Mock fetch for session endpoints that ResultsList calls on mount
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({ trending: [] }),
+  }));
+  // Mock localStorage
+  vi.stubGlobal("localStorage", {
+    getItem: vi.fn().mockReturnValue("1"),
+    setItem: vi.fn(),
+    removeItem: vi.fn(),
+  });
+});
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
 
 // ---------------------------------------------------------------------------
@@ -143,6 +186,9 @@ describe("ContactsView render branches", () => {
       totalCount: 5,
       estimatedTotal: 25,
       groupedContacts: [],
+      personaGroups: [],
+      failedDomains: new Set<string>(),
+      retryDomain: vi.fn(),
     });
 
     useStore.setState({ viewMode: "contacts", searchResults: [] });
@@ -160,6 +206,9 @@ describe("ContactsView render branches", () => {
       totalCount: 5,
       estimatedTotal: 0,
       groupedContacts: [],
+      personaGroups: [],
+      failedDomains: new Set<string>(),
+      retryDomain: vi.fn(),
     });
 
     useStore.setState({ viewMode: "contacts", searchResults: [] });
@@ -181,6 +230,9 @@ describe("ContactsView render branches", () => {
       totalCount: 5,
       estimatedTotal: 25,
       groupedContacts: [{ domain: "alpha.com", companyName: "Alpha", icpScore: 85, contacts }],
+      personaGroups: [{ persona: "decision_makers", label: "Decision Makers", contacts: contacts.map((c) => ({ ...c, companyDomain: "alpha.com", companyName: "Alpha" })) }],
+      failedDomains: new Set<string>(),
+      retryDomain: vi.fn(),
     });
 
     useStore.setState({ viewMode: "contacts", searchResults: [] });
@@ -205,6 +257,9 @@ describe("ContactsView render branches", () => {
         { domain: "alpha.com", companyName: "Alpha", icpScore: 90, contacts: contacts1 },
         { domain: "beta.com", companyName: "Beta", icpScore: 80, contacts: contacts2 },
       ],
+      personaGroups: [{ persona: "decision_makers", label: "Decision Makers", contacts: [...contacts1, ...contacts2].map((c) => ({ ...c })) }],
+      failedDomains: new Set<string>(),
+      retryDomain: vi.fn(),
     });
 
     useStore.setState({ viewMode: "contacts", searchResults: [] });
@@ -212,8 +267,77 @@ describe("ContactsView render branches", () => {
     const ResultsList = await importResultsList();
     render(<ResultsList />);
 
-    expect(screen.getByText("Alpha")).toBeInTheDocument();
-    expect(screen.getByText("Beta")).toBeInTheDocument();
+    // With persona grouping, we see persona headers instead of company names
+    expect(screen.getByText(/Decision Makers/)).toBeInTheDocument();
+  });
+
+  it("renders error boundary fallback when child crashes", async () => {
+    // Provide personaGroups with a proxy that throws during ContactsView's .map iteration
+    const realGroup = { domain: "crash.com", companyName: "Crash Co", icpScore: 50, contacts: [makeContact({ id: "c1" })] };
+    const groupsArray = [realGroup];
+
+    // personaGroups array that throws on .map (used in ContactsView render)
+    const personaGroupsArray = [{ persona: "decision_makers", label: "Decision Makers", contacts: [makeContact({ id: "c1" })] }];
+    const originalReduce = personaGroupsArray.reduce;
+    Object.defineProperty(personaGroupsArray, "map", {
+      value: function () {
+        throw new Error("render crash");
+      },
+      configurable: true,
+    });
+    Object.defineProperty(personaGroupsArray, "reduce", {
+      value: originalReduce,
+      configurable: true,
+    });
+
+    mockUseContactsTab.mockReturnValue({
+      isLoading: false,
+      fetchedCount: 1,
+      totalCount: 1,
+      estimatedTotal: 1,
+      groupedContacts: groupsArray,
+      personaGroups: personaGroupsArray,
+      failedDomains: new Set<string>(),
+      retryDomain: vi.fn(),
+    });
+
+    useStore.setState({ viewMode: "contacts", searchResults: [] });
+
+    const ResultsList = await importResultsList();
+
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    render(<ResultsList />);
+    spy.mockRestore();
+
+    expect(screen.getByText("Something went wrong rendering contacts.")).toBeInTheDocument();
+    expect(screen.getByText("Reload")).toBeInTheDocument();
+  });
+
+  it("renders failed domains banner with retry button", async () => {
+    const contacts = [
+      makeContact({ id: "c1", companyDomain: "alpha.com", companyName: "Alpha" }),
+    ];
+
+    mockUseContactsTab.mockReturnValue({
+      isLoading: false,
+      fetchedCount: 2,
+      totalCount: 2,
+      estimatedTotal: 2,
+      groupedContacts: [
+        { domain: "alpha.com", companyName: "Alpha", icpScore: 90, contacts },
+      ],
+      personaGroups: [{ persona: "decision_makers", label: "Decision Makers", contacts: contacts.map((c) => ({ ...c })) }],
+      failedDomains: new Set(["beta.com", "gamma.com"]),
+      retryDomain: vi.fn(),
+    });
+
+    useStore.setState({ viewMode: "contacts", searchResults: [] });
+
+    const ResultsList = await importResultsList();
+    render(<ResultsList />);
+
+    expect(screen.getByText("2 companies failed to load contacts")).toBeInTheDocument();
+    expect(screen.getByText("Retry")).toBeInTheDocument();
   });
 
   it("collapsed groups hide their contact cards", async () => {
@@ -229,19 +353,22 @@ describe("ContactsView render branches", () => {
       groupedContacts: [
         { domain: "alpha.com", companyName: "Alpha", icpScore: 90, contacts },
       ],
+      personaGroups: [{ persona: "decision_makers", label: "Decision Makers", contacts: contacts.map((c) => ({ ...c })) }],
+      failedDomains: new Set<string>(),
+      retryDomain: vi.fn(),
     });
 
     useStore.setState({
       viewMode: "contacts",
       searchResults: [],
-      contactGroupsCollapsed: { "alpha.com": true },
+      contactGroupsCollapsed: { "decision_makers": true },
     });
 
     const ResultsList = await importResultsList();
     render(<ResultsList />);
 
-    // Company header should be visible
-    expect(screen.getByText("Alpha")).toBeInTheDocument();
+    // Persona header should be visible
+    expect(screen.getByText(/Decision Makers/)).toBeInTheDocument();
     // Contact name should NOT be visible (group is collapsed)
     expect(screen.queryByText("Jane Doe")).not.toBeInTheDocument();
   });

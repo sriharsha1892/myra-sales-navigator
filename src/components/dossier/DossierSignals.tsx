@@ -2,6 +2,7 @@
 
 import type { Signal } from "@/lib/types";
 import { SourceBadge } from "@/components/badges";
+import { pick } from "@/lib/ui-copy";
 
 interface DossierSignalsProps {
   signals: Signal[];
@@ -21,7 +22,7 @@ export function DossierSignals({ signals }: DossierSignalsProps) {
         <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
           Signals
         </h3>
-        <p className="text-xs italic text-text-tertiary">No recent activity found (hiring, funding, expansion). This company may be quiet right now.</p>
+        <p className="text-xs italic text-text-tertiary">{pick("empty_dossier_signals")}</p>
       </div>
     );
   }

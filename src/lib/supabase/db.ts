@@ -329,6 +329,10 @@ function mapCompanyRow(row: any): CompanyRecord {
     excludedBy: row.excluded_by,
     excludedAt: row.excluded_at,
     exclusionReason: row.exclusion_reason,
+    status: row.status ?? "new",
+    statusChangedBy: row.status_changed_by ?? null,
+    statusChangedAt: row.status_changed_at ?? null,
+    viewedBy: row.viewed_by ?? null,
   };
 }
 

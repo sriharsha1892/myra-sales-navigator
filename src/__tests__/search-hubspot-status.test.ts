@@ -10,16 +10,26 @@ vi.stubEnv("HUBSPOT_ACCESS_TOKEN", "test-hubspot-token");
 // ---------------------------------------------------------------------------
 // Mock Supabase server client (used by exclusion list + search history)
 // ---------------------------------------------------------------------------
-vi.mock("@/lib/supabase/server", () => ({
-  createServerClient: () => ({
-    from: () => ({
-      select: () => Promise.resolve({ data: [] }),
-      insert: () => ({
-        then: (cb: (v: { error: null }) => void) => cb({ error: null }),
-      }),
+vi.mock("@/lib/supabase/server", () => {
+  const chainable = {
+    select: () => {
+      const result = Promise.resolve({ data: [] });
+      // Support both await and .eq().single() chaining
+      (result as unknown as Record<string, unknown>).eq = () => ({
+        single: () => Promise.resolve({ data: null }),
+      });
+      return result;
+    },
+    insert: () => ({
+      then: (cb: (v: { error: null }) => void) => cb({ error: null }),
     }),
-  }),
-}));
+  };
+  return {
+    createServerClient: () => ({
+      from: () => chainable,
+    }),
+  };
+});
 
 // ---------------------------------------------------------------------------
 // Mock Exa provider — return minimal company shells
@@ -85,7 +95,21 @@ vi.mock("@/lib/providers/apollo", () => ({
 // ---------------------------------------------------------------------------
 vi.mock("@/lib/exa/queryBuilder", () => ({
   reformulateQuery: vi.fn().mockResolvedValue(["test query"]),
+  reformulateQueryWithEntities: vi.fn().mockResolvedValue({ queries: ["test query"], entities: { verticals: [], regions: [], signals: [] } }),
   looksLikeCompanyName: vi.fn().mockReturnValue(false),
+}));
+
+// ---------------------------------------------------------------------------
+// Mock scoring + cache (used by search route for ICP scoring)
+// ---------------------------------------------------------------------------
+vi.mock("@/lib/scoring", () => ({
+  calculateIcpScore: vi.fn().mockReturnValue({ score: 50, breakdown: [] }),
+}));
+
+vi.mock("@/lib/cache", () => ({
+  getCached: vi.fn().mockResolvedValue(null),
+  setCached: vi.fn().mockResolvedValue(undefined),
+  clearCache: vi.fn().mockResolvedValue(undefined),
 }));
 
 // ---------------------------------------------------------------------------

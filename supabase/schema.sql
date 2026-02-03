@@ -96,7 +96,11 @@ CREATE TABLE companies (
   excluded            boolean NOT NULL DEFAULT false,
   excluded_by         text,
   excluded_at         timestamptz,
-  exclusion_reason    text
+  exclusion_reason    text,
+  status              text NOT NULL DEFAULT 'new',
+  status_changed_by   text,
+  status_changed_at   timestamptz,
+  viewed_by           text
 );
 
 -- -----------------------------------------------
@@ -284,3 +288,24 @@ CREATE POLICY "anon_insert" ON api_key_audit_log FOR INSERT WITH CHECK (true);
 
 -- api_key_audit_log: indexes
 CREATE INDEX idx_api_key_audit_source ON api_key_audit_log(source_id, created_at DESC);
+
+-- -----------------------------------------------
+-- exported_contacts — track which contacts were exported
+-- -----------------------------------------------
+CREATE TABLE IF NOT EXISTS exported_contacts (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  contact_email   TEXT NOT NULL,
+  contact_name    TEXT,
+  company_domain  TEXT NOT NULL,
+  exported_by     TEXT NOT NULL,
+  exported_at     TIMESTAMPTZ DEFAULT NOW(),
+  export_format   TEXT
+);
+
+CREATE INDEX idx_ec_email  ON exported_contacts(contact_email);
+CREATE INDEX idx_ec_domain ON exported_contacts(company_domain);
+
+ALTER TABLE exported_contacts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service_role_all" ON exported_contacts FOR ALL USING (auth.role() = 'service_role');
+CREATE POLICY "anon_select" ON exported_contacts FOR SELECT USING (true);
+CREATE POLICY "anon_insert" ON exported_contacts FOR INSERT WITH CHECK (true);

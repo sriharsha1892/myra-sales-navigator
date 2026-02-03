@@ -1,6 +1,11 @@
-import type { FilterState } from "../types";
+import type { FilterState, ExtractedEntities } from "../types";
 import { getGroq, isGroqAvailable } from "../llm/client";
 import { getCached, setCached } from "../cache";
+
+export interface ReformulatedResult {
+  queries: string[];
+  entities: ExtractedEntities;
+}
 
 /**
  * Builds an Exa search query from the current filter state.
@@ -32,7 +37,7 @@ export function buildExaQuery(filters: FilterState, freeText?: string): string {
 // LLM Query Reformulation (Groq → Llama 3.1 8B)
 // ---------------------------------------------------------------------------
 
-const REFORMULATION_PROMPT = `You are an expert B2B sales research assistant. Given a search query and optional filters, expand it into 2-3 semantically rich search queries that would find relevant companies via a neural search engine.
+const REFORMULATION_PROMPT = `You are an expert B2B sales research assistant. Given a search query and optional filters, expand it into 2-3 semantically rich search queries that would find relevant companies via a neural search engine. Also extract structured entities from the query.
 
 Rules:
 - If the query looks like a specific company name (e.g. "BASF", "Cereal Docks", "Brenntag SE"), the FIRST query MUST be the exact company name as-is. Additional queries can explore related companies.
@@ -40,7 +45,8 @@ Rules:
 - Include industry-specific terminology and synonyms
 - Incorporate any signals (hiring, funding, expansion) naturally
 - Keep each query under 150 characters
-- Return JSON: { "queries": ["query1", "query2", "query3"] }
+- Extract entities: verticals (industry/sector), regions (geography), signals (hiring/funding/expansion/news)
+- Return JSON: { "queries": ["query1", "query2", "query3"], "entities": { "verticals": [], "regions": [], "signals": [] } }
 
 Filters context:
 - Verticals: {verticals}
@@ -81,16 +87,25 @@ export async function reformulateQuery(
   rawText: string,
   filters: FilterState
 ): Promise<string[]> {
+  const result = await reformulateQueryWithEntities(rawText, filters);
+  return result.queries;
+}
+
+export async function reformulateQueryWithEntities(
+  rawText: string,
+  filters: FilterState
+): Promise<ReformulatedResult> {
   const isCompanyName = looksLikeCompanyName(rawText);
+  const emptyEntities: ExtractedEntities = { verticals: [], regions: [], signals: [] };
 
   // If Groq isn't configured, return the raw query unchanged
   if (!isGroqAvailable()) {
-    return [buildExaQuery(filters, rawText)];
+    return { queries: [buildExaQuery(filters, rawText)], entities: emptyEntities };
   }
 
   // Check cache first
-  const cacheKey = `exa-query:${simpleHash(rawText + JSON.stringify(filters))}`;
-  const cached = await getCached<string[]>(cacheKey);
+  const cacheKey = `exa-query-v2:${simpleHash(rawText + JSON.stringify(filters))}`;
+  const cached = await getCached<ReformulatedResult>(cacheKey);
   if (cached) return cached;
 
   try {
@@ -103,7 +118,10 @@ export async function reformulateQuery(
 
     const groq = getGroq();
     const response = await groq.complete(prompt, { json: true, maxTokens: 512 });
-    const parsed = JSON.parse(response) as { queries?: string[] };
+    const parsed = JSON.parse(response) as {
+      queries?: string[];
+      entities?: { verticals?: string[]; regions?: string[]; signals?: string[] };
+    };
 
     if (Array.isArray(parsed.queries) && parsed.queries.length > 0) {
       let queries = parsed.queries.slice(0, 3);
@@ -112,15 +130,23 @@ export async function reformulateQuery(
       if (isCompanyName && rawText.trim()) {
         queries = [rawText.trim(), ...queries.filter((q) => q.toLowerCase() !== rawText.trim().toLowerCase())].slice(0, 3);
       }
-      await setCached(cacheKey, queries, 360); // 6h TTL
-      return queries;
+
+      const entities: ExtractedEntities = {
+        verticals: parsed.entities?.verticals ?? [],
+        regions: parsed.entities?.regions ?? [],
+        signals: parsed.entities?.signals ?? [],
+      };
+
+      const result: ReformulatedResult = { queries, entities };
+      await setCached(cacheKey, result, 360); // 6h TTL
+      return result;
     }
   } catch (err) {
     console.warn("[QueryBuilder] Reformulation failed, using raw query:", err);
   }
 
   // Fallback: return the original constructed query
-  return [buildExaQuery(filters, rawText)];
+  return { queries: [buildExaQuery(filters, rawText)], entities: emptyEntities };
 }
 
 function simpleHash(str: string): string {

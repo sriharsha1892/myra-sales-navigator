@@ -77,9 +77,6 @@ export function DetailPlaceholder() {
         )}
       </div>
 
-      <p className="mt-6 text-[10px] text-text-tertiary">
-        ↑↓ or j/k to navigate, Enter to select
-      </p>
     </div>
   );
 }

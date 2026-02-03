@@ -8,6 +8,7 @@ const sources: { key: ResultSource; label: string; activeColor: string }[] = [
   { key: "exa", label: "Exa", activeColor: "border-source-exa bg-info-light text-source-exa" },
   { key: "apollo", label: "Apollo", activeColor: "border-source-apollo bg-warning-light text-source-apollo" },
   { key: "hubspot", label: "HubSpot", activeColor: "border-source-hubspot bg-accent-highlight-light text-source-hubspot" },
+  { key: "freshsales", label: "Freshsales", activeColor: "border-source-freshsales bg-source-freshsales-light text-source-freshsales" },
 ];
 
 export function SourceFilter() {

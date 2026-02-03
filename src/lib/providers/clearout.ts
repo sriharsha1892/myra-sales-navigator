@@ -99,6 +99,106 @@ export async function verifyEmails(emails: string[]): Promise<VerificationResult
   );
 }
 
+// ---------------------------------------------------------------------------
+// Email Finder — Clearout as contact source (on-demand)
+// ---------------------------------------------------------------------------
+
+export interface EmailFinderResult {
+  email: string | null;
+  confidence: number;
+  status: "found" | "not_found" | "error";
+}
+
+function emailFinderCacheKey(name: string, domain: string): string {
+  return `clearout:finder:${name.toLowerCase().trim()}@${domain.toLowerCase().trim()}`;
+}
+
+export async function findEmail(name: string, domain: string): Promise<EmailFinderResult> {
+  const key = emailFinderCacheKey(name, domain);
+  const cached = await getCached<EmailFinderResult>(key);
+  if (cached) return cached;
+
+  if (!isClearoutAvailable()) {
+    return { email: null, confidence: 0, status: "error" };
+  }
+
+  const res = await fetch(`${CLEAROUT_API_BASE}/email_finder/instant`, {
+    method: "POST",
+    headers: clearoutHeaders(),
+    body: JSON.stringify({ name, domain }),
+  });
+
+  if (!res.ok) {
+    const code = res.status;
+    if (code === 401) throw new Error("Invalid Clearout API key");
+    if (code === 402) throw new Error("Clearout credits exhausted");
+    throw new Error(`Clearout email finder error: ${code}`);
+  }
+
+  const json = await res.json();
+  const data = json.data ?? json;
+
+  const email = data.email_address ?? data.email ?? null;
+  const confidence = data.confidence_score ?? data.confidence ?? 0;
+
+  const result: EmailFinderResult = {
+    email,
+    confidence,
+    status: email ? "found" : "not_found",
+  };
+
+  await setCached(key, result, CACHE_TTL_MINUTES);
+  return result;
+}
+
+export interface FindEmailBatchInput {
+  contactId: string;
+  firstName: string;
+  lastName: string;
+}
+
+export interface FindEmailBatchResult {
+  contactId: string;
+  email: string | null;
+  confidence: number;
+  status: "found" | "not_found" | "error";
+}
+
+export async function findEmailsBatch(
+  contacts: FindEmailBatchInput[],
+  domain: string,
+  maxLookups = 10
+): Promise<FindEmailBatchResult[]> {
+  const capped = contacts.slice(0, maxLookups);
+  const results: FindEmailBatchResult[] = [];
+
+  for (let i = 0; i < capped.length; i++) {
+    if (i > 0) {
+      await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+    }
+    const c = capped[i];
+    const name = `${c.firstName} ${c.lastName}`.trim();
+    try {
+      const found = await findEmail(name, domain);
+      results.push({
+        contactId: c.contactId,
+        email: found.email,
+        confidence: found.confidence,
+        status: found.status,
+      });
+    } catch {
+      results.push({
+        contactId: c.contactId,
+        email: null,
+        confidence: 0,
+        status: "error",
+      });
+    }
+  }
+
+  return results;
+}
+
 export async function getClearoutCredits(): Promise<{ available: number; total: number } | null> {
   if (!isClearoutAvailable()) return null;
 

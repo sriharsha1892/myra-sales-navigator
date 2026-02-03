@@ -21,6 +21,7 @@ function resetStore() {
       regions: [],
       sizes: [],
       signals: [],
+      statuses: [],
       hideExcluded: true,
       quickFilters: [],
     },
@@ -447,7 +448,7 @@ describe("filters", () => {
     useStore.getState().setFilters({ verticals: ["Pharma"], regions: ["Europe"] });
     useStore.getState().resetFilters();
     expect(useStore.getState().filters.verticals).toEqual([]);
-    expect(useStore.getState().filters.regions).toEqual([]);
+    expect(useStore.getState().filters.regions).toEqual(["North America", "Europe", "Asia Pacific", "Latin America", "Middle East & Africa"]);
     expect(useStore.getState().filters.hideExcluded).toBe(true);
   });
 

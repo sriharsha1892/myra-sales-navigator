@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { defaultFreshsalesSettings } from "@/lib/mock-data";
 
 export async function GET() {
   try {
@@ -36,7 +37,15 @@ export async function GET() {
       uiPreferences: data.ui_preferences ?? {},
       emailPrompts: data.email_prompts ?? {},
       analyticsSettings: data.analytics_settings ?? {},
-      freshsalesSettings: data.freshsales_settings ?? {},
+      freshsalesSettings: (() => {
+        const db = (data.freshsales_settings ?? {}) as Record<string, unknown>;
+        return {
+          ...defaultFreshsalesSettings,
+          ...db,
+          statusLabels: { ...defaultFreshsalesSettings.statusLabels, ...((db.statusLabels as Record<string, string>) ?? {}) },
+          icpWeights: { ...defaultFreshsalesSettings.icpWeights, ...((db.icpWeights as Record<string, number>) ?? {}) },
+        };
+      })(),
       authLog: data.auth_log ?? [],
       authRequests: data.auth_requests ?? [],
     };

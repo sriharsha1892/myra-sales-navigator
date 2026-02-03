@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/cn";
 import type { Contact, CompanyEnriched } from "@/lib/types";
-import { SourceBadge, ConfidenceBadge, IcpScoreBadge } from "@/components/badges";
+import { SourceBadge, ConfidenceBadge, IcpScoreBadge, VerificationBadge } from "@/components/badges";
 import { MissingData } from "@/components/shared/MissingData";
 import { useInlineFeedback } from "@/hooks/useInlineFeedback";
 import { useStore } from "@/lib/store";
@@ -231,31 +231,79 @@ export function ContactCard({
           </div>
         </div>
 
-        {/* Email (primary info) */}
+        {/* Email (hero element — state-based display) */}
         {show("email") && (
           <div className="flex items-center gap-1.5">
-            {displayEmail ? (
-              <>
-                <span className="truncate font-mono text-xs text-text-secondary">
-                  {displayEmail}
-                </span>
-                <ConfidenceBadge level={revealedEmail ? "medium" : contact.confidenceLevel} score={revealedEmail ? 70 : contact.emailConfidence} />
-              </>
-            ) : (
-              <button
-                onClick={handleRevealEmail}
-                disabled={revealLoading || revealFailed}
-                className="flex items-center gap-1 rounded-input border border-accent-secondary/30 bg-accent-secondary/5 px-2 py-0.5 text-[10px] font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/10 disabled:opacity-50"
-              >
-                {revealLoading ? (
-                  <span className="inline-block h-2.5 w-2.5 animate-spin rounded-full border border-accent-secondary/30 border-t-accent-secondary" />
-                ) : revealFailed ? (
-                  "Not found"
-                ) : (
-                  "Reveal email"
-                )}
-              </button>
-            )}
+            {(() => {
+              const isObfuscated = contact.lastName?.includes("***");
+              const verification = contact.verificationStatus;
+
+              // State 1: No email
+              if (!displayEmail && !isObfuscated) {
+                return (
+                  <button
+                    onClick={handleRevealEmail}
+                    disabled={revealLoading || revealFailed}
+                    className="flex items-center gap-1 rounded-input border border-accent-secondary/30 bg-accent-secondary/5 px-2 py-0.5 text-[10px] font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/10 disabled:opacity-50"
+                  >
+                    {revealLoading ? (
+                      <span className="inline-block h-2.5 w-2.5 animate-spin rounded-full border border-accent-secondary/30 border-t-accent-secondary" />
+                    ) : revealFailed ? "Not found" : "Find email"}
+                  </button>
+                );
+              }
+
+              // State 2: Obfuscated
+              if (!displayEmail && isObfuscated) {
+                return (
+                  <button
+                    onClick={handleRevealEmail}
+                    disabled={revealLoading}
+                    className="flex items-center gap-1 rounded-input border border-accent-secondary/30 bg-accent-secondary/10 px-2 py-0.5 text-xs font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/20 disabled:opacity-50"
+                  >
+                    {revealLoading ? (
+                      <span className="inline-block h-2.5 w-2.5 animate-spin rounded-full border border-accent-secondary/30 border-t-accent-secondary" />
+                    ) : (
+                      <>&#x25CF;&#x25CF;&#x25CF;@{contact.companyDomain} &mdash; Reveal</>
+                    )}
+                  </button>
+                );
+              }
+
+              // State 5: Invalid
+              if (verification === "invalid") {
+                return (
+                  <>
+                    <span className="truncate font-mono text-sm text-text-tertiary line-through">{displayEmail}</span>
+                    <VerificationBadge status="invalid" />
+                  </>
+                );
+              }
+
+              // State 4: Verified valid
+              if (verification === "valid" || verification === "valid_risky") {
+                return (
+                  <>
+                    <span className="truncate font-mono text-sm text-text-primary">{displayEmail}</span>
+                    <VerificationBadge status={verification} safeToSend={contact.safeToSend} />
+                    <button onClick={handleCopyEmail} className="text-text-tertiary hover:text-accent-primary" title="Copy email">
+                      <CopyIcon />
+                    </button>
+                  </>
+                );
+              }
+
+              // State 3: Unverified (has email, no verification)
+              return (
+                <>
+                  <span className="truncate font-mono text-sm text-text-secondary">{displayEmail}</span>
+                  <VerificationBadge status="unverified" />
+                  <button onClick={handleCopyEmail} className="text-text-tertiary hover:text-accent-primary" title="Copy email">
+                    <CopyIcon />
+                  </button>
+                </>
+              );
+            })()}
           </div>
         )}
 
@@ -323,8 +371,10 @@ export function ContactCard({
               <span className="text-text-tertiary">Email:</span>{" "}
               {displayEmail ? (
                 <>
-                  <span className="font-mono text-text-primary">{displayEmail}</span>
-                  <ConfidenceBadge level={revealedEmail ? "medium" : contact.confidenceLevel} score={revealedEmail ? 70 : contact.emailConfidence} />
+                  <span className={`font-mono ${contact.verificationStatus === "invalid" ? "text-text-tertiary line-through" : "text-text-primary"}`}>
+                    {displayEmail}
+                  </span>
+                  <VerificationBadge status={contact.verificationStatus ?? "unverified"} safeToSend={contact.safeToSend} />
                   {contact.fieldSources?.email && (
                     <SourceBadge source={contact.fieldSources.email} />
                   )}
@@ -340,7 +390,7 @@ export function ContactCard({
                   ) : revealFailed ? (
                     "Not found"
                   ) : (
-                    "Reveal email"
+                    "Find email"
                   )}
                 </button>
               )}

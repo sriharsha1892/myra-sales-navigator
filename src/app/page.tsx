@@ -1,27 +1,91 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { CommandPalette } from "@/components/command/CommandPalette";
 import { BulkActionBar } from "@/components/shared";
 import { UserSettingsPanel } from "@/components/settings/UserSettingsPanel";
 import { SearchBridge } from "@/components/SearchBridge";
 import { HydrationBridge } from "@/components/HydrationBridge";
+import { ExtractedChips } from "@/components/shared/ExtractedChips";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useAuth } from "@/providers/AuthProvider";
 import { useStore } from "@/lib/store";
 import { MentionNotifications } from "@/components/MentionNotifications";
-import { CreditUsageIndicator } from "@/components/CreditUsageIndicator";
+import { ChatWidget } from "@/components/chat/ChatWidget";
+import { TeamPulseWidget } from "@/components/shared/TeamPulseWidget";
+
+const hintQueries = [
+  "food ingredients expanding to Asia",
+  "SaaS companies hiring in Europe",
+  "chemicals near Brenntag competitors",
+];
 
 export default function Home() {
-  const { userName, isAdmin, isLoading } = useAuth();
+  const { userName, isLoading } = useAuth();
   const isCommandPaletteOpen = useStore((s) => s.commandPaletteOpen);
   const searchLoading = useStore((s) => s.searchLoading);
+  const searchResults = useStore((s) => s.searchResults);
+  const selectedCompanyDomain = useStore((s) => s.selectedCompanyDomain);
+  const selectCompany = useStore((s) => s.selectCompany);
+  const setSearchResults = useStore((s) => s.setSearchResults);
+  const setSearchError = useStore((s) => s.setSearchError);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // Typing effect state
+  const [typingText, setTypingText] = useState("");
+  const [typingActive, setTypingActive] = useState(false);
+  const [showGlow, setShowGlow] = useState(false);
+
   useKeyboardShortcuts();
+
+  // First-visit typing effect + glow
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (localStorage.getItem("nav_search_hinted")) return;
+
+    setTypingActive(true);
+    setShowGlow(true);
+    let cancelled = false;
+
+    async function runTyping() {
+      for (let qi = 0; qi < hintQueries.length; qi++) {
+        const query = hintQueries[qi];
+        // Type each character
+        for (let ci = 0; ci <= query.length; ci++) {
+          if (cancelled) return;
+          setTypingText(query.slice(0, ci));
+          await new Promise((r) => setTimeout(r, 40));
+        }
+        // Pause
+        await new Promise((r) => setTimeout(r, 1500));
+        // Clear
+        if (cancelled) return;
+        setTypingText("");
+        await new Promise((r) => setTimeout(r, 300));
+      }
+      if (!cancelled) {
+        setTypingActive(false);
+        setShowGlow(false);
+        localStorage.setItem("nav_search_hinted", "1");
+      }
+    }
+
+    runTyping();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Stop typing on focus
+  const handleSearchFocus = () => {
+    if (typingActive) {
+      setTypingActive(false);
+      setTypingText("");
+      setShowGlow(false);
+      localStorage.setItem("nav_search_hinted", "1");
+    }
+  };
 
   if (isLoading) {
     return (
@@ -34,13 +98,34 @@ export default function Home() {
     );
   }
 
+  const placeholder = typingActive && typingText
+    ? typingText
+    : "Search companies or press \u2318K for smart search...";
+
   return (
-    <div className="relative h-screen overflow-hidden bg-gradient-to-br from-surface-0 via-surface-0 to-surface-2">
+    <div className="animate-fadeInUp relative h-screen overflow-hidden bg-gradient-to-br from-surface-0 via-surface-0 to-surface-2">
       {/* Top bar */}
-      <div className="glass-topbar flex h-14 flex-shrink-0 items-center justify-between shadow-sm px-5">
+      <div className="bg-surface-0 border-b border-surface-3 flex h-14 flex-shrink-0 items-center justify-between shadow-sm px-5">
         <div className="flex items-center gap-3">
-          <h1 className="font-display text-lg text-accent-primary">myRA</h1>
+          <h1 className="font-display text-lg text-intel">myRA</h1>
           <span className="text-xs text-text-tertiary">Sales Navigator</span>
+          {(searchResults !== null || selectedCompanyDomain !== null) && (
+            <button
+              onClick={() => {
+                selectCompany(null);
+                setSearchResults(null);
+                setSearchError(null);
+              }}
+              className="flex h-7 w-7 items-center justify-center rounded-input text-text-tertiary transition-colors hover:bg-surface-2 hover:text-text-primary"
+              title="Home"
+              aria-label="Home"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
+              </svg>
+            </button>
+          )}
         </div>
 
         {/* Centered search bar */}
@@ -60,6 +145,7 @@ export default function Home() {
             type="text"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
+            onFocus={handleSearchFocus}
             onKeyDown={(e) => {
               if (e.key === "Enter" && searchInput.trim()) {
                 useStore.getState().setPendingFreeTextSearch(searchInput.trim());
@@ -70,8 +156,8 @@ export default function Home() {
                 useStore.getState().setCommandPaletteOpen(true);
               }
             }}
-            placeholder="Search companies or press \u2318K for smart search..."
-            className="w-full rounded-pill border border-surface-3 bg-surface-2 py-2 pl-9 pr-16 text-sm text-text-primary placeholder:text-text-tertiary transition-all duration-[180ms] focus:border-accent-primary focus:shadow-[0_0_0_3px_var(--color-accent-primary-light)] focus:outline-none"
+            placeholder={placeholder}
+            className={`w-full rounded-pill border border-surface-3 bg-surface-2 py-2 pl-9 pr-16 text-sm text-text-primary placeholder:text-text-tertiary transition-all duration-[180ms] focus:border-accent-primary focus:shadow-[0_0_0_3px_var(--color-accent-primary-light)] focus:outline-none${showGlow ? " animate-[searchGlow_2s_ease-in-out_3]" : ""}`}
           />
           <kbd
             onClick={() => useStore.getState().setCommandPaletteOpen(true)}
@@ -82,19 +168,10 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-3">
-          <CreditUsageIndicator />
           <MentionNotifications />
-          {isAdmin && (
-            <a
-              href="/admin"
-              className="text-sm text-text-secondary hover:text-accent-primary"
-            >
-              Admin
-            </a>
-          )}
           <button
             onClick={() => setSettingsOpen(true)}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-primary text-xs font-semibold text-text-inverse"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-intel text-xs font-semibold text-text-inverse"
             title={userName ?? "Settings"}
           >
             {userName?.[0]?.toUpperCase() ?? "?"}
@@ -102,9 +179,12 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Main content */}
-      <div className="h-[calc(100vh-56px)]">
-        <AppShell />
+      {/* Main content — flex column to accommodate chips */}
+      <div className="flex flex-1 flex-col overflow-hidden" style={{ height: "calc(100vh - 56px)" }}>
+        <ExtractedChips />
+        <div className="flex-1 overflow-hidden">
+          <AppShell />
+        </div>
       </div>
 
       {/* Overlays */}
@@ -113,6 +193,8 @@ export default function Home() {
       <BulkActionBar />
       <SearchBridge />
       <HydrationBridge />
+      <ChatWidget />
+      <TeamPulseWidget />
     </div>
   );
 }

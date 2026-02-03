@@ -68,7 +68,7 @@ export function DiscoveryFunnel({ data }: { data: FunnelData | null }) {
                         ? "var(--color-accent-secondary)"
                         : i === 1
                           ? "var(--color-accent-primary)"
-                          : "#22c55e",
+                          : "var(--color-success)",
                   }}
                 />
               </div>

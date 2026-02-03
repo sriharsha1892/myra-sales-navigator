@@ -1,24 +1,36 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useStore } from "@/lib/store";
 import { AdminSection } from "./AdminSection";
-import type { ApiKeyEntry } from "@/lib/types";
 
-const KNOWN_SOURCES = ["exa", "apollo", "hubspot", "clearout", "freshsales"];
-
-interface CreditData {
-  clearout: { available: number; total: number } | null;
-  apollo: null;
-  exa: null;
-  hubspot: null;
+interface ProviderStatus {
+  configured: boolean;
+  credits: { available: number; total: number } | null;
+  dashboardUrl: string | null;
 }
 
-const PROVIDER_DASHBOARDS: Record<string, string> = {
-  apollo: "https://app.apollo.io/#/settings/credits",
-  exa: "https://dashboard.exa.ai",
-  hubspot: "https://app.hubspot.com/usage-reporting",
-  freshsales: "https://mordorintelligence.freshsales.io",
+const PROVIDER_LABELS: Record<string, string> = {
+  exa: "Exa",
+  apollo: "Apollo",
+  hubspot: "HubSpot",
+  clearout: "Clearout",
+  freshsales: "Freshsales",
+};
+
+const PROVIDER_DESCRIPTIONS: Record<string, string> = {
+  exa: "Semantic search engine — primary discovery",
+  apollo: "Company search + contacts ($99/acct)",
+  hubspot: "CRM status + contact source (pull-only)",
+  clearout: "Email verification (on export)",
+  freshsales: "CRM status + contacts",
+};
+
+const ENV_VAR_NAMES: Record<string, string> = {
+  exa: "EXA_API_KEY",
+  apollo: "APOLLO_API_KEY",
+  hubspot: "HUBSPOT_ACCESS_TOKEN",
+  clearout: "CLEAROUT_API_KEY",
+  freshsales: "FRESHSALES_API_KEY + FRESHSALES_DOMAIN",
 };
 
 function CreditBadge({ available }: { available: number }) {
@@ -35,310 +47,124 @@ function CreditBadge({ available }: { available: number }) {
   );
 }
 
-function CreditUsageBanner() {
-  const [credits, setCredits] = useState<CreditData | null>(null);
+function StatusDot({ configured }: { configured: boolean }) {
+  return (
+    <span
+      className={`inline-block h-2 w-2 flex-shrink-0 rounded-full ${
+        configured ? "bg-success" : "bg-text-tertiary"
+      }`}
+      title={configured ? "Connected" : "Not configured"}
+    />
+  );
+}
+
+export function ApiKeysSection() {
+  const [providers, setProviders] = useState<Record<string, ProviderStatus> | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchCredits = useCallback(async () => {
+  const fetchStatus = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/credits");
       if (res.ok) {
-        setCredits(await res.json());
+        const data = await res.json();
+        setProviders(data.providers);
       }
     } catch {
-      // silently fail — banner is informational
+      // silently fail
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchCredits();
-  }, [fetchCredits]);
+    fetchStatus();
+  }, [fetchStatus]);
+
+  const connectedCount = providers
+    ? Object.values(providers).filter((p) => p.configured).length
+    : 0;
+  const totalCount = providers ? Object.keys(providers).length : 5;
 
   return (
-    <div className="mb-5 rounded-card border border-surface-3 bg-surface-2 p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-xs font-medium text-text-primary">Credit Usage</h3>
+    <AdminSection title="Data Source Connections">
+      <div className="mb-4 flex items-center justify-between">
+        <p className="text-xs text-text-secondary">
+          {loading
+            ? "Checking provider status..."
+            : `${connectedCount}/${totalCount} providers connected via environment variables`}
+        </p>
         <button
-          onClick={fetchCredits}
+          onClick={fetchStatus}
           disabled={loading}
           className="text-[10px] text-accent-secondary hover:text-accent-secondary/80 disabled:opacity-50"
         >
-          {loading ? "Refreshing..." : "Refresh"}
+          {loading ? "Checking..." : "Refresh"}
         </button>
       </div>
 
-      <div className="grid grid-cols-5 gap-3">
-        {/* Clearout */}
-        <div className="rounded-input border border-surface-3 bg-surface-1 px-3 py-2">
-          <p className="mb-1 text-[10px] font-medium uppercase text-text-tertiary">Clearout</p>
-          {loading ? (
-            <div className="h-4 w-24 animate-pulse rounded bg-surface-3" />
-          ) : credits?.clearout ? (
-            <CreditBadge available={credits.clearout.available} />
-          ) : (
-            <span className="text-[10px] text-text-tertiary">Unavailable</span>
-          )}
-        </div>
+      <div className="space-y-2">
+        {(Object.keys(PROVIDER_LABELS)).map((key) => {
+          const status = providers?.[key];
+          const configured = status?.configured ?? false;
 
-        {/* Apollo */}
-        <div className="rounded-input border border-surface-3 bg-surface-1 px-3 py-2">
-          <p className="mb-1 text-[10px] font-medium uppercase text-text-tertiary">Apollo</p>
-          <a href={PROVIDER_DASHBOARDS.apollo} target="_blank" rel="noopener noreferrer" className="text-[10px] text-accent-secondary hover:underline">
-            Check in Apollo dashboard
-          </a>
-        </div>
+          return (
+            <div
+              key={key}
+              className={`flex items-center gap-3 rounded-input border px-4 py-3 transition-colors ${
+                configured
+                  ? "border-success/20 bg-success/5"
+                  : "border-surface-3 bg-surface-2"
+              }`}
+            >
+              {loading ? (
+                <span className="inline-block h-2 w-2 flex-shrink-0 animate-pulse rounded-full bg-surface-3" />
+              ) : (
+                <StatusDot configured={configured} />
+              )}
 
-        {/* Exa */}
-        <div className="rounded-input border border-surface-3 bg-surface-1 px-3 py-2">
-          <p className="mb-1 text-[10px] font-medium uppercase text-text-tertiary">Exa</p>
-          <a href={PROVIDER_DASHBOARDS.exa} target="_blank" rel="noopener noreferrer" className="text-[10px] text-accent-secondary hover:underline">
-            Check in Exa dashboard
-          </a>
-        </div>
-
-        {/* HubSpot */}
-        <div className="rounded-input border border-surface-3 bg-surface-1 px-3 py-2">
-          <p className="mb-1 text-[10px] font-medium uppercase text-text-tertiary">HubSpot</p>
-          <a href={PROVIDER_DASHBOARDS.hubspot} target="_blank" rel="noopener noreferrer" className="text-[10px] text-accent-secondary hover:underline">
-            Check in HubSpot dashboard
-          </a>
-        </div>
-
-        {/* Freshsales */}
-        <div className="rounded-input border border-surface-3 bg-surface-1 px-3 py-2">
-          <p className="mb-1 text-[10px] font-medium uppercase text-text-tertiary">Freshsales</p>
-          <a href={PROVIDER_DASHBOARDS.freshsales} target="_blank" rel="noopener noreferrer" className="text-[10px] text-accent-secondary hover:underline">
-            Check in Freshsales dashboard
-          </a>
-        </div>
-      </div>
-
-      <p className="mt-2 text-[10px] text-text-tertiary">
-        Credit balances update when you refresh. Clearout uses ~1 credit per email verified.
-      </p>
-    </div>
-  );
-}
-
-export function ApiKeysSection() {
-  const config = useStore((s) => s.adminConfig);
-  const updateConfig = useStore((s) => s.updateAdminConfig);
-  const addToast = useStore((s) => s.addToast);
-  const userName = useStore((s) => s.userName) ?? "Unknown";
-
-  const [adding, setAdding] = useState(false);
-  const [newSource, setNewSource] = useState("");
-  const [newLabel, setNewLabel] = useState("");
-  const [newKey, setNewKey] = useState("");
-  const [testingId, setTestingId] = useState<string | null>(null);
-
-  const handleAdd = async () => {
-    if (!newSource.trim() || !newKey.trim()) return;
-
-    try {
-      const res = await fetch("/api/admin/api-keys", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          source: newSource.trim(),
-          label: newLabel.trim() || newSource.trim(),
-          plainKey: newKey.trim(),
-          addedBy: userName,
-        }),
-      });
-      const data = await res.json();
-      if (data.key) {
-        updateConfig({ apiKeys: [...config.apiKeys, data.key] });
-        addToast({ message: `API key for ${newSource} added`, type: "success" });
-        setAdding(false);
-        setNewSource("");
-        setNewLabel("");
-        setNewKey("");
-      } else {
-        addToast({ message: data.error || "Failed to add key", type: "error" });
-      }
-    } catch {
-      addToast({ message: "Failed to add API key", type: "error" });
-    }
-  };
-
-  const handleTest = async (entry: ApiKeyEntry) => {
-    setTestingId(entry.id);
-    try {
-      const res = await fetch("/api/admin/api-keys/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceId: entry.id, actor: userName }),
-      });
-      const data = await res.json();
-      const updated = config.apiKeys.map((k) =>
-        k.id === entry.id
-          ? { ...k, testStatus: data.status as ApiKeyEntry["testStatus"], lastTested: new Date().toISOString() }
-          : k
-      );
-      updateConfig({ apiKeys: updated });
-      addToast({
-        message: `${entry.source} key test: ${data.status}`,
-        type: data.status === "success" ? "success" : "error",
-      });
-    } catch {
-      addToast({ message: "Test request failed", type: "error" });
-    } finally {
-      setTestingId(null);
-    }
-  };
-
-  const handleDelete = async (entry: ApiKeyEntry) => {
-    try {
-      await fetch("/api/admin/api-keys", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: entry.id, actor: userName }),
-      });
-      updateConfig({ apiKeys: config.apiKeys.filter((k) => k.id !== entry.id) });
-      addToast({ message: `API key for ${entry.source} deleted`, type: "success" });
-    } catch {
-      addToast({ message: "Failed to delete key", type: "error" });
-    }
-  };
-
-  const handleRotate = async (entry: ApiKeyEntry) => {
-    const newPlainKey = prompt("Enter new API key:");
-    if (!newPlainKey) return;
-
-    try {
-      const res = await fetch("/api/admin/api-keys", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: entry.id, plainKey: newPlainKey, actor: userName }),
-      });
-      const data = await res.json();
-      if (data.key) {
-        const updated = config.apiKeys.map((k) => (k.id === entry.id ? data.key : k));
-        updateConfig({ apiKeys: updated });
-        addToast({ message: `API key for ${entry.source} rotated`, type: "success" });
-      }
-    } catch {
-      addToast({ message: "Failed to rotate key", type: "error" });
-    }
-  };
-
-  const statusColor = (status: ApiKeyEntry["testStatus"]) => {
-    switch (status) {
-      case "success": return "text-success";
-      case "failed": return "text-danger";
-      default: return "text-text-tertiary";
-    }
-  };
-
-  return (
-    <AdminSection title="API Key Management">
-      <CreditUsageBanner />
-
-      <div className="space-y-2 mb-4">
-        {config.apiKeys.length === 0 && !adding && (
-          <p className="text-xs italic text-text-tertiary">No API keys configured. Add keys for Exa, Apollo, HubSpot, or Clearout.</p>
-        )}
-        {config.apiKeys.map((entry) => (
-          <div key={entry.id} className="flex items-center gap-3 rounded-input border border-surface-3 bg-surface-2 px-3 py-2">
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className="rounded-badge bg-surface-3 px-1.5 py-0.5 text-[10px] uppercase text-text-secondary">
-                  {entry.source}
-                </span>
-                <span className="text-xs text-text-primary">{entry.label}</span>
-                <span className={`text-[10px] ${statusColor(entry.testStatus)}`}>
-                  {entry.testStatus}
-                </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-text-primary">
+                    {PROVIDER_LABELS[key]}
+                  </span>
+                  <span className="text-[10px] text-text-tertiary">
+                    {PROVIDER_DESCRIPTIONS[key]}
+                  </span>
+                </div>
+                <p className="mt-0.5 font-mono text-[10px] text-text-tertiary">
+                  {ENV_VAR_NAMES[key]}
+                  {!loading && (
+                    <span className={configured ? "ml-2 text-success" : "ml-2 text-text-tertiary"}>
+                      {configured ? "— set" : "— not set"}
+                    </span>
+                  )}
+                </p>
               </div>
-              <p className="mt-0.5 font-mono text-[10px] text-text-tertiary">
-                {entry.encryptedKey ? "****" : "—"} &middot; Rotated {new Date(entry.lastRotated).toLocaleDateString()}
-              </p>
+
+              {/* Credits or dashboard link */}
+              <div className="flex-shrink-0 text-right">
+                {status?.credits ? (
+                  <CreditBadge available={status.credits.available} />
+                ) : status?.dashboardUrl ? (
+                  <a
+                    href={status.dashboardUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-accent-secondary hover:underline"
+                  >
+                    Dashboard
+                  </a>
+                ) : null}
+              </div>
             </div>
-            <button
-              onClick={() => handleTest(entry)}
-              disabled={testingId === entry.id}
-              className="text-[10px] text-accent-primary hover:text-accent-primary/80 disabled:opacity-50"
-            >
-              {testingId === entry.id ? "Testing..." : "Test"}
-            </button>
-            <button
-              onClick={() => handleRotate(entry)}
-              className="text-[10px] text-text-secondary hover:text-text-primary"
-            >
-              Rotate
-            </button>
-            <button
-              onClick={() => handleDelete(entry)}
-              className="text-[10px] text-text-tertiary hover:text-danger"
-            >
-              Delete
-            </button>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {adding ? (
-        <div className="space-y-2 rounded-input border border-surface-3 bg-surface-2 p-3">
-          <div className="flex gap-2">
-            <select
-              value={newSource}
-              onChange={(e) => setNewSource(e.target.value)}
-              className="rounded-input border border-surface-3 bg-surface-2 px-2 py-1.5 text-xs text-text-primary focus:border-accent-primary focus:outline-none"
-            >
-              <option value="">Select source...</option>
-              {KNOWN_SOURCES.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-              <option value="custom">Custom</option>
-            </select>
-            <input
-              type="text"
-              value={newLabel}
-              onChange={(e) => setNewLabel(e.target.value)}
-              placeholder="Label (optional)"
-              className="flex-1 rounded-input border border-surface-3 bg-surface-2 px-3 py-1.5 text-xs text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
-            />
-          </div>
-          {newSource === "custom" && (
-            <input
-              type="text"
-              value={newSource === "custom" ? "" : newSource}
-              onChange={(e) => setNewSource(e.target.value)}
-              placeholder="Custom source name..."
-              className="w-full rounded-input border border-surface-3 bg-surface-2 px-3 py-1.5 text-xs text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
-            />
-          )}
-          <input
-            type="password"
-            value={newKey}
-            onChange={(e) => setNewKey(e.target.value)}
-            placeholder="API key..."
-            className="w-full rounded-input border border-surface-3 bg-surface-2 px-3 py-1.5 font-mono text-xs text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
-          />
-          <div className="flex gap-2">
-            <button onClick={handleAdd} className="rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-text-inverse">
-              Save Key
-            </button>
-            <button
-              onClick={() => { setAdding(false); setNewSource(""); setNewLabel(""); setNewKey(""); }}
-              className="rounded-input border border-surface-3 px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          onClick={() => setAdding(true)}
-          className="rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-text-inverse"
-        >
-          Add API Key
-        </button>
-      )}
+      <p className="mt-3 text-[10px] text-text-tertiary">
+        API keys are configured via Vercel environment variables. To add or rotate a key, update the env var in the Vercel project settings and redeploy.
+      </p>
     </AdminSection>
   );
 }

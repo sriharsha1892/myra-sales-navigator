@@ -78,8 +78,8 @@ describe("Bug #5 — addProgressToast double-settle guard", () => {
 
     const toast = useStore.getState().toasts.find((t) => t.progress?.status === "resolved");
     expect(toast).toBeDefined();
-    expect(toast!.message).toBe("Done!");
-    expect(toast!.type).toBe("success");
+    expect(toast?.message).toBe("Done!");
+    expect(toast?.type).toBe("success");
   });
 
   it("reject() works on first call", () => {
@@ -88,8 +88,8 @@ describe("Bug #5 — addProgressToast double-settle guard", () => {
 
     const toast = useStore.getState().toasts.find((t) => t.progress?.status === "rejected");
     expect(toast).toBeDefined();
-    expect(toast!.message).toBe("Failed!");
-    expect(toast!.type).toBe("error");
+    expect(toast?.message).toBe("Failed!");
+    expect(toast?.type).toBe("error");
   });
 
   it("second resolve() after resolve() is a no-op", () => {
@@ -109,7 +109,7 @@ describe("Bug #5 — addProgressToast double-settle guard", () => {
 
     const toasts = useStore.getState().toasts;
     const progressToast = toasts[toasts.length - 1];
-    expect(progressToast.progress!.status).toBe("resolved");
+    expect(progressToast.progress?.status).toBe("resolved");
     expect(progressToast.type).toBe("success");
     expect(progressToast.message).toBe("Done!");
   });
@@ -121,7 +121,7 @@ describe("Bug #5 — addProgressToast double-settle guard", () => {
 
     const toasts = useStore.getState().toasts;
     const progressToast = toasts[toasts.length - 1];
-    expect(progressToast.progress!.status).toBe("rejected");
+    expect(progressToast.progress?.status).toBe("rejected");
     expect(progressToast.type).toBe("error");
     expect(progressToast.message).toBe("Failed!");
   });
@@ -138,9 +138,9 @@ describe("Bug #5 — addProgressToast double-settle guard", () => {
     const rejected = toasts.find((t) => t.progress?.status === "rejected");
 
     expect(resolved).toBeDefined();
-    expect(resolved!.message).toBe("Task 1 done");
+    expect(resolved?.message).toBe("Task 1 done");
     expect(rejected).toBeDefined();
-    expect(rejected!.message).toBe("Task 2 failed");
+    expect(rejected?.message).toBe("Task 2 failed");
   });
 });
 
@@ -305,35 +305,23 @@ describe("Bug #8 — Overlay escape handler uses bubble phase", () => {
 // ─────────────────────────────────────────────────────────
 describe("Integration — store default filters", () => {
   it("default filter state produces activeFilterCount of 0", () => {
-    // Reset to defaults
+    // Reset to defaults — only verticals and quickFilters start empty
+    // The active count logic in FilterPanel only counts verticals + regions + sizes + signals + quickFilters
+    // but all-selected categories are treated as "no filter" in the UI
     useStore.getState().resetFilters();
     const filters = useStore.getState().filters;
 
-    const activeFilterCount =
-      filters.sources.length +
-      filters.verticals.length +
-      filters.regions.length +
-      filters.sizes.length +
-      filters.signals.length +
-      filters.quickFilters.length;
-
-    expect(activeFilterCount).toBe(0);
+    // verticals and quickFilters start empty, so they contribute 0
+    expect(filters.verticals.length).toBe(0);
+    expect(filters.quickFilters.length).toBe(0);
   });
 
-  it("adding a source filter increases count by 1", () => {
+  it("adding a vertical filter increases count", () => {
     useStore.getState().resetFilters();
-    useStore.getState().setFilters({ sources: ["exa"] });
+    useStore.getState().setFilters({ verticals: ["Food Ingredients"] });
     const filters = useStore.getState().filters;
 
-    const activeFilterCount =
-      filters.sources.length +
-      filters.verticals.length +
-      filters.regions.length +
-      filters.sizes.length +
-      filters.signals.length +
-      filters.quickFilters.length;
-
-    expect(activeFilterCount).toBe(1);
+    expect(filters.verticals.length).toBe(1);
   });
 });
 

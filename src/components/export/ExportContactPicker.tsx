@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Overlay } from "@/components/primitives/Overlay";
 import { ConfidenceBadge } from "@/components/badges";
 import { useStore } from "@/lib/store";
@@ -8,7 +9,7 @@ import { ExportStepIndicator } from "./ExportStepIndicator";
 
 interface ExportContactPickerProps {
   contactIds: string[];
-  mode: "csv" | "clipboard";
+  mode: "csv" | "clipboard" | "excel";
   onExport: (contactIds: string[]) => void;
   onCancel: () => void;
 }
@@ -16,7 +17,25 @@ interface ExportContactPickerProps {
 export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: ExportContactPickerProps) {
   const contactsByDomain = useStore((s) => s.contactsByDomain);
   const companies = useStore((s) => s.companies);
+  const selectedCompanyDomains = useStore((s) => s.selectedCompanyDomains);
   const [selected, setSelected] = useState<Set<string>>(new Set(contactIds));
+  const queryClient = useQueryClient();
+
+  // Prefetch contacts for all selected companies on modal open
+  useEffect(() => {
+    selectedCompanyDomains.forEach((domain) => {
+      queryClient.prefetchQuery({
+        queryKey: ["company-contacts", domain],
+        queryFn: async () => {
+          const res = await fetch(`/api/company/${encodeURIComponent(domain)}/contacts`);
+          if (!res.ok) throw new Error("Failed");
+          const data = await res.json();
+          return data.contacts ?? [];
+        },
+        staleTime: 5 * 60 * 1000,
+      });
+    });
+  }, [selectedCompanyDomains, queryClient]);
 
   const allContacts = Object.values(contactsByDomain).flat();
   const relevantContacts = allContacts.filter((c) => contactIds.includes(c.id));

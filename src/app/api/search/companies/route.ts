@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { reformulateQuery, looksLikeCompanyName } from "@/lib/exa/queryBuilder";
+import { reformulateQueryWithEntities, looksLikeCompanyName } from "@/lib/exa/queryBuilder";
 import { searchExa, isExaAvailable } from "@/lib/providers/exa";
 import {
   isApolloAvailable,
@@ -7,7 +7,9 @@ import {
   findContacts,
 } from "@/lib/providers/apollo";
 import { createServerClient } from "@/lib/supabase/server";
-import type { Company, FilterState } from "@/lib/types";
+import { calculateIcpScore } from "@/lib/scoring";
+import { getCached, setCached } from "@/lib/cache";
+import type { Company, FilterState, IcpWeights } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
 // Apollo structured search — enrich Exa domains + find contacts in parallel
@@ -137,10 +139,12 @@ export async function POST(request: Request) {
     hideExcluded: true,
     quickFilters: [],
   };
-  const reformulatedQueries = await reformulateQuery(
+  const reformulated = await reformulateQueryWithEntities(
     freeText || "",
     filters || defaultFilters
   );
+  const reformulatedQueries = reformulated.queries;
+  const extractedEntities = reformulated.entities;
 
   if (!isExaAvailable()) {
     return NextResponse.json({
@@ -180,6 +184,39 @@ export async function POST(request: Request) {
           : c
     );
 
+    // ICP scoring — fetch admin weights (cached 1h), score each company
+    let icpWeights: Partial<IcpWeights> = {};
+    try {
+      const cachedWeights = await getCached<IcpWeights>("admin:icp-weights");
+      if (cachedWeights) {
+        icpWeights = cachedWeights;
+      } else {
+        const supabase = createServerClient();
+        const { data: configRow } = await supabase
+          .from("admin_config")
+          .select("value")
+          .eq("key", "icpWeights")
+          .single();
+        if (configRow?.value) {
+          icpWeights = configRow.value as IcpWeights;
+          await setCached("admin:icp-weights", icpWeights, 60); // 1h cache
+        }
+      }
+    } catch { /* use defaults */ }
+
+    const scoringContext = {
+      verticals: filters?.verticals ?? [],
+      regions: filters?.regions ?? [],
+      sizes: filters?.sizes ?? [],
+      signals: filters?.signals?.map(String) ?? [],
+    };
+
+    for (const c of companies) {
+      const { score, breakdown } = calculateIcpScore(c, icpWeights, scoringContext);
+      c.icpScore = score;
+      c.icpBreakdown = breakdown;
+    }
+
     // Exact match detection: flag company whose domain or name closely matches the query
     const queryLower = (freeText || "").toLowerCase().trim();
     if (queryLower) {
@@ -217,6 +254,7 @@ export async function POST(request: Request) {
       companies,
       signals: exaResult.signals,
       reformulatedQueries,
+      extractedEntities,
     });
   } catch (err) {
     console.error("[Search] search failed:", err);

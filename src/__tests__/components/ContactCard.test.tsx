@@ -4,22 +4,37 @@ import { ContactCard } from "@/components/cards/ContactCard";
 import type { Contact } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
+// Mock @tanstack/react-query
+// ---------------------------------------------------------------------------
+
+const mockSetQueriesData = vi.fn();
+vi.mock("@tanstack/react-query", () => ({
+  useQueryClient: () => ({
+    setQueriesData: mockSetQueriesData,
+    invalidateQueries: vi.fn(),
+  }),
+}));
+
+// ---------------------------------------------------------------------------
 // Mock store
 // ---------------------------------------------------------------------------
 
 const mockSelectCompany = vi.fn();
 const mockExcludeContact = vi.fn();
 const mockAddToast = vi.fn();
+const mockTriggerDossierScrollToTop = vi.fn();
+const mockUpdateContact = vi.fn();
 
 vi.mock("@/lib/store", () => {
   const { create } = require("zustand");
   const store = create(() => ({}));
-  store.getState = () => ({});
-  // Override the hook to return mock selectors
+  store.getState = () => ({ updateContact: mockUpdateContact });
   const originalStore = store;
   const useStore = (selector: (s: Record<string, unknown>) => unknown) => {
     const mockState: Record<string, unknown> = {
       selectCompany: mockSelectCompany,
+      selectedCompanyDomain: null,
+      triggerDossierScrollToTop: mockTriggerDossierScrollToTop,
       excludeContact: mockExcludeContact,
       addToast: mockAddToast,
     };
@@ -134,13 +149,14 @@ describe("ContactCard", () => {
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith("jane@test.com");
   });
 
-  it("copy/exclude buttons disabled when no email", () => {
+  it("shows reveal button and disables exclude when no email", () => {
     const contact = makeContact({ email: null });
     render(<ContactCard contact={contact} {...defaultProps} isExpanded={true} />);
 
-    const copyBtn = screen.getByText("Copy email");
+    // When no email, component shows "Reveal email" instead of "Copy email"
+    const revealBtns = screen.getAllByText("Reveal email");
+    expect(revealBtns.length).toBeGreaterThan(0);
     const excludeBtn = screen.getByText("Exclude");
-    expect(copyBtn).toBeDisabled();
     expect(excludeBtn).toBeDisabled();
   });
 
@@ -152,5 +168,26 @@ describe("ContactCard", () => {
     fireEvent.click(excludeBtn);
 
     expect(mockExcludeContact).toHaveBeenCalledWith("jane@test.com");
+  });
+
+  it("renders gracefully when contact fields are null/undefined", () => {
+    const contact = makeContact({
+      firstName: undefined as unknown as string,
+      lastName: undefined as unknown as string,
+      title: undefined as unknown as string,
+      companyName: undefined as unknown as string,
+    });
+    render(<ContactCard contact={contact} {...defaultProps} isExpanded={true} />);
+
+    // Should not throw — renders fallback text
+    expect(screen.getByText("—")).toBeInTheDocument(); // companyName fallback
+  });
+
+  it("renders gracefully when lastVerified is malformed", () => {
+    const contact = makeContact({ lastVerified: "not-a-date" });
+    render(<ContactCard contact={contact} {...defaultProps} />);
+
+    // Should not crash — the component still renders the contact name
+    expect(screen.getByText("Jane Doe")).toBeInTheDocument();
   });
 });

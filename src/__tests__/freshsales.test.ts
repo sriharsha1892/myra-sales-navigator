@@ -286,17 +286,20 @@ describe("getFreshsalesIntel — account not found", () => {
     expect(result.deals).toEqual([]);
   });
 
-  it("caches empty result", async () => {
+  it("does not cache empty result when companyName not provided", async () => {
     fetchMock
       .mockResolvedValueOnce(makeSupabaseConfigResponse())
       .mockResolvedValueOnce(makeAccountResponse([]));
     await getFreshsalesIntel("unknown.com");
 
-    // Second call — should use cache, no more fetches
+    // Second call without companyName — code skips caching so it re-fetches
+    fetchMock
+      .mockResolvedValueOnce(makeSupabaseConfigResponse())
+      .mockResolvedValueOnce(makeAccountResponse([]));
     const result = await getFreshsalesIntel("unknown.com");
     expect(result.status).toBe("none");
-    // Only 2 fetches total (config + account search from first call)
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // 4 fetches total (2 per call, since empty results aren't cached without companyName)
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 });
 
@@ -321,15 +324,20 @@ describe("getFreshsalesIntel — HTTP errors", () => {
     expect(result.status).toBe("none");
   });
 
-  it("caches empty result on failure", async () => {
+  it("does not cache failures — transient errors allow retries", async () => {
     fetchMock
       .mockResolvedValueOnce(makeSupabaseConfigResponse())
       .mockResolvedValueOnce(makeErrorResponse(500));
     await getFreshsalesIntel("fail.com");
+
+    // Second call re-fetches since failures are not cached
+    fetchMock
+      .mockResolvedValueOnce(makeSupabaseConfigResponse())
+      .mockResolvedValueOnce(makeErrorResponse(500));
     const result = await getFreshsalesIntel("fail.com");
     expect(result.status).toBe("none");
-    // Only 2 fetches (config + failed account from first call)
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // 4 fetches total (2 per call)
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
   it("logs console.warn on failure", async () => {

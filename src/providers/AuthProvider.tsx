@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { useStore } from "@/lib/store";
+import { pick } from "@/lib/ui-copy";
 
 interface UnreadMention {
   noteId: string;
@@ -62,17 +63,32 @@ async function fetchMe(attempt = 0): Promise<Response> {
 function getISTGreeting(name: string, lastLoginAt: string | null): string {
   // First-time login
   if (!lastLoginAt) {
-    return `Welcome to myRA, ${name}`;
+    const firstTimeVariants = [
+      `Welcome to myRA, ${name}`,
+      `Hey ${name} — welcome aboard`,
+      `${name}, let's find some prospects`,
+    ];
+    return firstTimeVariants[Math.floor(Math.random() * firstTimeVariants.length)];
   }
 
   // IST = UTC + 5:30
   const now = new Date();
   const istHour = (now.getUTCHours() + 5 + (now.getUTCMinutes() + 30 >= 60 ? 1 : 0)) % 24;
 
-  if (istHour >= 5 && istHour < 12) return `Good morning, ${name}`;
-  if (istHour >= 12 && istHour < 17) return `Good afternoon, ${name}`;
-  if (istHour >= 17 && istHour < 21) return `Good evening, ${name}`;
-  return `Burning the midnight oil, ${name}?`;
+  if (istHour >= 5 && istHour < 12) {
+    const v = [`Good morning, ${name}`, `Morning, ${name} — ready to prospect?`, `Rise and grind, ${name}`];
+    return v[Math.floor(Math.random() * v.length)];
+  }
+  if (istHour >= 12 && istHour < 17) {
+    const v = [`Good afternoon, ${name}`, `Back at it, ${name}?`, `Afternoon, ${name}`];
+    return v[Math.floor(Math.random() * v.length)];
+  }
+  if (istHour >= 17 && istHour < 21) {
+    const v = [`Good evening, ${name}`, `Evening session, ${name}?`, `Still going strong, ${name}`];
+    return v[Math.floor(Math.random() * v.length)];
+  }
+  const v = [`Burning the midnight oil, ${name}?`, `Late night hustle, ${name}`, `${name}, the night shift begins`];
+  return v[Math.floor(Math.random() * v.length)];
 }
 
 function hasJustLoggedInCookie(): boolean {
@@ -119,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         const data = await res.json();
-        setUserName(data.name);
+        setUserName(data.name, data.isAdmin ?? false);
         setLastLoginAt(data.lastLoginAt);
         setUnreadMentions(data.unreadMentions ?? []);
         setSessionExpired(false);

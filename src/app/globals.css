@@ -1,50 +1,67 @@
 @import "tailwindcss";
 
 @theme {
-  --font-display: "Instrument Serif", serif;
-  --font-body: "Manrope", sans-serif;
-  --font-mono: "Geist Mono", monospace;
+  --font-display: "Satoshi", -apple-system, sans-serif;
+  --font-body: "Satoshi", -apple-system, sans-serif;
+  --font-mono: "Geist Mono", "SF Mono", monospace;
 
-  /* Light surfaces — cool slate tint */
-  --color-surface-0: #f8fafc;
-  --color-surface-1: #FFFFFF;
-  --color-surface-2: #f1f5f9;
-  --color-surface-3: #e2e8f0;
-  --color-surface-hover: #eef2f7;
+  /* Light surfaces — warm stone */
+  --color-surface-0: #F5F4F0;
+  --color-surface-1: #FDFCFA;
+  --color-surface-2: #EDEBE5;
+  --color-surface-3: #E5E3DD;
+  --color-surface-hover: #E8E6E0;
 
-  /* Text — blue-gray for modern feel */
-  --color-text-primary: #1e293b;
-  --color-text-secondary: #475569;
-  --color-text-tertiary: #94a3b8;
-  --color-text-inverse: #FFFFFF;
+  /* Text — dark on light */
+  --color-text-primary: #2D2D2D;
+  --color-text-secondary: #5C5C58;
+  --color-text-tertiary: #8A8A85;
+  --color-text-inverse: #FDFCFA;
 
-  /* Accents — Ember (amber-gold) + Arctic (cyan) */
-  --color-accent-primary: #d4a012;
-  --color-accent-primary-hover: #b88c0f;
-  --color-accent-primary-light: rgba(212, 160, 18, 0.08);
-  --color-accent-highlight: #0891b2;
-  --color-accent-highlight-light: rgba(8, 145, 178, 0.08);
+  /* Accents — charcoal primary + mint highlight */
+  --color-accent-primary: #2D2D2D;
+  --color-accent-primary-hover: #404040;
+  --color-accent-primary-light: rgba(45, 45, 45, 0.08);
+  --color-accent-highlight: #8FD9C4;
+  --color-accent-highlight-light: rgba(143, 217, 196, 0.12);
+
+  /* Accent secondary — forest green */
+  --color-accent-secondary: #1B4D3E;
+  --color-accent-secondary-light: rgba(27, 77, 62, 0.08);
+
+  /* Intel tokens — forest green system */
+  --color-intel: #1B4D3E;
+  --color-intel-hover: #2A6B5A;
+  --color-intel-light: rgba(27, 77, 62, 0.08);
+  --color-intel-mint: #8FD9C4;
+  --color-intel-mint-glow: rgba(143, 217, 196, 0.4);
 
   /* Semantic */
   --color-success: #16a34a;
-  --color-success-light: rgba(22, 163, 74, 0.08);
+  --color-success-light: rgba(22, 163, 74, 0.10);
   --color-warning: #d97706;
-  --color-warning-light: rgba(217, 119, 6, 0.08);
+  --color-warning-light: rgba(217, 119, 6, 0.10);
   --color-danger: #dc2626;
-  --color-danger-light: rgba(220, 38, 38, 0.08);
-  --color-info: #d4a012;
-  --color-info-light: rgba(212, 160, 18, 0.08);
+  --color-danger-light: rgba(220, 38, 38, 0.10);
+  --color-info: #2D2D2D;
+  --color-info-light: rgba(45, 45, 45, 0.06);
 
-  /* Source badges */
-  --color-source-exa: #d4a012;
-  --color-source-apollo: #d97706;
-  --color-source-hubspot: #0891b2;
+  /* Source badges — legible on light background */
+  --color-source-exa: #5A32CC;
+  --color-source-apollo: #B8860B;
+  --color-source-hubspot: #FF7A59;
+  --color-source-clearout: #6B6B6B;
+  --color-source-clearout-light: rgba(107, 107, 107, 0.12);
+  --color-source-mordor: #1B4D3E;
+  --color-source-mordor-light: rgba(27, 77, 62, 0.08);
+  --color-source-freshsales: #3EA67B;
+  --color-source-freshsales-light: rgba(62, 166, 123, 0.12);
 
-  /* Confidence (kept for scoring logic) */
-  --color-confidence-high: #22c55e;
-  --color-confidence-medium: #f59e0b;
-  --color-confidence-low: #ef4444;
-  --color-confidence-none: #94a3b8;
+  /* Confidence */
+  --color-confidence-high: #16a34a;
+  --color-confidence-medium: #d97706;
+  --color-confidence-low: #dc2626;
+  --color-confidence-none: #B5B3AD;
 
   /* Radii */
   --radius-card: 12px;
@@ -52,17 +69,28 @@
   --radius-badge: 6px;
   --radius-pill: 9999px;
 
-  /* Shadows — cool-tinted for depth */
-  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
-  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
-  --shadow-lg: 0 8px 24px rgba(15, 23, 42, 0.12);
-  --shadow-focus: 0 0 0 3px rgba(212, 160, 18, 0.2);
+  /* Shadows — subtle light-mode depth */
+  --shadow-sm: 0 1px 2px rgba(45, 45, 45, 0.04);
+  --shadow-md: 0 2px 8px rgba(45, 45, 45, 0.08);
+  --shadow-lg: 0 8px 24px rgba(45, 45, 45, 0.12);
+  --shadow-focus: 0 0 0 3px rgba(45, 45, 45, 0.08);
+
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #1B4D3E, #8FD9C4);
+  --gradient-primary-hover: linear-gradient(135deg, #2A6B5A, #A8E6D4);
+  --gradient-highlight-subtle: linear-gradient(135deg, rgba(27, 77, 62, 0.08), rgba(143, 217, 196, 0.08));
+  --gradient-warm: linear-gradient(135deg, #F5F4F0, #FDFCFA);
+  --gradient-ambient-filter: radial-gradient(ellipse at 30% 20%, rgba(143, 217, 196, 0.06) 0%, transparent 70%);
+  --gradient-ambient-header: radial-gradient(ellipse at 50% 0%, rgba(27, 77, 62, 0.04) 0%, transparent 60%);
+  --gradient-ambient-detail: radial-gradient(ellipse at 70% 30%, rgba(143, 217, 196, 0.05) 0%, transparent 70%);
 
   /* Transitions */
-  --transition-default: 180ms ease-out;
+  --transition-default: 150ms cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* Animations */
-  --animate-shimmer: shimmer 1.5s ease-in-out infinite;
+  --animate-shimmer: shimmer 2s ease-in-out infinite;
   --animate-pulse-subtle: pulse-subtle 2s ease-in-out infinite;
 }
 
@@ -126,19 +154,51 @@
   to { opacity: 0; transform: translateY(2px); }
 }
 
+/* Intel animations */
+@keyframes searchPulse {
+  0% { box-shadow: 0 0 0 0 rgba(27, 77, 62, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(27, 77, 62, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(27, 77, 62, 0); }
+}
+
+@keyframes intelReveal {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes intelPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.2); }
+}
+
+@keyframes tactileConfirm {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+@keyframes checkIn { from { transform: scale(0) } to { transform: scale(1) } }
+@keyframes countBounce { 0% { transform: scale(1) } 50% { transform: scale(1.15) } 100% { transform: scale(1) } }
+@keyframes searchGlow { 0%,100% { box-shadow: 0 0 0 0 transparent } 50% { box-shadow: 0 0 12px 2px rgba(143,217,196,0.3) } }
+@keyframes blurToSharp { from { filter: blur(8px); opacity: 0.5 } to { filter: blur(0); opacity: 1 } }
+@keyframes curtainUp { from { transform: translateY(0) } to { transform: translateY(-100vh) } }
+@keyframes typewriter { from { width: 0 } to { width: 100% } }
+
 html, body {
   background: var(--color-surface-0);
   color: var(--color-text-primary);
   font-family: var(--font-body);
+  color-scheme: light;
 }
 
 /* Shimmer for skeleton loading (light mode) */
 .shimmer {
   background: linear-gradient(
     90deg,
-    var(--color-surface-2) 25%,
-    var(--color-surface-3) 50%,
-    var(--color-surface-2) 75%
+    var(--color-surface-1) 25%,
+    var(--color-surface-hover) 50%,
+    var(--color-surface-1) 75%
   );
   background-size: 200% 100%;
   animation: var(--animate-shimmer);
@@ -164,48 +224,84 @@ html, body {
   color: #FFFFFF;
 }
 
-/* Glass effects (light mode) */
+/* Surface effects — solid backgrounds, no blur */
 .glass {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(20px) saturate(1.4);
-  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  background: rgba(253, 252, 250, 0.95);
 }
 .glass-subtle {
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(16px) saturate(1.3);
-  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  background: rgba(245, 244, 240, 0.9);
 }
 .glass-panel {
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(24px) saturate(1.5);
-  -webkit-backdrop-filter: blur(24px) saturate(1.5);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-}
-.glass-card {
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(12px) saturate(1.2);
-  -webkit-backdrop-filter: blur(12px) saturate(1.2);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.03);
-}
-.glass-card:hover {
-  background: rgba(255, 255, 255, 0.75);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.07), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  background: var(--color-surface-1);
+  border: 1px solid rgba(0, 0, 0, 0.06);
 }
 .glass-topbar {
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(20px) saturate(1.6);
-  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  background: var(--color-surface-0);
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* Gradient utility classes */
+.btn-gradient {
+  background: var(--gradient-primary);
+  color: white;
+  transition: opacity 180ms var(--ease-spring);
+}
+.btn-gradient:hover {
+  background: var(--gradient-primary-hover);
+}
+
+.ambient-filter {
+  background-image: var(--gradient-ambient-filter);
+}
+.ambient-header {
+  background-image: var(--gradient-ambient-header);
+}
+.ambient-detail {
+  background-image: var(--gradient-ambient-detail);
+}
+
+/* Micro-interaction classes */
+.card-interactive {
+  transition: transform 180ms var(--ease-spring), box-shadow 180ms var(--ease-spring);
+}
+.card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.card-interactive:active {
+  transform: scale(0.995);
+}
+
+.btn-press {
+  transition: transform 60ms var(--ease-spring);
+}
+.btn-press:active {
+  transform: scale(0.97);
+}
+
+/* Refined focus ring */
+*:focus-visible {
+  outline: 1px solid var(--color-accent-secondary);
+  outline-offset: 2px;
+}
+
+@keyframes columnReveal {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 /* Fade in up animation for results */
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 .animate-fadeInUp {
-  animation: fadeInUp 0.3s ease-out both;
+  animation: fadeInUp 0.3s var(--ease-spring) both;
 }
 
 /* Smooth spinner */

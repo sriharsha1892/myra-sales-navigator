@@ -54,6 +54,8 @@ export const CacheKeys = {
   signals: (domain: string) => `signals:${normalizeDomain(domain)}`,
   email: (email: string) => `email:${email.toLowerCase().trim()}`,
   hubspot: (domain: string) => `hubspot:${normalizeDomain(domain)}`,
+  freshsales: (domain: string) => `freshsales:intel:${normalizeDomain(domain)}`,
+  enrichedContacts: (domain: string) => `enriched:contacts:${normalizeDomain(domain)}`,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -67,6 +69,8 @@ export const CacheTTL = {
   signals: 60,
   email: 1440,   // 24 hours (Clearout verification)
   hubspot: 30,
+  freshsales: 30,
+  enrichedContacts: 120, // 2 hours
 } as const;
 
 // ---------------------------------------------------------------------------

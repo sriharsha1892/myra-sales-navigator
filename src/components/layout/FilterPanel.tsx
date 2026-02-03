@@ -12,6 +12,8 @@ import { IcpScoreBadge } from "@/components/badges";
 import { HelpTip } from "@/components/shared/HelpTip";
 import { useSearchHistory } from "@/hooks/useSearchHistory";
 import { timeAgo } from "@/lib/utils";
+import { DEFAULT_PIPELINE_STAGES } from "@/lib/types";
+import type { PipelineStage } from "@/lib/types";
 
 export function FilterPanel() {
   const presets = useStore((s) => s.presets);
@@ -70,9 +72,9 @@ export function FilterPanel() {
   const hasSearched = searchResults !== null;
 
   return (
-    <div className="glass-panel flex h-full flex-col overflow-y-auto">
+    <div className="ambient-filter bg-surface-0 border-r border-surface-3 flex h-full flex-col overflow-y-auto">
       {/* Header + Search */}
-      <div className="border-b border-surface-3 px-4 py-3">
+      <div className="border-b border-surface-3 px-3 py-2">
         <div className="flex items-center gap-2">
           <h2 className="font-display text-base font-medium text-text-primary">Refine Results</h2>
           {activeFilterCount > 0 && (
@@ -98,7 +100,7 @@ export function FilterPanel() {
       </div>
 
       {/* Presets */}
-      <div className="border-b border-surface-3 px-4 py-3">
+      <div className="border-b border-surface-3 px-3 py-2">
         <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
           Saved Presets
         </label>
@@ -189,7 +191,7 @@ export function FilterPanel() {
 
       {/* Recent Searches */}
       {history.length > 0 && (
-        <div className="border-b border-surface-3 px-4 py-3">
+        <div className="border-b border-surface-3 px-3 py-2">
           <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
             Recent Searches
           </label>
@@ -230,7 +232,7 @@ export function FilterPanel() {
 
       {/* Recent Companies */}
       {recentCompanyData.length > 0 && (
-        <div className="border-b border-surface-3 px-4 py-3">
+        <div className="border-b border-surface-3 px-3 py-2">
           <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
             Recent
           </label>
@@ -268,9 +270,48 @@ export function FilterPanel() {
         <SignalFilter />
       </FilterSection>
 
+      <FilterSection title="Status" defaultOpen={false} count={filters.statuses.length} onClear={() => setFilters({ statuses: [] })}>
+        <StatusFilter />
+      </FilterSection>
+
       <FilterSection title={<span className="inline-flex items-center gap-1">Exclusions <HelpTip text="Companies or contacts your team has already ruled out. Hidden from results when this filter is on." /></span>} defaultOpen={false}>
         <ExclusionToggle />
       </FilterSection>
+    </div>
+  );
+}
+
+function StatusFilter() {
+  const filters = useStore((s) => s.filters);
+  const setFilters = useStore((s) => s.setFilters);
+  const adminConfig = useStore((s) => s.adminConfig);
+
+  const stages: PipelineStage[] =
+    (adminConfig as unknown as Record<string, unknown>).pipelineStages as PipelineStage[] | undefined
+    ?? DEFAULT_PIPELINE_STAGES;
+
+  const toggle = (id: string) => {
+    const current = filters.statuses;
+    const next = current.includes(id)
+      ? current.filter((s) => s !== id)
+      : [...current, id];
+    setFilters({ statuses: next });
+  };
+
+  return (
+    <div className="space-y-1 px-3 pb-2">
+      {stages.map((stage) => (
+        <label key={stage.id} className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 hover:bg-surface-hover">
+          <input
+            type="checkbox"
+            checked={filters.statuses.includes(stage.id)}
+            onChange={() => toggle(stage.id)}
+            className="h-3 w-3 rounded accent-accent-primary"
+          />
+          <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: stage.color }} />
+          <span className="text-xs text-text-secondary">{stage.label}</span>
+        </label>
+      ))}
     </div>
   );
 }

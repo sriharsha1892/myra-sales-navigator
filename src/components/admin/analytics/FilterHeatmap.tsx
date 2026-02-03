@@ -40,7 +40,7 @@ function HeatmapGrid({
               key={name}
               className="rounded-input border border-surface-3 px-2.5 py-1.5"
               style={{
-                backgroundColor: `rgba(212, 160, 18, ${Math.max(0.08, intensity / 100 * 0.4)})`,
+                backgroundColor: `rgba(108, 58, 255, ${Math.max(0.08, intensity / 100 * 0.4)})`,
               }}
             >
               <span className="text-xs text-text-primary">{name}</span>

@@ -8,6 +8,7 @@ const emptyFilters: FilterState = {
   regions: [],
   sizes: [],
   signals: [],
+  statuses: [],
   hideExcluded: true,
   quickFilters: [],
 };

@@ -28,13 +28,14 @@ export function IcpScoreBadge({ score, className, showHelp }: IcpScoreBadgeProps
   const strokeWidth = 2.5;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const clamped = Math.max(0, Math.min(100, score));
+  const safeScore = typeof score === "number" && !Number.isNaN(score) ? score : 0;
+  const clamped = Math.max(0, Math.min(100, safeScore));
   const offset = circumference - (clamped / 100) * circumference;
 
   const badge = (
     <span
       className={cn("relative inline-flex items-center justify-center", className)}
-      title={`ICP Score: ${score}`}
+      title={`ICP Score: ${safeScore}`}
       style={{ width: size, height: size }}
     >
       <svg width={size} height={size} className="rotate-[-90deg]">
@@ -52,7 +53,7 @@ export function IcpScoreBadge({ score, className, showHelp }: IcpScoreBadgeProps
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke={getStrokeColor(score)}
+          stroke={getStrokeColor(safeScore)}
           strokeWidth={strokeWidth}
           strokeDasharray={circumference}
           strokeDashoffset={offset}
@@ -62,10 +63,10 @@ export function IcpScoreBadge({ score, className, showHelp }: IcpScoreBadgeProps
       <span
         className={cn(
           "absolute inset-0 flex items-center justify-center font-mono text-[9px] font-bold leading-none",
-          getTextClass(score)
+          getTextClass(safeScore)
         )}
       >
-        {score}
+        {safeScore}
       </span>
     </span>
   );

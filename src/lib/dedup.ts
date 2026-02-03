@@ -46,7 +46,19 @@ function mergeCompanies(companies: CompanyEnriched[]): CompanyEnriched {
   primary.signals = Array.from(signalMap.values());
 
   primary.contactCount = Math.max(...sorted.map((c) => c.contactCount));
-  primary.icpScore = Math.max(...sorted.map((c) => c.icpScore));
+
+  // Weighted average ICP: newest source gets 1.5x weight, others 1.0x
+  if (sorted.length === 1) {
+    primary.icpScore = sorted[0].icpScore;
+  } else {
+    let weightedSum = sorted[0].icpScore * 1.5;
+    let totalWeight = 1.5;
+    for (let i = 1; i < sorted.length; i++) {
+      weightedSum += sorted[i].icpScore;
+      totalWeight += 1.0;
+    }
+    primary.icpScore = Math.round(weightedSum / totalWeight);
+  }
 
   for (const c of sorted) {
     if (!primary.revenue && c.revenue) primary.revenue = c.revenue;
@@ -61,6 +73,6 @@ function mergeCompanies(companies: CompanyEnriched[]): CompanyEnriched {
 
 export function getSourceLabel(sources: ResultSource[]): string {
   if (sources.length <= 1) return "";
-  const names: Record<ResultSource, string> = { exa: "Exa", apollo: "Apollo", hubspot: "HubSpot" };
+  const names: Record<ResultSource, string> = { exa: "Exa", apollo: "Apollo", hubspot: "HubSpot", clearout: "Clearout", mordor: "Mordor", freshsales: "Freshsales" };
   return "Found by " + sources.map((s) => names[s]).join(" + ");
 }

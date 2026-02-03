@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/providers/AuthProvider";
 import { useStore } from "@/lib/store";
 
@@ -15,11 +15,21 @@ function formatIST(dateStr: string): string {
   });
 }
 
+interface DomainPreview {
+  domain: string;
+  x: number;
+  y: number;
+}
+
 export function MentionNotifications() {
   const { unreadMentions, clearMentions } = useAuth();
   const selectCompany = useStore((s) => s.selectCompany);
+  const companies = useStore((s) => s.companies);
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const [hover, setHover] = useState<DomainPreview | null>(null);
+  const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Click-outside-to-close
   useEffect(() => {
@@ -33,10 +43,41 @@ export function MentionNotifications() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
+  const showPreview = useCallback((e: React.MouseEvent, domain: string) => {
+    if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
+    hoverTimeout.current = setTimeout(() => {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      setHover({ domain, x: rect.left, y: rect.top - 8 });
+    }, 200);
+  }, []);
+
+  const hidePreview = useCallback(() => {
+    if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
+    setHover(null);
+  }, []);
+
   if (unreadMentions.length === 0) return null;
 
   return (
     <div className="relative" ref={containerRef}>
+      {/* Hover preview */}
+      {hover && (() => {
+        const company = companies.find((c) => c.domain === hover.domain);
+        if (!company) return null;
+        return (
+          <div
+            className="pointer-events-none fixed z-30 rounded-card border border-surface-3 bg-surface-1 px-3 py-2 shadow-md"
+            style={{ left: hover.x, top: hover.y, transform: "translateY(-100%)" }}
+          >
+            <p className="text-xs font-medium text-text-primary">{hover.domain}</p>
+            <p className="text-[10px] text-text-tertiary">{company.employeeCount?.toLocaleString()} emp</p>
+            {company.signals[0] && (
+              <p className="text-[10px] text-accent-secondary">{company.signals[0].title}</p>
+            )}
+          </div>
+        );
+      })()}
+
       <button
         onClick={() => setOpen(!open)}
         aria-label={`Unread mentions (${unreadMentions.length})`}
@@ -74,6 +115,8 @@ export function MentionNotifications() {
                   selectCompany(mention.companyDomain);
                   setOpen(false);
                 }}
+                onMouseEnter={(e) => showPreview(e, mention.companyDomain)}
+                onMouseLeave={hidePreview}
                 className="block w-full rounded-input border border-surface-3 bg-surface-2 p-2 text-left transition-colors hover:border-accent-primary/30"
               >
                 <p className="text-xs text-text-primary">

@@ -22,6 +22,7 @@ function LoginContent() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [returnTo, setReturnTo] = useState<string | null>(null);
+  const [curtainUp, setCurtainUp] = useState(false);
 
   useEffect(() => {
     const err = searchParams.get("error");
@@ -50,6 +51,8 @@ function LoginContent() {
       if (res.ok) {
         setSubmitted(true);
         document.cookie = `myra_email=${encodeURIComponent(email.trim().toLowerCase())}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;
+        // Curtain-up animation on success
+        setTimeout(() => setCurtainUp(true), 300);
       } else {
         const data = await res.json();
         setError(data.error || "Request failed. Try again.");
@@ -62,9 +65,13 @@ function LoginContent() {
   };
 
   return (
-    <div className="w-full max-w-sm rounded-card border border-surface-3 bg-surface-1 p-8 shadow-lg">
+    <div
+      className={`w-full max-w-sm rounded-card border border-surface-3 bg-surface-1 p-8 shadow-lg${curtainUp ? " animate-[curtainUp_500ms_ease-in-out_forwards]" : ""}`}
+    >
       <div className="mb-6 text-center">
-        <h1 className="font-display text-2xl text-text-primary">myRA</h1>
+        <h1 className="font-display text-2xl text-text-primary" style={{ animation: "blurToSharp 600ms ease-out both" }}>
+          myRA
+        </h1>
         <p className="mt-1 text-sm text-text-tertiary">Sales Navigator</p>
       </div>
 
@@ -124,7 +131,7 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface-0">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-surface-0 via-surface-0 to-surface-2">
       <Suspense
         fallback={
           <div className="w-full max-w-sm rounded-card border border-surface-3 bg-surface-1 p-8 shadow-lg">

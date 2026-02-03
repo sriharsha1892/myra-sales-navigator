@@ -31,7 +31,7 @@ All architecture and UX decisions resolved during the Jan 30, 2026 planning sess
 | Clearout trigger | **On-demand at export step only** | Verify emails only when user selects contacts for final export. Saves credits. |
 | Results per search | **25 companies + 25 contacts** | Manageable for MVP. Pagination if needed later. |
 | Results view | **Both company-first and contact-first** | Company view (default) + Contacts toggle with smart list UX |
-| Contact view UX | **Smart list with inline company context** | Flat list sorted by relevance/seniority, expandable company chip on hover |
+| Contact view UX | **Grouped by company with sticky headers, expandable rows** | Company groups mirror Companies tab sort; contacts expand inline with full detail + actions |
 | Exa + Apollo results | **Show both paths** | Split results: "Semantic matches (Exa)" + "Structured matches (Apollo)" sections |
 | Data merge in dossier | **Unified with source badges** | One merged dossier, every field has tiny source badge (E/A/H) |
 | ICP scoring | **In MVP — rule-based heuristic** | Weighted points, configurable via admin page. Not ML. |
@@ -440,6 +440,29 @@ ADMIN_USERS=adi,jvs
 
 - Make the plan extremely concise. Sacrifice grammar for the sake of concision.
 - At the end of each plan, give me a list of unresolved questions to answer, if any.
+
+---
+
+## Contacts Tab Decisions (Feb 2026)
+
+| Decision | Choice |
+|----------|--------|
+| Fetch timing | Lazy — on Contacts tab switch, not on search |
+| Loading UX | Progressive — show contacts as each company's contacts arrive |
+| Count display | Estimated from search results while loading, actual when done |
+| Contact row fields | Name, email (primary), source badges, last contacted (if exists) |
+| Company context | Grouped under company headers (sticky) |
+| Click on contact row | Expand inline to show full detail + actions |
+| Sort/filter controls | Contact-specific: seniority level, has email, data source |
+| Company chip in row | Rich popover on hover (200ms delay): name, ICP, size, industry, status |
+| Expanded row actions | Copy email, View dossier, Draft email, Mark excluded |
+| Export | Batch only — select with checkboxes, Cmd+E exports all selected |
+| Contact exclusion | Email-type exclusion via existing API |
+| Configurable columns | Inline gear icon on Contacts tab — toggle fields on/off |
+| Company group order | Same order as Companies tab (mirrors active sort) |
+| Filter/sort persistence | Zustand store (persists across tab switches) |
+| Collapse/expand groups | Collapse all / expand all toggle at top of grouped list |
+| Keyboard nav | Arrow keys navigate contacts, Space toggles checkbox, Enter expands, Cmd+C copies email |
 
 ---
 

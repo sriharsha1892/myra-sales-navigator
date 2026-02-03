@@ -7,3 +7,4 @@ export { StalenessIndicator } from "./StalenessIndicator";
 export { MissingData } from "./MissingData";
 export { ErrorState } from "./ErrorState";
 export { ResultFilterChips } from "./ResultFilterChips";
+export { AnimatedNumber } from "./AnimatedNumber";

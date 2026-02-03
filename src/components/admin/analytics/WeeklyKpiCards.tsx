@@ -61,7 +61,7 @@ export function WeeklyKpiCards({ data, targets }: WeeklyKpiCardsProps) {
                 <div className="h-1 flex-1 rounded-full bg-surface-3">
                   <div
                     className={`h-1 rounded-full transition-all duration-300 ${
-                      atTarget ? "bg-green-500" : "bg-accent-primary"
+                      atTarget ? "bg-success" : "bg-accent-primary"
                     }`}
                     style={{
                       width: `${Math.min(100, Math.round((value / target) * 100))}%`,
@@ -71,7 +71,7 @@ export function WeeklyKpiCards({ data, targets }: WeeklyKpiCardsProps) {
                 <span
                   className={`text-[10px] font-mono ${
                     atTarget
-                      ? "text-green-400"
+                      ? "text-success"
                       : belowTarget
                         ? "text-accent-primary"
                         : "text-text-tertiary"

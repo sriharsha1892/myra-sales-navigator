@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback } from "react";
 import { useStore } from "@/lib/store";
-import type { Contact, ExportFlowState, VerificationResult } from "@/lib/types";
+import type { Contact, VerificationResult } from "@/lib/types";
 
 export function escapeCsvField(field: string): string {
   if (field.includes(",") || field.includes('"') || field.includes("\n")) {
@@ -64,7 +64,7 @@ export function useExport() {
     return contacts;
   }, [viewMode, selectedContactIds, selectedCompanyDomains, contactsByDomain]);
 
-  const executeExport = useCallback(async (contacts: Contact[], mode: "csv" | "clipboard") => {
+  const executeExport = useCallback(async (contacts: Contact[], mode: "csv" | "clipboard" | "excel") => {
     if (contacts.length === 0) {
       addToast({ message: "No contacts to export", type: "warning" });
       return;
@@ -97,6 +97,48 @@ export function useExport() {
             .map((c) => applyTemplateLocal(template, c));
           await navigator.clipboard.writeText(lines.join("\n"));
           handle.resolve(`Copied ${lines.length} contacts to clipboard`);
+        }
+      } else if (mode === "excel") {
+        // Excel export using ExcelJS (client-side)
+        try {
+          const ExcelJS = (await import("exceljs")).default;
+          const workbook = new ExcelJS.Workbook();
+          const sheet = workbook.addWorksheet("Contacts");
+          sheet.columns = [
+            { header: "First Name", key: "firstName", width: 15 },
+            { header: "Last Name", key: "lastName", width: 15 },
+            { header: "Email", key: "email", width: 30 },
+            { header: "Title", key: "title", width: 25 },
+            { header: "Company", key: "company", width: 25 },
+            { header: "Phone", key: "phone", width: 18 },
+            { header: "Seniority", key: "seniority", width: 12 },
+            { header: "Confidence", key: "confidence", width: 12 },
+            { header: "Sources", key: "sources", width: 15 },
+          ];
+          for (const c of contacts) {
+            sheet.addRow({
+              firstName: c.firstName,
+              lastName: c.lastName,
+              email: c.email ?? "",
+              title: c.title,
+              company: c.companyName,
+              phone: c.phone ?? "",
+              seniority: c.seniority,
+              confidence: c.emailConfidence,
+              sources: (c.sources ?? []).join(", "),
+            });
+          }
+          const buffer = await workbook.xlsx.writeBuffer();
+          const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `contacts-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
+          a.click();
+          URL.revokeObjectURL(url);
+          handle.resolve(`Exported ${contacts.length} contacts to Excel`);
+        } catch {
+          handle.reject("Excel export failed");
         }
       } else {
         // CSV export — respect admin csvColumns
@@ -137,12 +179,33 @@ export function useExport() {
       }
     } catch {
       handle.reject("Export failed");
+      setExportState(null);
+      return;
     }
+
+    // Log exported contacts to Supabase
+    try {
+      const exportPayload = contacts
+        .filter((c) => c.email)
+        .map((c) => ({ email: c.email, name: `${c.firstName} ${c.lastName}` }));
+      if (exportPayload.length > 0) {
+        fetch("/api/contact/export-history", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contacts: exportPayload,
+            exportedBy: userName,
+            exportFormat: mode,
+            companyDomain,
+          }),
+        }).catch(() => { /* silent */ });
+      }
+    } catch { /* silent */ }
 
     setExportState(null);
   }, [adminConfig, userCopyFormat, addProgressToast, addToast, setExportState]);
 
-  const initiateExport = useCallback((mode: "csv" | "clipboard") => {
+  const initiateExport = useCallback((mode: "csv" | "clipboard" | "excel") => {
     if (viewMode === "companies" && selectedCompanyDomains.size > 0) {
       // Open contact picker
       const contacts = getSelectedContacts();
@@ -155,9 +218,21 @@ export function useExport() {
         mode,
       });
     } else {
-      executeExport(getSelectedContacts(), mode);
+      const contacts = getSelectedContacts();
+      // Warn about invalid/missing emails
+      const invalidCount = contacts.filter(
+        (c) => c.verificationStatus === "invalid" || !c.email
+      ).length;
+      if (invalidCount > 0) {
+        addToast({
+          message: `${invalidCount} contact${invalidCount > 1 ? "s" : ""} with invalid/missing email${invalidCount > 1 ? "s" : ""} will be included`,
+          type: "warning",
+          duration: 4000,
+        });
+      }
+      executeExport(contacts, mode);
     }
-  }, [viewMode, selectedCompanyDomains, getSelectedContacts, setExportState, executeExport]);
+  }, [viewMode, selectedCompanyDomains, getSelectedContacts, setExportState, executeExport, addToast]);
 
   const exportPickedContacts = useCallback(async (contactIds: string[]) => {
     const allContacts = Object.values(contactsByDomain).flat();

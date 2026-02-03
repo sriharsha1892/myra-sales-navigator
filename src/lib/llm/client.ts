@@ -155,3 +155,35 @@ export function isGroqAvailable(): boolean {
 export function isGeminiAvailable(): boolean {
   return !!process.env.GEMINI_API_KEY;
 }
+
+// ---------------------------------------------------------------------------
+// Company summary generation (used by dossier route)
+// ---------------------------------------------------------------------------
+
+export async function generateCompanySummary(input: {
+  description?: string;
+  signals?: { type: string; title: string }[];
+  industry?: string;
+  name: string;
+}): Promise<string> {
+  const signalText = input.signals?.length
+    ? `Recent signals: ${input.signals.map((s) => `${s.type}: ${s.title}`).join("; ")}`
+    : "No recent signals available.";
+
+  const prompt = `Write 3 bullet points about ${input.name} for a B2B sales team:
+1) What they do (core business)
+2) Why now (recent signal or growth)
+3) Who they compete with
+Max 2 sentences each. No marketing fluff.
+
+Context:
+- Industry: ${input.industry || "Unknown"}
+- Description: ${input.description || "Not available"}
+- ${signalText}`;
+
+  try {
+    return await completeWithFallback(prompt, { maxTokens: 256, temperature: 0.3 });
+  } catch {
+    return "";
+  }
+}

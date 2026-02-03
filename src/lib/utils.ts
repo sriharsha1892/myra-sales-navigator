@@ -47,3 +47,30 @@ export function getSizeBucket(count: number): SizeBucket {
   if (count <= 1000) return "201-1000";
   return "1000+";
 }
+
+/**
+ * Limits concurrent promise execution. Returns a wrapper that queues
+ * calls so at most `concurrency` run at once.
+ */
+export function pLimit(concurrency: number) {
+  let active = 0;
+  const queue: (() => void)[] = [];
+
+  function next() {
+    if (queue.length > 0 && active < concurrency) {
+      active++;
+      queue.shift()!();
+    }
+  }
+
+  return <T>(fn: () => Promise<T>): Promise<T> =>
+    new Promise<T>((resolve, reject) => {
+      queue.push(() => {
+        fn().then(resolve, reject).finally(() => {
+          active--;
+          next();
+        });
+      });
+      next();
+    });
+}

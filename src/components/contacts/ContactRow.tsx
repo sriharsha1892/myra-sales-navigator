@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/cn";
-import { ConfidenceBadge, SourceBadge } from "@/components/badges";
+import { ConfidenceBadge, SourceBadge, VerificationBadge } from "@/components/badges";
 import { MissingData } from "@/components/shared/MissingData";
 import { useInlineFeedback } from "@/hooks/useInlineFeedback";
 import type { Contact, ResultSource } from "@/lib/types";
@@ -225,19 +225,19 @@ export function ContactRow({
       <div className="mt-1 flex items-center gap-2 pl-5">
         {contact.email ? (
           <>
-            <span className="font-mono text-xs text-text-secondary">
+            <span className={`font-mono text-sm ${contact.verificationStatus === "invalid" ? "text-text-tertiary line-through" : "text-text-secondary"}`}>
               {contact.email}
             </span>
             {contact.fieldSources?.email && (
               <FieldSourceTag source={contact.fieldSources.email} />
             )}
-            <ConfidenceBadge
-              level={contact.confidenceLevel}
-              score={contact.emailConfidence}
+            <VerificationBadge
+              status={contact.verificationStatus ?? "unverified"}
+              safeToSend={contact.safeToSend}
             />
             <button
               onClick={() => handleCopy(contact.email!)}
-              className="text-text-tertiary opacity-50 transition-opacity hover:text-accent-primary hover:opacity-100"
+              className="text-text-tertiary hover:text-accent-primary"
               title="Copy email"
               aria-label="Copy email"
             >

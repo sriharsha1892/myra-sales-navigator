@@ -22,6 +22,21 @@ vi.mock("@/lib/providers/freshsales", () => ({
 
 vi.mock("@/lib/cache", () => ({
   normalizeDomain: (d: string) => d.toLowerCase().replace(/^www\./, "").trim(),
+  getCached: vi.fn().mockResolvedValue(null),
+  setCached: vi.fn().mockResolvedValue(undefined),
+  deleteCached: vi.fn().mockResolvedValue(undefined),
+  CacheKeys: {
+    enrichedContacts: (d: string) => `enriched-contacts:${d}`,
+    apolloContacts: (d: string) => `apollo-contacts:${d}`,
+    hubspotContacts: (d: string) => `hubspot-contacts:${d}`,
+    freshsalesContacts: (d: string) => `freshsales-contacts:${d}`,
+  },
+  CacheTTL: {
+    enrichedContacts: 86400,
+    apollo: 86400,
+    hubspot: 3600,
+    freshsales: 3600,
+  },
 }));
 
 import { GET } from "@/app/api/company/[domain]/contacts/route";
