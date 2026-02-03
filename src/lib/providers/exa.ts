@@ -49,8 +49,21 @@ const NOISE_DOMAINS = [
   "yelp.com", "bbb.org", "dnb.com",
 ];
 
-function isNoiseDomain(domain: string): boolean {
+export function isNoiseDomain(domain: string): boolean {
   return NOISE_DOMAINS.some(nd => domain === nd || domain.endsWith(`.${nd}`));
+}
+
+// ---------------------------------------------------------------------------
+// Base domain extraction (strip TLD for dedup — "basf.com" → "basf")
+// ---------------------------------------------------------------------------
+
+function getBaseDomain(domain: string): string {
+  const parts = domain.split(".");
+  if (parts.length <= 1) return domain;
+  const twoPartTlds = ["co.uk", "com.au", "co.jp", "co.in", "com.br", "com.my"];
+  const tld = parts.slice(-2).join(".");
+  if (twoPartTlds.includes(tld) && parts.length > 2) return parts.slice(0, -2).join(".");
+  return parts.slice(0, -1).join(".");
 }
 
 // ---------------------------------------------------------------------------
@@ -170,11 +183,12 @@ export async function searchExa(
     .map(mapExaResultToCompany)
     .filter(c => !isNoiseDomain(c.domain));
 
-  // Dedupe by domain
+  // Dedupe by base domain (strip TLD to catch variants like basf.com / basf.de)
   const seen = new Set<string>();
   const dedupedCompanies = companies.filter((c) => {
-    if (seen.has(c.domain)) return false;
-    seen.add(c.domain);
+    const base = getBaseDomain(c.domain);
+    if (seen.has(base)) return false;
+    seen.add(base);
     return true;
   });
 

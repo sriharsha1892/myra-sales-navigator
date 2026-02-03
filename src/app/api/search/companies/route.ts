@@ -158,7 +158,7 @@ export async function POST(request: Request) {
   try {
     const primaryQuery = reformulatedQueries[0] || freeText || "";
     const isNameQuery = looksLikeCompanyName(freeText || "");
-    const numResults = isNameQuery ? 8 : 25;
+    const numResults = isNameQuery ? 15 : 25;
     console.log("[Search] primaryQuery:", primaryQuery, "isNameQuery:", isNameQuery);
 
     // Parallel: Exa semantic search + exclusion list fetch
@@ -194,11 +194,11 @@ export async function POST(request: Request) {
         const supabase = createServerClient();
         const { data: configRow } = await supabase
           .from("admin_config")
-          .select("value")
-          .eq("key", "icpWeights")
+          .select("icp_weights")
+          .eq("id", "global")
           .single();
-        if (configRow?.value) {
-          icpWeights = configRow.value as IcpWeights;
+        if (configRow?.icp_weights) {
+          icpWeights = configRow.icp_weights as IcpWeights;
           await setCached("admin:icp-weights", icpWeights, 60); // 1h cache
         }
       }

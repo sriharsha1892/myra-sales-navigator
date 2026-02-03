@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { extractSignals, isExaAvailable } from "@/lib/providers/exa";
+import { extractSignals, isExaAvailable, isNoiseDomain } from "@/lib/providers/exa";
 import { getCached, setCached } from "@/lib/cache";
 import Exa from "exa-js";
 
@@ -59,8 +59,16 @@ export async function GET(
       },
     });
 
+    // Filter noise domains from mention results (LinkedIn, Reddit, Wikipedia, etc.)
+    const filteredMentions = mentionResults.results.filter(r => {
+      try {
+        const d = new URL(r.url).hostname.replace(/^www\./, "");
+        return !isNoiseDomain(d);
+      } catch { return true; }
+    });
+
     // Combine all results into a single content string for LLM extraction
-    const allResults = [...newsResults.results, ...mentionResults.results];
+    const allResults = [...newsResults.results, ...filteredMentions];
     if (allResults.length === 0) {
       return NextResponse.json({ signals: [] });
     }

@@ -8,7 +8,8 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/__tests__/setup.ts"],
-    exclude: ["node_modules", "e2e"],
+    include: ["src/**/*.test.{ts,tsx}"],
+    exclude: ["node_modules", "e2e", ".next", "myra-gtm-dashboard"],
   },
   resolve: {
     alias: {

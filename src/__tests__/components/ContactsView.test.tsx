@@ -127,7 +127,7 @@ import { useStore } from "@/lib/store";
 // Lazy import to ensure mocks are in place
 async function importResultsList() {
   const mod = await import("@/components/layout/ResultsList");
-  return mod.default ?? (mod as Record<string, unknown>).ResultsList;
+  return mod.ResultsList;
 }
 
 // ---------------------------------------------------------------------------

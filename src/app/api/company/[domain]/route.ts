@@ -94,6 +94,17 @@ export async function GET(
       const cachedWeights = await getCached<IcpWeights>("admin:icp-weights");
       if (cachedWeights) {
         icpWeights = cachedWeights;
+      } else {
+        const supabase = createServerClient();
+        const { data: configRow } = await supabase
+          .from("admin_config")
+          .select("icp_weights")
+          .eq("id", "global")
+          .single();
+        if (configRow?.icp_weights) {
+          icpWeights = configRow.icp_weights as IcpWeights;
+          await setCached("admin:icp-weights", icpWeights, 60);
+        }
       }
     } catch { /* use defaults */ }
 
