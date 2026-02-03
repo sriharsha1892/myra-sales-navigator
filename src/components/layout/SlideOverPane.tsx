@@ -53,9 +53,10 @@ export function SlideOverPane() {
   useEffect(() => {
     if (dossierScrollToTop > 0 && scrollContainerRef.current) {
       scrollContainerRef.current.scrollTo({ top: 0, behavior: "smooth" });
-      setHighlightFlash(true);
-      const timer = setTimeout(() => setHighlightFlash(false), 600);
-      return () => clearTimeout(timer);
+      // Defer setState to avoid synchronous setState-in-effect lint error
+      const flashTimer = requestAnimationFrame(() => setHighlightFlash(true));
+      const clearTimer = setTimeout(() => setHighlightFlash(false), 600);
+      return () => { cancelAnimationFrame(flashTimer); clearTimeout(clearTimer); };
     }
   }, [dossierScrollToTop]);
 

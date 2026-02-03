@@ -96,19 +96,17 @@ export function CostEconomicsCard({ organizations, loading }: CostEconomicsCardP
     }
   }
 
-  function SortHeader({ k, label }: { k: SortKey; label: string }) {
-    return (
-      <th
-        className="text-right px-3 py-2 text-xs font-medium text-gray-500 cursor-pointer hover:text-gray-700 select-none"
-        onClick={() => handleSort(k)}
-      >
-        {label}
-        {sortKey === k && (
-          <span className="ml-1">{sortAsc ? "\u2191" : "\u2193"}</span>
-        )}
-      </th>
-    );
-  }
+  const renderSortHeader = (k: SortKey, label: string) => (
+    <th
+      className="text-right px-3 py-2 text-xs font-medium text-gray-500 cursor-pointer hover:text-gray-700 select-none"
+      onClick={() => handleSort(k)}
+    >
+      {label}
+      {sortKey === k && (
+        <span className="ml-1">{sortAsc ? "\u2191" : "\u2193"}</span>
+      )}
+    </th>
+  );
 
   if (loading) {
     return (
@@ -210,9 +208,9 @@ export function CostEconomicsCard({ organizations, loading }: CostEconomicsCardP
                   </span>
                 )}
               </th>
-              <SortHeader k="cost" label="Cost" />
-              <SortHeader k="conversations" label="Conv." />
-              <SortHeader k="users" label="Users" />
+              {renderSortHeader("cost", "Cost")}
+              {renderSortHeader("conversations", "Conv.")}
+              {renderSortHeader("users", "Users")}
             </tr>
           </thead>
           <tbody>

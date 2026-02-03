@@ -109,8 +109,8 @@ export function useCompanyDossier(domain: string | null) {
     return s.searchResults.find((c) => c.domain === domain)?.name;
   });
   const companyNameRef = useRef(companyNameFromStore);
-  if (companyNameFromStore) companyNameRef.current = companyNameFromStore;
-  const companyName = companyNameRef.current;
+  // eslint-disable-next-line react-hooks/refs -- intentional: stabilize query key to prevent double-fetches
+  const companyName = companyNameFromStore || companyNameRef.current;
 
   const isRefreshRef = useRef(false);
 

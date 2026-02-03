@@ -25,20 +25,22 @@ export function LeadGenTab() {
   const { data: leadGen } = useGtmLeadGen();
   const upsert = useUpsertLeadGen();
 
-  const [values, setValues] = useState<Record<string, string | number>>({});
+  const deriveValues = useCallback(() => {
+    if (!leadGen) return {};
+    const v: Record<string, string | number> = {};
+    FIELDS.forEach((f) => {
+      v[f.key] = (leadGen as unknown as Record<string, unknown>)[f.key] as
+        | string
+        | number;
+    });
+    return v;
+  }, [leadGen]);
+
+  const [values, setValues] = useState<Record<string, string | number>>(deriveValues);
   const debounceRef = useRef<NodeJS.Timeout>(undefined);
 
-  useEffect(() => {
-    if (leadGen) {
-      const v: Record<string, string | number> = {};
-      FIELDS.forEach((f) => {
-        v[f.key] = (leadGen as unknown as Record<string, unknown>)[f.key] as
-          | string
-          | number;
-      });
-      setValues(v);
-    }
-  }, [leadGen]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing external server data into local form state
+  useEffect(() => { if (leadGen) setValues(deriveValues()); }, [leadGen, deriveValues]);
 
   const handleBlur = useCallback(
     (key: string, val: string) => {

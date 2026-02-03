@@ -38,12 +38,8 @@ function TabSpinner() {
 }
 
 export default function GtmAdminPage() {
-  const [authed, setAuthed] = useState(false);
+  const [authed, setAuthed] = useState(() => typeof window !== "undefined" && isGtmAuthed());
   const [activeTab, setActiveTab] = useState<AdminTab>("pipeline");
-
-  useEffect(() => {
-    setAuthed(isGtmAuthed());
-  }, []);
 
   if (!authed) {
     return (

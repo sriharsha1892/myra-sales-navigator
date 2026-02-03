@@ -9,8 +9,8 @@ const { mockSetContactsForDomain } = vi.hoisted(() => ({
   mockSetContactsForDomain: vi.fn(),
 }));
 
-vi.mock("@/lib/store", () => {
-  const { create } = require("zustand");
+vi.mock("@/lib/store", async () => {
+  const { create } = await import("zustand");
   const store = create(() => ({
     viewMode: "contacts",
     searchResults: [

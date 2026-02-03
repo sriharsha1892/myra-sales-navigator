@@ -25,8 +25,8 @@ const mockAddToast = vi.fn();
 const mockTriggerDossierScrollToTop = vi.fn();
 const mockUpdateContact = vi.fn();
 
-vi.mock("@/lib/store", () => {
-  const { create } = require("zustand");
+vi.mock("@/lib/store", async () => {
+  const { create } = await import("zustand");
   const store = create(() => ({}));
   store.getState = () => ({ updateContact: mockUpdateContact });
   const originalStore = store;

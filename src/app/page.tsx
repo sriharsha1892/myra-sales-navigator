@@ -46,9 +46,13 @@ export default function Home() {
     if (typeof window === "undefined") return;
     if (localStorage.getItem("nav_search_hinted")) return;
 
-    setTypingActive(true);
-    setShowGlow(true);
     let cancelled = false;
+    // Defer initial setState to avoid synchronous setState-in-effect
+    requestAnimationFrame(() => {
+      if (cancelled) return;
+      setTypingActive(true);
+      setShowGlow(true);
+    });
 
     async function runTyping() {
       for (let qi = 0; qi < hintQueries.length; qi++) {

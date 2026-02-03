@@ -21,9 +21,6 @@ export function ChatWidget() {
     (adminConfig as unknown as Record<string, unknown>).chatbotConfig as ChatbotConfig | undefined
     ?? DEFAULT_CHATBOT_CONFIG;
 
-  // Don't render if disabled
-  if (!chatbotConfig.enabled) return null;
-
   const handleSend = () => {
     const text = input.trim();
     if (!text || isStreaming) return;
@@ -40,6 +37,9 @@ export function ChatWidget() {
   useEffect(() => {
     if (open) inputRef.current?.focus();
   }, [open]);
+
+  // Don't render if disabled
+  if (!chatbotConfig.enabled) return null;
 
   return (
     <>

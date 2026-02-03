@@ -18,15 +18,11 @@ import { UpdatesPanel } from "./_components/UpdatesPanel";
 import { RoadmapFooter } from "./_components/RoadmapFooter";
 
 export default function GtmDashboardPage() {
-  const [authed, setAuthed] = useState(false);
+  const [authed, setAuthed] = useState(() => typeof window !== "undefined" && isGtmAuthed());
   const [activeTab, setActiveTab] = useState<"dashboard" | "updates">(
     "dashboard"
   );
   const [snapshotId, setSnapshotId] = useState<string | null>(null);
-
-  useEffect(() => {
-    setAuthed(isGtmAuthed());
-  }, []);
 
   const {
     data: organizations = [],
