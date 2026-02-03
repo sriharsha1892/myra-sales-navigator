@@ -55,7 +55,7 @@ User query: {query}`;
  * descriptive search? Short queries (1-4 words) without common search
  * keywords are likely company names and should be passed through verbatim.
  */
-function looksLikeCompanyName(query: string): boolean {
+export function looksLikeCompanyName(query: string): boolean {
   const trimmed = query.trim();
   if (!trimmed) return false;
   const words = trimmed.split(/\s+/);

@@ -36,6 +36,24 @@ export interface ExaSearchResult {
 }
 
 // ---------------------------------------------------------------------------
+// Noise domain blocklist — social media, aggregators, directories
+// ---------------------------------------------------------------------------
+
+const NOISE_DOMAINS = [
+  "linkedin.com", "facebook.com", "twitter.com", "x.com",
+  "instagram.com", "youtube.com", "tiktok.com",
+  "crunchbase.com", "zoominfo.com", "glassdoor.com",
+  "indeed.com", "bloomberg.com", "reuters.com",
+  "wikipedia.org", "reddit.com", "medium.com",
+  "github.com", "g2.com", "trustpilot.com",
+  "yelp.com", "bbb.org", "dnb.com",
+];
+
+function isNoiseDomain(domain: string): boolean {
+  return NOISE_DOMAINS.some(nd => domain === nd || domain.endsWith(`.${nd}`));
+}
+
+// ---------------------------------------------------------------------------
 // Domain extraction helper
 // ---------------------------------------------------------------------------
 
@@ -81,6 +99,10 @@ function mapExaResultToCompany(result: {
     excludedBy: null,
     excludedAt: null,
     exclusionReason: null,
+    status: "new",
+    statusChangedBy: null,
+    statusChangedAt: null,
+    viewedBy: null,
 
     // Enrichment fields (partial — filled further by Apollo/HubSpot later)
     industry: "",
@@ -91,6 +113,8 @@ function mapExaResultToCompany(result: {
     description,
     icpScore: 0,
     hubspotStatus: "none",
+    freshsalesStatus: "none",
+    freshsalesIntel: null,
     sources: ["exa"],
     signals: [],
     contactCount: 0,
@@ -119,6 +143,7 @@ export async function searchExa(
       type: "auto",
       numResults,
       category: "company" as never,
+      excludeDomains: NOISE_DOMAINS,
       contents: {
         highlights: {
           numSentences: 6,
@@ -140,8 +165,10 @@ export async function searchExa(
     }),
   ]);
 
-  // Map company results
-  const companies = companyResults.results.map(mapExaResultToCompany);
+  // Map company results and post-filter any remaining noise domains
+  const companies = companyResults.results
+    .map(mapExaResultToCompany)
+    .filter(c => !isNoiseDomain(c.domain));
 
   // Dedupe by domain
   const seen = new Set<string>();

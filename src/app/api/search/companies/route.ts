@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { reformulateQuery } from "@/lib/exa/queryBuilder";
+import { reformulateQuery, looksLikeCompanyName } from "@/lib/exa/queryBuilder";
 import { searchExa, isExaAvailable } from "@/lib/providers/exa";
 import {
   isApolloAvailable,
@@ -24,8 +24,17 @@ async function apolloStructuredSearch(
 
   const enriched = await Promise.allSettled(
     domains.map(async (domain) => {
-      const apolloData = await enrichCompany(domain);
-      if (!apolloData) return null;
+      const [apolloData, contacts] = await Promise.all([
+        enrichCompany(domain),
+        findContacts(domain),
+      ]);
+      if (!apolloData) {
+        if (contacts.length > 0) {
+          const base = exaCompanies.find((c) => c.domain === domain);
+          if (base) return { ...base, contactCount: contacts.length, sources: [...new Set([...base.sources, "apollo" as const])] };
+        }
+        return null;
+      }
 
       // Find the original Exa company shell to merge onto
       const base = exaCompanies.find((c) => c.domain === domain);
@@ -43,6 +52,7 @@ async function apolloStructuredSearch(
         logoUrl: apolloData.logoUrl || base.logoUrl,
         revenue: apolloData.revenue || base.revenue,
         founded: apolloData.founded || base.founded,
+        contactCount: contacts.length,
         sources: [...new Set([...base.sources, "apollo" as const])],
         lastRefreshed: new Date().toISOString(),
       };
@@ -123,6 +133,7 @@ export async function POST(request: Request) {
     regions: [],
     sizes: [],
     signals: [],
+    statuses: [],
     hideExcluded: true,
     quickFilters: [],
   };
@@ -142,11 +153,13 @@ export async function POST(request: Request) {
 
   try {
     const primaryQuery = reformulatedQueries[0] || freeText || "";
-    console.log("[Search] primaryQuery:", primaryQuery);
+    const isNameQuery = looksLikeCompanyName(freeText || "");
+    const numResults = isNameQuery ? 8 : 25;
+    console.log("[Search] primaryQuery:", primaryQuery, "isNameQuery:", isNameQuery);
 
     // Parallel: Exa semantic search + exclusion list fetch
     const [exaResult, excluded] = await Promise.all([
-      searchExa({ query: primaryQuery, numResults: 25 }),
+      searchExa({ query: primaryQuery, numResults }),
       filters?.hideExcluded !== false ? getExcludedValues() : Promise.resolve(new Set<string>()),
     ]);
 
@@ -166,6 +179,24 @@ export async function POST(request: Request) {
           ? apolloEnriched.find((e) => e.domain === c.domain)!
           : c
     );
+
+    // Exact match detection: flag company whose domain or name closely matches the query
+    const queryLower = (freeText || "").toLowerCase().trim();
+    if (queryLower) {
+      for (const c of companies) {
+        const domainBase = c.domain.replace(/\.(com|io|org|net|co|ai|de|it|eu)$/i, "").toLowerCase();
+        const nameLower = c.name.toLowerCase();
+        if (
+          domainBase === queryLower ||
+          nameLower === queryLower ||
+          domainBase.includes(queryLower.replace(/\s+/g, "")) ||
+          nameLower.includes(queryLower)
+        ) {
+          c.exactMatch = true;
+          break; // Only one exact match
+        }
+      }
+    }
 
     // Log search to history (fire-and-forget)
     if (body.userName) {

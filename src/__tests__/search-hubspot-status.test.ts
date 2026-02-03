@@ -85,6 +85,7 @@ vi.mock("@/lib/providers/apollo", () => ({
 // ---------------------------------------------------------------------------
 vi.mock("@/lib/exa/queryBuilder", () => ({
   reformulateQuery: vi.fn().mockResolvedValue(["test query"]),
+  looksLikeCompanyName: vi.fn().mockReturnValue(false),
 }));
 
 // ---------------------------------------------------------------------------
