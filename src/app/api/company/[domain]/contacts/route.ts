@@ -52,12 +52,11 @@ export async function GET(
     // Merge and deduplicate
     const merged = mergeContacts(apolloContacts, hubspotContacts, freshsalesContacts);
 
-    // Auto-enrich top 10 contacts by seniority that have no email (Apollo contacts only)
+    // Auto-enrich all contacts by seniority that have no email (Apollo contacts only)
     const seniorityOrder: Record<string, number> = { c_level: 0, vp: 1, director: 2, manager: 3, staff: 4 };
     const needsEnrich = merged
       .filter((c) => !c.email && c.id && !c.id.startsWith("hubspot-") && !c.id.startsWith("freshsales-"))
-      .sort((a, b) => (seniorityOrder[a.seniority] ?? 5) - (seniorityOrder[b.seniority] ?? 5))
-      .slice(0, 10);
+      .sort((a, b) => (seniorityOrder[a.seniority] ?? 5) - (seniorityOrder[b.seniority] ?? 5));
 
     if (needsEnrich.length > 0 && apolloAvailable) {
       const enrichResults = await Promise.allSettled(

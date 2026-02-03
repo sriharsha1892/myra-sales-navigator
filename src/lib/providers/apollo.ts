@@ -203,7 +203,6 @@ export async function enrichContact(
       body: JSON.stringify({
         id: apolloId,
         reveal_personal_emails: true,
-        reveal_phone_number: true,
       }),
     });
 
@@ -226,7 +225,6 @@ export async function enrichContact(
           first_name: hint.firstName,
           domain: hint.domain,
           reveal_personal_emails: true,
-          reveal_phone_number: true,
         };
         // Only include last_name if it's not obfuscated (contains ***)
         if (hint.lastName && !hint.lastName.includes("*")) {
