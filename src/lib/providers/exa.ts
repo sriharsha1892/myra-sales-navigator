@@ -138,12 +138,12 @@ export async function searchExa(
   const numResults = params.numResults ?? 25;
 
   const [companyResults, newsResults] = await Promise.all([
-    // Company search
+    // Company search — category:"company" uses a dedicated index that
+    // does not support excludeDomains, so we post-filter noise domains instead
     exa.search(params.query, {
       type: "auto",
-      numResults,
+      numResults: numResults + 10, // over-fetch to compensate for post-filtering
       category: "company" as never,
-      excludeDomains: NOISE_DOMAINS,
       contents: {
         highlights: {
           numSentences: 6,
