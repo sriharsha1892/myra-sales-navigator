@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { completeWithFallback, isGroqAvailable } from "@/lib/llm/client";
-import { getCached, setCached, normalizeDomain } from "@/lib/cache";
-import { enrichCompany, isApolloAvailable } from "@/lib/providers/apollo";
-import { getHubSpotStatus, isHubSpotAvailable } from "@/lib/providers/hubspot";
-import { getFreshsalesIntel, isFreshsalesAvailable } from "@/lib/providers/freshsales";
-import { calculateIcpScore } from "@/lib/scoring";
+import { completeWithFallback, isGroqAvailable } from "@/lib/navigator/llm/client";
+import { getCached, setCached, normalizeDomain, getRootDomain } from "@/lib/cache";
+import { enrichCompany, isApolloAvailable } from "@/lib/navigator/providers/apollo";
+import { getHubSpotStatus, isHubSpotAvailable } from "@/lib/navigator/providers/hubspot";
+import { getFreshsalesIntel, isFreshsalesAvailable } from "@/lib/navigator/providers/freshsales";
+import { calculateIcpScore } from "@/lib/navigator/scoring";
 import { createServerClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
-import type { CompanyEnriched, IcpWeights } from "@/lib/types";
+import type { CompanyEnriched, IcpWeights } from "@/lib/navigator/types";
 
 export async function GET(
   request: NextRequest,
@@ -28,7 +28,7 @@ export async function GET(
     const [apolloData, hubspotStatus, freshsalesIntel, aiSummary] = await Promise.all([
       enrichCompany(normalized),
       getHubSpotStatus(normalized),
-      getFreshsalesIntel(normalized, companyName),
+      getFreshsalesIntel(getRootDomain(normalized), companyName),
       generateAiSummary(normalized, forceRegenSummary),
     ]);
 

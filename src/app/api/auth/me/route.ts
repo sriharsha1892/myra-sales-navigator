@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { verifySessionToken, signSessionToken } from "@/lib/auth";
+import { verifySessionToken, signSessionToken } from "@/lib/navigator/auth";
 import { createServerClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
-import type { TeamMember, AuthSettings, CompanyNote } from "@/lib/types";
+import type { TeamMember, AuthSettings, CompanyNote } from "@/lib/navigator/types";
 
 export async function GET() {
   const cookieStore = await cookies();

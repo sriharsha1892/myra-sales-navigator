@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { extractSignals, isExaAvailable, isNoiseDomain } from "@/lib/providers/exa";
+import { extractSignals, isExaAvailable, isNoiseDomain } from "@/lib/navigator/providers/exa";
 import { getCached, setCached } from "@/lib/cache";
 import Exa from "exa-js";
 

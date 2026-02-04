@@ -6,7 +6,7 @@ import type {
   ContactExtraction,
   ContactSnapshot,
   Exclusion,
-} from "../types";
+} from "../navigator/types";
 
 // ---------------------------------------------------------------------------
 // Companies (lightweight anchors)

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { normalizeDomain } from "@/lib/cache";
-import { getHubSpotContacts, isHubSpotAvailable } from "@/lib/providers/hubspot";
+import { getHubSpotContacts, isHubSpotAvailable } from "@/lib/navigator/providers/hubspot";
 
 export async function GET(request: Request) {
   if (!isHubSpotAvailable()) {

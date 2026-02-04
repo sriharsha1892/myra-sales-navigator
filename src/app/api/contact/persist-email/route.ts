@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCached, setCached, CacheKeys, CacheTTL, normalizeDomain } from "@/lib/cache";
-import type { Contact } from "@/lib/types";
+import type { Contact } from "@/lib/navigator/types";
 
 interface RequestBody {
   domain: string;

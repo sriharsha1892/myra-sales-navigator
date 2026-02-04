@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { enrichContact, isApolloAvailable } from "@/lib/providers/apollo";
-import { findEmail, isClearoutAvailable } from "@/lib/providers/clearout";
+import { enrichContact, isApolloAvailable } from "@/lib/navigator/providers/apollo";
+import { findEmail, isClearoutAvailable } from "@/lib/navigator/providers/clearout";
 
 export async function POST(request: NextRequest) {
   try {

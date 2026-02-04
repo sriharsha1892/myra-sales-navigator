@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isClearoutAvailable, verifyEmails } from "@/lib/providers/clearout";
+import { isClearoutAvailable, verifyEmails } from "@/lib/navigator/providers/clearout";
 
 export async function POST(request: NextRequest) {
   if (!isClearoutAvailable()) {

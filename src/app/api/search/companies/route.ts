@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
-import { reformulateQueryWithEntities, looksLikeCompanyName } from "@/lib/exa/queryBuilder";
-import { searchExa, isExaAvailable } from "@/lib/providers/exa";
+import { reformulateQueryWithEntities, looksLikeCompanyName } from "@/lib/navigator/exa/queryBuilder";
+import { searchExa, isExaAvailable } from "@/lib/navigator/providers/exa";
 import {
   isApolloAvailable,
   enrichCompany,
   findContacts,
-} from "@/lib/providers/apollo";
+} from "@/lib/navigator/providers/apollo";
 import { createServerClient } from "@/lib/supabase/server";
-import { calculateIcpScore } from "@/lib/scoring";
-import { getCached, setCached, CacheKeys, CacheTTL } from "@/lib/cache";
-import type { Company, FilterState, IcpWeights } from "@/lib/types";
+import { calculateIcpScore } from "@/lib/navigator/scoring";
+import { getCached, setCached, CacheKeys, CacheTTL, getRootDomain } from "@/lib/cache";
+import type { Company, FilterState, IcpWeights } from "@/lib/navigator/types";
 
 // ---------------------------------------------------------------------------
 // Apollo structured search — enrich Exa domains + find contacts in parallel
@@ -187,12 +187,29 @@ export async function POST(request: Request) {
 
     // Build final company list: Apollo-enriched where available, raw Exa otherwise
     const enrichedDomains = new Set(apolloEnriched.map((c) => c.domain));
-    const companies = exaCompanies.map(
+    const merged = exaCompanies.map(
       (c) =>
         enrichedDomains.has(c.domain)
           ? apolloEnriched.find((e) => e.domain === c.domain)!
           : c
     );
+
+    // Deduplicate by root domain — keep entry with highest employeeCount
+    const seenRoots = new Map<string, number>();
+    const companies: typeof merged = [];
+    for (const c of merged) {
+      const root = getRootDomain(c.domain);
+      const existing = seenRoots.get(root);
+      if (existing !== undefined) {
+        // Replace if this one has more employees
+        if (c.employeeCount > companies[existing].employeeCount) {
+          companies[existing] = c;
+        }
+      } else {
+        seenRoots.set(root, companies.length);
+        companies.push(c);
+      }
+    }
 
     // ICP scoring — fetch admin weights (cached 1h), score each company
     let icpWeights: Partial<IcpWeights> = {};
@@ -227,9 +244,10 @@ export async function POST(request: Request) {
       c.icpBreakdown = breakdown;
     }
 
-    // Exact match detection: flag company whose domain or name closely matches the query
+    // Exact match detection: find ALL matching companies, pick the largest
     const queryLower = (freeText || "").toLowerCase().trim();
     if (queryLower) {
+      const matches: typeof companies = [];
       for (const c of companies) {
         const domainBase = c.domain.replace(/\.(com|io|org|net|co|ai|de|it|eu)$/i, "").toLowerCase();
         const nameLower = c.name.toLowerCase();
@@ -239,8 +257,18 @@ export async function POST(request: Request) {
           domainBase.includes(queryLower.replace(/\s+/g, "")) ||
           nameLower.includes(queryLower)
         ) {
-          c.exactMatch = true;
-          break; // Only one exact match
+          matches.push(c);
+        }
+      }
+      if (matches.length > 0) {
+        // Pick the match with the highest employee count
+        const best = matches.reduce((a, b) => (b.employeeCount > a.employeeCount ? b : a), matches[0]);
+        best.exactMatch = true;
+        // Move exact match to index 0
+        const idx = companies.indexOf(best);
+        if (idx > 0) {
+          companies.splice(idx, 1);
+          companies.unshift(best);
         }
       }
     }

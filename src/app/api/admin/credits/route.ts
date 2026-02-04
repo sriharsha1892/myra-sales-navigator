@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { getClearoutCredits } from "@/lib/providers/clearout";
-import { isApolloAvailable, getApolloCredits } from "@/lib/providers/apollo";
-import { isExaAvailable } from "@/lib/providers/exa";
-import { isHubSpotAvailable } from "@/lib/providers/hubspot";
-import { isClearoutAvailable } from "@/lib/providers/clearout";
-import { isFreshsalesAvailable } from "@/lib/providers/freshsales";
+import { getClearoutCredits } from "@/lib/navigator/providers/clearout";
+import { isApolloAvailable, getApolloCredits } from "@/lib/navigator/providers/apollo";
+import { isExaAvailable } from "@/lib/navigator/providers/exa";
+import { isHubSpotAvailable } from "@/lib/navigator/providers/hubspot";
+import { isClearoutAvailable } from "@/lib/navigator/providers/clearout";
+import { isFreshsalesAvailable } from "@/lib/navigator/providers/freshsales";
 
 export interface ProviderStatus {
   configured: boolean;

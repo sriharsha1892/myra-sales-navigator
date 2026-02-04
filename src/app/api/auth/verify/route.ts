@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { verifyMagicLinkToken } from "@/lib/auth";
+import { verifyMagicLinkToken } from "@/lib/navigator/auth";
 
 export async function POST(request: Request) {
   const { token } = (await request.json()) as { token?: string };

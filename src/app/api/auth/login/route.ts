@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { signSessionToken } from "@/lib/auth";
+import { signSessionToken } from "@/lib/navigator/auth";
 import { createServerClient } from "@/lib/supabase/server";
-import type { TeamMember } from "@/lib/types";
+import type { TeamMember } from "@/lib/navigator/types";
 
 const ADMIN_NAMES = ["SriHarsha", "Adi", "JVS", "Reddy", "Sai"];
 

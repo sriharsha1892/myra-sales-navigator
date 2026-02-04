@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+@property --border-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
 @theme {
   --font-display: "Satoshi", -apple-system, sans-serif;
   --font-body: "Satoshi", -apple-system, sans-serif;
@@ -182,8 +188,90 @@
 @keyframes countBounce { 0% { transform: scale(1) } 50% { transform: scale(1.15) } 100% { transform: scale(1) } }
 @keyframes searchGlow { 0%,100% { box-shadow: 0 0 0 0 transparent } 50% { box-shadow: 0 0 12px 2px rgba(143,217,196,0.3) } }
 @keyframes blurToSharp { from { filter: blur(8px); opacity: 0.5 } to { filter: blur(0); opacity: 1 } }
+@keyframes loginLogoReveal {
+  from { opacity: 0; transform: scale(0.96); filter: blur(4px); }
+  to { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+@keyframes loginCardFadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes loginTaglineFade {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+/* Dossier animation keyframes */
+@keyframes dossierSlideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes dossierFadeOut {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.98); }
+}
+@keyframes dossierBarFill {
+  from { width: 0%; }
+  to { width: var(--fill-width); }
+}
+@keyframes dossierPillIn {
+  from { opacity: 0; transform: translateX(-4px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes prospectSweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+@keyframes loginCometStreak {
+  0% { opacity: 0; transform: translate(40vw, -40vh) rotate(-45deg) scaleX(2); }
+  60% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(-45deg) scaleX(1); }
+}
+@keyframes loginImpactFlash {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(6); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(8); }
+}
+@keyframes loginShockwave {
+  0% { width: 0; height: 0; opacity: 1; border-width: 2px; }
+  100% { width: 600px; height: 600px; opacity: 0; border-width: 1px; }
+}
+@keyframes loginFadeOut {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes dossierSettleIn {
+  from { opacity: 0; transform: translateY(8px); filter: blur(4px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+/* ── Settled radar keyframes ── */
+@keyframes radarRingIn {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes radarSweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes radarCenterPulse {
+  0%, 100% { box-shadow: 0 0 8px 2px rgba(27,77,62,0.3); }
+  50% { box-shadow: 0 0 16px 4px rgba(143,217,196,0.4); }
+}
+@keyframes radarNodeIn {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes radarNodeGlow {
+  0%, 100% { box-shadow: 0 0 6px 1px rgba(27,77,62,0.15); }
+  50% { box-shadow: 0 0 12px 3px rgba(143,217,196,0.3); }
+}
+@keyframes loginCardInvite {
+  0% { opacity: 0; }
+  40% { opacity: 1; }
+  100% { opacity: 0; }
+}
 @keyframes curtainUp { from { transform: translateY(0) } to { transform: translateY(-100vh) } }
 @keyframes typewriter { from { width: 0 } to { width: 100% } }
+
 
 html, body {
   background: var(--color-surface-0);
@@ -310,4 +398,165 @@ html, body {
 }
 .animate-spin {
   animation: spin 0.8s linear infinite;
+}
+
+/* ── Login Premium Upgrade keyframes ── */
+@keyframes fragmentDriftSlow {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(3px, -2px); }
+  50% { transform: translate(-2px, 3px); }
+  75% { transform: translate(2px, 1px); }
+}
+@keyframes fragmentDriftMedium {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-3px, 2px); }
+  50% { transform: translate(2px, -3px); }
+  75% { transform: translate(-1px, -2px); }
+}
+@keyframes lineTrace {
+  from { stroke-dashoffset: 200; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes auroraDrift1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -20px) scale(1.05); }
+  66% { transform: translate(-20px, 15px) scale(0.95); }
+}
+@keyframes auroraDrift2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-25px, 20px) scale(0.95); }
+  66% { transform: translate(20px, -15px) scale(1.05); }
+}
+@keyframes prospectSweepVertical {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(200%); }
+}
+@keyframes borderRotate {
+  from { --border-angle: 0deg; }
+  to { --border-angle: 360deg; }
+}
+@keyframes dossierScanLine {
+  0% { top: 0%; opacity: 1; }
+  90% { top: 100%; opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+@keyframes buttonShimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+@keyframes taskStepReveal {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes taskIndicatorPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(27,77,62,0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(27,77,62,0); }
+}
+@keyframes taskCheckIn {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+@keyframes taskLineDraw {
+  from { height: 0; }
+  to { height: 100%; }
+}
+@keyframes taskExitSweep {
+  0% { transform: translateX(-100%); opacity: 0.8; }
+  100% { transform: translateX(300%); opacity: 0; }
+}
+
+/* ── Login premium utility classes ── */
+.prospect-dot-grid::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, #D5D3CD 0.5px, transparent 0.5px);
+  background-size: 24px 24px;
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+.login-right-dot-grid::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, #D5D3CD 0.6px, transparent 0.6px);
+  background-size: 28px 28px;
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+.panel-divider {
+  position: relative;
+}
+.panel-divider::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10%;
+  bottom: 10%;
+  width: 1px;
+  background: linear-gradient(to bottom, transparent, #E5E3DD 30%, #E5E3DD 70%, transparent);
+  pointer-events: none;
+}
+
+.dossier-border-glow {
+  position: relative;
+  padding: 1.5px;
+  border-radius: 18px;
+  background: conic-gradient(from var(--border-angle), #8FD9C4, #E5E3DD 25%, #1B4D3E 50%, #E5E3DD 75%, #8FD9C4);
+  animation: borderRotate 4s linear infinite;
+}
+.dossier-border-glow::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 26px;
+  background: conic-gradient(from var(--border-angle), rgba(143,217,196,0.08), transparent 25%, rgba(27,77,62,0.06) 50%, transparent 75%, rgba(143,217,196,0.08));
+  animation: borderRotate 4s linear infinite;
+  filter: blur(12px);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.sign-in-btn {
+  position: relative;
+  overflow: hidden;
+}
+.sign-in-btn::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transform: translateX(-100%);
+  pointer-events: none;
+}
+.sign-in-btn:hover::after {
+  animation: buttonShimmer 1.2s ease-out;
+}
+
+.dossier-scan-line {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(143,217,196,0.5), rgba(27,77,62,0.3), transparent);
+  animation: dossierScanLine 1.5s ease-out both;
+  pointer-events: none;
+  z-index: 2;
 }

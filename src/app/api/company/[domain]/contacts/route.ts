@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { normalizeDomain, getCached, setCached, deleteCached, CacheKeys, CacheTTL } from "@/lib/cache";
-import { findContacts, enrichContact, isApolloAvailable } from "@/lib/providers/apollo";
-import { getHubSpotContacts, isHubSpotAvailable } from "@/lib/providers/hubspot";
-import { getFreshsalesContacts, isFreshsalesAvailable } from "@/lib/providers/freshsales";
-import { findEmailsBatch, isClearoutAvailable } from "@/lib/providers/clearout";
+import { normalizeDomain, getRootDomain, getCached, setCached, deleteCached, CacheKeys, CacheTTL } from "@/lib/cache";
+import { findContacts, enrichContact, isApolloAvailable } from "@/lib/navigator/providers/apollo";
+import { getHubSpotContacts, isHubSpotAvailable } from "@/lib/navigator/providers/hubspot";
+import { getFreshsalesContacts, isFreshsalesAvailable } from "@/lib/navigator/providers/freshsales";
+import { findEmailsBatch, isClearoutAvailable } from "@/lib/navigator/providers/clearout";
 import { pLimit } from "@/lib/utils";
 import { createServerClient } from "@/lib/supabase/server";
-import type { Contact } from "@/lib/types";
+import type { Contact } from "@/lib/navigator/types";
 
 export async function GET(
   request: Request,
@@ -49,7 +49,7 @@ export async function GET(
     const [apolloContacts, hubspotContacts, freshsalesContacts] = await Promise.all([
       apolloAvailable ? findContacts(normalized) : Promise.resolve([]),
       hubspotAvailable ? getHubSpotContacts(normalized) : Promise.resolve([]),
-      freshsalesAvailable ? getFreshsalesContacts(normalized, companyName) : Promise.resolve([]),
+      freshsalesAvailable ? getFreshsalesContacts(getRootDomain(normalized), companyName) : Promise.resolve([]),
     ]);
 
     console.log(`[Contacts] ${normalized}: apollo=${apolloContacts.length} hubspot=${hubspotContacts.length} freshsales=${freshsalesContacts.length}`);
@@ -145,6 +145,17 @@ export async function GET(
         merged.splice(0, merged.length, ...filtered);
       }
     } catch { /* non-fatal */ }
+
+    // Sort: Freshsales contacts first, then by seniority
+    const seniorityRank: Record<string, number> = {
+      c_level: 0, vp: 1, director: 2, manager: 3, staff: 4,
+    };
+    merged.sort((a, b) => {
+      const aFS = a.sources.includes("freshsales") ? 0 : 1;
+      const bFS = b.sources.includes("freshsales") ? 0 : 1;
+      if (aFS !== bFS) return aFS - bFS;
+      return (seniorityRank[a.seniority] ?? 5) - (seniorityRank[b.seniority] ?? 5);
+    });
 
     const responseData = {
       contacts: merged,

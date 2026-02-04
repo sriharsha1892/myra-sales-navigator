@@ -1,4 +1,4 @@
-import type { FilterState, SizeBucket } from "./types";
+import type { FilterState, SizeBucket } from "./navigator/types";
 
 export function timeAgo(isoDate: string): string {
   const now = Date.now();

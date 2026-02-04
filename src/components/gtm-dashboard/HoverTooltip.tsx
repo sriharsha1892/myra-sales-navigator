@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 interface HoverTooltipProps {
   content: React.ReactNode;
@@ -20,6 +20,10 @@ export function HoverTooltip({ content, children }: HoverTooltipProps) {
     clearTimeout(timeout.current);
     setShow(false);
   }
+
+  useEffect(() => {
+    return () => clearTimeout(timeout.current);
+  }, []);
 
   return (
     <div

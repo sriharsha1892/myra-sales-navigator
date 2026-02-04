@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
-import type { TeamMember, AuthAccessRequest } from "@/lib/types";
-import { logAuthEvent } from "@/lib/auth-log";
+import type { TeamMember, AuthAccessRequest } from "@/lib/navigator/types";
+import { logAuthEvent } from "@/lib/navigator/auth-log";
 
 export async function POST(request: Request) {
   const { email } = (await request.json()) as { email?: string };

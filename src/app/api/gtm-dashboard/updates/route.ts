@@ -16,7 +16,8 @@ export async function GET(request: NextRequest) {
       request.nextUrl.searchParams.get("snapshotId") ?? undefined;
     const updates = await getUpdates(snapshotId);
     return NextResponse.json({ updates });
-  } catch {
+  } catch (e) {
+    console.error("[gtm-dashboard/updates] GET error:", e);
     return NextResponse.json(
       { error: "Failed to fetch updates" },
       { status: 500 }
@@ -42,7 +43,8 @@ export async function POST(request: NextRequest) {
       parsed.data.snapshotId ?? undefined
     );
     return NextResponse.json({ update });
-  } catch {
+  } catch (e) {
+    console.error("[gtm-dashboard/updates] POST error:", e);
     return NextResponse.json(
       { error: "Failed to create update" },
       { status: 500 }
@@ -65,7 +67,8 @@ export async function PUT(request: NextRequest) {
     }
     const update = await updateUpdate(parsed.data.id, parsed.data.content);
     return NextResponse.json({ update });
-  } catch {
+  } catch (e) {
+    console.error("[gtm-dashboard/updates] PUT error:", e);
     return NextResponse.json(
       { error: "Failed to update" },
       { status: 500 }

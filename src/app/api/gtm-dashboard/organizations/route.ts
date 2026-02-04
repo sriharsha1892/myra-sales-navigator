@@ -31,7 +31,8 @@ export async function GET(request: NextRequest) {
     }
     const orgs = await getOrganizations();
     return NextResponse.json({ organizations: orgs });
-  } catch {
+  } catch (e) {
+    console.error("[gtm-dashboard/organizations] GET error:", e);
     return NextResponse.json(
       { error: "Failed to fetch organizations" },
       { status: 500 }
@@ -54,7 +55,8 @@ export async function POST(request: NextRequest) {
     }
     const org = await upsertOrganization(parsed.data);
     return NextResponse.json({ organization: org });
-  } catch {
+  } catch (e) {
+    console.error("[gtm-dashboard/organizations] POST error:", e);
     return NextResponse.json(
       { error: "Failed to create organization" },
       { status: 500 }
@@ -80,7 +82,8 @@ export async function PUT(request: NextRequest) {
     }
     const org = await upsertOrganization(parsed.data);
     return NextResponse.json({ organization: org });
-  } catch {
+  } catch (e) {
+    console.error("[gtm-dashboard/organizations] PUT error:", e);
     return NextResponse.json(
       { error: "Failed to update organization" },
       { status: 500 }
@@ -103,7 +106,8 @@ export async function DELETE(request: NextRequest) {
     }
     await deleteOrganization(parsed.data.id);
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (e) {
+    console.error("[gtm-dashboard/organizations] DELETE error:", e);
     return NextResponse.json(
       { error: "Failed to delete organization" },
       { status: 500 }

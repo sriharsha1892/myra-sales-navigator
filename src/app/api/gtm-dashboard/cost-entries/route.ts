@@ -12,7 +12,8 @@ export async function GET(request: NextRequest) {
       request.nextUrl.searchParams.get("organizationId") ?? undefined;
     const entries = await getCostEntries(orgId);
     return NextResponse.json({ entries });
-  } catch {
+  } catch (e) {
+    console.error("[gtm-dashboard/cost-entries] GET error:", e);
     return NextResponse.json(
       { error: "Failed to fetch cost entries" },
       { status: 500 }
@@ -39,7 +40,8 @@ export async function POST(request: NextRequest) {
       notes: parsed.data.notes ?? undefined,
     });
     return NextResponse.json({ entry });
-  } catch {
+  } catch (e) {
+    console.error("[gtm-dashboard/cost-entries] POST error:", e);
     return NextResponse.json(
       { error: "Failed to add cost entry" },
       { status: 500 }

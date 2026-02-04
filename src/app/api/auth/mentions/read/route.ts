@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { verifySessionToken } from "@/lib/auth";
+import { verifySessionToken } from "@/lib/navigator/auth";
 import { createServerClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
-import type { TeamMember } from "@/lib/types";
+import type { TeamMember } from "@/lib/navigator/types";
 
 export async function POST() {
   const cookieStore = await cookies();

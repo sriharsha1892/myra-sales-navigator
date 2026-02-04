@@ -1,0 +1,617 @@
+"use client";
+
+import { useState, useRef, useEffect, useCallback, lazy, Suspense } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { cn } from "@/lib/cn";
+import type { Contact, CompanyEnriched } from "@/lib/navigator/types";
+import { SourceBadge, ConfidenceBadge, IcpScoreBadge, VerificationBadge } from "@/components/navigator/badges";
+import { MissingData } from "@/components/navigator/shared/MissingData";
+import { useInlineFeedback } from "@/hooks/navigator/useInlineFeedback";
+import { useStore } from "@/lib/navigator/store";
+
+const EmailDraftModal = lazy(() => import("@/components/navigator/email/EmailDraftModal").then((m) => ({ default: m.EmailDraftModal })));
+
+function safeDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  try { return new Date(iso).toLocaleDateString(); } catch { return "—"; }
+}
+
+interface ContactCardProps {
+  contact: Contact;
+  isChecked: boolean;
+  onToggleCheck: () => void;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  isFocused?: boolean;
+  company?: CompanyEnriched | null;
+  visibleFields?: Set<string>;
+}
+
+export function ContactCard({
+  contact,
+  isChecked,
+  onToggleCheck,
+  isExpanded,
+  onToggleExpand,
+  isFocused,
+  company,
+  visibleFields,
+}: ContactCardProps) {
+  const queryClient = useQueryClient();
+  const { trigger, FeedbackLabel } = useInlineFeedback();
+  const selectCompany = useStore((s) => s.selectCompany);
+  const selectedCompanyDomain = useStore((s) => s.selectedCompanyDomain);
+  const triggerDossierScrollToTop = useStore((s) => s.triggerDossierScrollToTop);
+  const excludeContact = useStore((s) => s.excludeContact);
+  const addToast = useStore((s) => s.addToast);
+
+  const [revealLoading, setRevealLoading] = useState(false);
+  const [revealedEmail, setRevealedEmail] = useState<string | null>(null);
+  const [revealFailed, setRevealFailed] = useState(false);
+  const [draftModalOpen, setDraftModalOpen] = useState(false);
+
+  const handleRevealEmail = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (revealLoading || revealedEmail) return;
+    setRevealLoading(true);
+    setRevealFailed(false);
+    try {
+      const res = await fetch("/api/contact/enrich", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          apolloId: contact.id,
+          firstName: contact.firstName,
+          lastName: contact.lastName,
+          domain: contact.companyDomain,
+        }),
+      });
+      const data = await res.json();
+      if (data.contact?.email) {
+        const foundEmail = data.contact.email;
+        const foundConfidence = data.contact.emailConfidence ?? 70;
+        const foundLevel = data.contact.confidenceLevel ?? "medium";
+        setRevealedEmail(foundEmail);
+        trigger("Email found");
+
+        // Persist to server cache (fire-and-forget)
+        if (contact.companyDomain) {
+          fetch("/api/contact/persist-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              domain: contact.companyDomain,
+              contactId: contact.id,
+              email: foundEmail,
+              emailConfidence: foundConfidence,
+              confidenceLevel: foundLevel,
+            }),
+          }).catch(() => {});
+        }
+
+        // Update Zustand store
+        if (contact.companyDomain) {
+          useStore.getState().updateContact(contact.companyDomain, contact.id, {
+            ...contact,
+            email: foundEmail,
+            emailConfidence: foundConfidence,
+            confidenceLevel: foundLevel as Contact["confidenceLevel"],
+          });
+        }
+
+        // Patch TanStack Query cache inline
+        queryClient.setQueriesData<Contact[]>(
+          { queryKey: ["company-contacts", contact.companyDomain] },
+          (old) => old?.map((c) =>
+            c.id === contact.id
+              ? { ...c, email: foundEmail, emailConfidence: foundConfidence, confidenceLevel: foundLevel as Contact["confidenceLevel"] }
+              : c
+          ),
+        );
+      } else {
+        setRevealFailed(true);
+        trigger("Not found", "error");
+      }
+    } catch {
+      setRevealFailed(true);
+      trigger("Failed", "error");
+    } finally {
+      setRevealLoading(false);
+    }
+  }, [contact, revealLoading, revealedEmail, trigger, queryClient]);
+
+  // Use revealed email if available
+  const displayEmail = revealedEmail || contact.email;
+
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const popoverTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const chipRef = useRef<HTMLSpanElement>(null);
+
+  const initials =
+    (contact.firstName?.[0] ?? "") + (contact.lastName?.[0] ?? "");
+
+  const show = (field: string) => !visibleFields || visibleFields.has(field);
+
+  const handleCopyEmail = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const emailToCopy = revealedEmail || contact.email;
+    if (!emailToCopy) return;
+    navigator.clipboard.writeText(emailToCopy).then(() => {
+      trigger("Copied");
+    }).catch(() => {
+      trigger("Failed", "error");
+    });
+  };
+
+  const handleDraftEmail = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!company) {
+      addToast({ message: "Open company dossier first to draft email", type: "info" });
+      return;
+    }
+    setDraftModalOpen(true);
+  };
+
+  const handleExclude = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (contact.email) {
+      excludeContact(contact.email, "email");
+    } else {
+      excludeContact(contact.id, "contact_id");
+    }
+  };
+
+  const handleViewDossier = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!contact.companyDomain) {
+      addToast({ message: "No company domain available", type: "info" });
+      return;
+    }
+    if (contact.companyDomain === selectedCompanyDomain) {
+      // Same company already shown — scroll to top + toast for visible feedback
+      triggerDossierScrollToTop();
+      addToast({ message: `Viewing ${contact.companyName ?? contact.companyDomain} dossier`, type: "info" });
+    } else {
+      selectCompany(contact.companyDomain);
+    }
+  };
+
+  const handlePopoverEnter = () => {
+    clearTimeout(popoverTimerRef.current);
+    popoverTimerRef.current = setTimeout(() => setPopoverOpen(true), 200);
+  };
+
+  const handlePopoverLeave = () => {
+    clearTimeout(popoverTimerRef.current);
+    popoverTimerRef.current = setTimeout(() => setPopoverOpen(false), 100);
+  };
+
+  useEffect(() => {
+    return () => clearTimeout(popoverTimerRef.current);
+  }, []);
+
+  const seniorityLabel: Record<string, string> = {
+    c_level: "C-Level",
+    vp: "VP",
+    director: "Director",
+    manager: "Manager",
+    staff: "Staff",
+  };
+
+  return (
+    <div
+      id={`contact-${contact.id}`}
+      role="option"
+      tabIndex={-1}
+      onClick={onToggleExpand}
+      className={cn(
+        "group cursor-pointer rounded-card border bg-surface-1 transition-all duration-[180ms]",
+        isExpanded ? "border-accent-primary/40 shadow-md" : "border-surface-3 hover:shadow-md",
+        isFocused && "ring-1 ring-accent-primary/60",
+      )}
+    >
+      {/* Collapsed row */}
+      <div className="flex items-center gap-2.5 px-3 py-2.5">
+        <input
+          type="checkbox"
+          checked={isChecked}
+          onChange={(e) => { e.stopPropagation(); onToggleCheck(); }}
+          onClick={(e) => e.stopPropagation()}
+          className="h-3.5 w-3.5 flex-shrink-0 rounded accent-accent-primary"
+        />
+
+        {/* Avatar */}
+        <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-accent-primary-light text-[10px] font-semibold text-accent-primary">
+          {initials}
+        </div>
+
+        {/* Name + title */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            {show("name") && (
+              <span className="truncate text-sm font-medium text-text-primary">
+                {contact.firstName ?? ""} {contact.lastName ?? ""}
+              </span>
+            )}
+            {show("title") && (
+              <span className="hidden truncate text-xs text-text-secondary sm:inline">
+                {contact.title ?? ""}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Email (hero element — state-based display) */}
+        {show("email") && (
+          <div className="flex items-center gap-1.5">
+            {(() => {
+              const isObfuscated = contact.lastName?.includes("***");
+              const verification = contact.verificationStatus;
+
+              // State 1: No email
+              if (!displayEmail && !isObfuscated) {
+                return (
+                  <button
+                    onClick={handleRevealEmail}
+                    disabled={revealLoading || revealFailed}
+                    className="flex items-center gap-1 rounded-input border border-accent-secondary/30 bg-accent-secondary/5 px-2 py-0.5 text-[10px] font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/10 disabled:opacity-50"
+                  >
+                    {revealLoading ? (
+                      <span className="inline-block h-2.5 w-2.5 animate-spin rounded-full border border-accent-secondary/30 border-t-accent-secondary" />
+                    ) : revealFailed ? "Not found" : "Find email"}
+                  </button>
+                );
+              }
+
+              // State 2: Obfuscated
+              if (!displayEmail && isObfuscated) {
+                return (
+                  <button
+                    onClick={handleRevealEmail}
+                    disabled={revealLoading}
+                    className="flex items-center gap-1 rounded-input border border-accent-secondary/30 bg-accent-secondary/10 px-2 py-0.5 text-xs font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/20 disabled:opacity-50"
+                  >
+                    {revealLoading ? (
+                      <span className="inline-block h-2.5 w-2.5 animate-spin rounded-full border border-accent-secondary/30 border-t-accent-secondary" />
+                    ) : (
+                      <>&#x25CF;&#x25CF;&#x25CF;@{contact.companyDomain} &mdash; Reveal</>
+                    )}
+                  </button>
+                );
+              }
+
+              // State 5: Invalid
+              if (verification === "invalid") {
+                return (
+                  <>
+                    <span className="truncate font-mono text-sm text-text-tertiary line-through">{displayEmail}</span>
+                    <VerificationBadge status="invalid" />
+                  </>
+                );
+              }
+
+              // State 4: Verified valid
+              if (verification === "valid" || verification === "valid_risky") {
+                return (
+                  <>
+                    <span className="truncate font-mono text-sm text-text-primary">{displayEmail}</span>
+                    <VerificationBadge status={verification} safeToSend={contact.safeToSend} />
+                    <button onClick={handleCopyEmail} className="text-text-tertiary hover:text-accent-primary" title="Copy email">
+                      <CopyIcon />
+                    </button>
+                  </>
+                );
+              }
+
+              // State 3: Unverified (has email, no verification)
+              return (
+                <>
+                  <span className="truncate font-mono text-sm text-text-secondary">{displayEmail}</span>
+                  <VerificationBadge status="unverified" />
+                  <button onClick={handleCopyEmail} className="text-text-tertiary hover:text-accent-primary" title="Copy email">
+                    <CopyIcon />
+                  </button>
+                </>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* CRM status pill */}
+        {contact.crmStatus && (
+          <span className="rounded-pill border border-accent-secondary/30 bg-accent-secondary/10 px-1.5 py-0.5 text-[9px] font-medium text-accent-secondary">
+            {contact.crmStatus}
+          </span>
+        )}
+
+        {/* Source badges */}
+        {show("sources") && (
+          <div className="flex gap-0.5">
+            {(Array.isArray(contact.sources) ? contact.sources : []).map((src) => (
+              <SourceBadge key={src} source={src} />
+            ))}
+          </div>
+        )}
+
+        {/* Last contacted */}
+        {show("lastContacted") && contact.lastVerified && (
+          <span className="text-[10px] text-text-tertiary">
+            {safeDate(contact.lastVerified)}
+          </span>
+        )}
+
+        {/* Expand chevron */}
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={cn(
+            "flex-shrink-0 text-text-tertiary transition-transform duration-[180ms]",
+            isExpanded && "rotate-180"
+          )}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </div>
+
+      {/* Draft email modal */}
+      {draftModalOpen && company && (
+        <Suspense fallback={null}>
+          <EmailDraftModal
+            contact={contact}
+            company={company}
+            onClose={() => setDraftModalOpen(false)}
+          />
+        </Suspense>
+      )}
+
+      {/* Expanded detail */}
+      {isExpanded && (
+        <div className="border-t border-surface-3 px-3 py-3 animate-fadeInUp" style={{ animationDuration: "120ms" }}>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
+            {/* Full name + title */}
+            <div>
+              <span className="text-text-tertiary">Name:</span>{" "}
+              <span className="text-text-primary">{contact.firstName ?? ""} {contact.lastName ?? ""}</span>
+            </div>
+            <div>
+              <span className="text-text-tertiary">Title:</span>{" "}
+              <span className="text-text-primary">{contact.title ?? ""}</span>
+              {contact.fieldSources?.title && (
+                <SourceBadge source={contact.fieldSources.title} className="ml-1" />
+              )}
+            </div>
+
+            {/* Email */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-text-tertiary">Email:</span>{" "}
+              {displayEmail ? (
+                <>
+                  <span className={`font-mono ${contact.verificationStatus === "invalid" ? "text-text-tertiary line-through" : "text-text-primary"}`}>
+                    {displayEmail}
+                  </span>
+                  <VerificationBadge status={contact.verificationStatus ?? "unverified"} safeToSend={contact.safeToSend} />
+                  {contact.fieldSources?.email && (
+                    <SourceBadge source={contact.fieldSources.email} />
+                  )}
+                </>
+              ) : (
+                <button
+                  onClick={handleRevealEmail}
+                  disabled={revealLoading || revealFailed}
+                  className="flex items-center gap-1 rounded-input border border-accent-secondary/30 bg-accent-secondary/5 px-2 py-0.5 text-[10px] font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/10 disabled:opacity-50"
+                >
+                  {revealLoading ? (
+                    <span className="inline-block h-2.5 w-2.5 animate-spin rounded-full border border-accent-secondary/30 border-t-accent-secondary" />
+                  ) : revealFailed ? (
+                    "Not found"
+                  ) : (
+                    "Find email"
+                  )}
+                </button>
+              )}
+            </div>
+
+            {/* Phone */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-text-tertiary">Phone:</span>{" "}
+              {contact.phone ? (
+                <>
+                  <span className="font-mono text-text-primary">{contact.phone}</span>
+                  {contact.fieldSources?.phone && (
+                    <SourceBadge source={contact.fieldSources.phone} />
+                  )}
+                </>
+              ) : (
+                <MissingData label="Not available" />
+              )}
+            </div>
+
+            {/* Seniority */}
+            {show("seniority") && (
+              <div>
+                <span className="text-text-tertiary">Seniority:</span>{" "}
+                <span className="rounded-pill bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium text-text-primary">
+                  {seniorityLabel[contact.seniority] ?? contact.seniority}
+                </span>
+              </div>
+            )}
+
+            {/* LinkedIn */}
+            {show("linkedin") && (
+              <div>
+                <span className="text-text-tertiary">LinkedIn:</span>{" "}
+                {contact.linkedinUrl ? (
+                  <a
+                    href={contact.linkedinUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-accent-secondary hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Profile
+                  </a>
+                ) : (
+                  <MissingData label="Not found" />
+                )}
+              </div>
+            )}
+
+            {/* Sources */}
+            <div className="flex items-center gap-1">
+              <span className="text-text-tertiary">Sources:</span>{" "}
+              <div className="flex gap-0.5">
+                {(Array.isArray(contact.sources) ? contact.sources : []).map((src) => (
+                  <SourceBadge key={src} source={src} />
+                ))}
+              </div>
+            </div>
+
+            {/* Company chip with popover */}
+            <div className="relative flex items-center gap-1">
+              <span className="text-text-tertiary">Company:</span>{" "}
+              <span
+                ref={chipRef}
+                onMouseEnter={handlePopoverEnter}
+                onMouseLeave={handlePopoverLeave}
+                className="cursor-default rounded-pill bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium text-text-primary"
+              >
+                {contact.companyName ?? "—"}
+              </span>
+              {popoverOpen && company && (
+                <CompanyPopover
+                  company={company}
+                  onMouseEnter={handlePopoverEnter}
+                  onMouseLeave={handlePopoverLeave}
+                  onViewDossier={handleViewDossier}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Actions row */}
+          <div className="mt-3 flex items-center gap-2 border-t border-surface-3 pt-2.5">
+            {displayEmail ? (
+              <button
+                onClick={handleCopyEmail}
+                className="rounded-input border border-surface-3 px-2.5 py-1 text-[10px] font-medium text-text-secondary transition-colors hover:bg-surface-2"
+              >
+                Copy email
+              </button>
+            ) : (
+              <button
+                onClick={handleRevealEmail}
+                disabled={revealLoading || revealFailed}
+                className="rounded-input border border-accent-secondary/30 bg-accent-secondary/5 px-2.5 py-1 text-[10px] font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/10 disabled:opacity-50"
+              >
+                {revealLoading ? "Revealing..." : revealFailed ? "Not found" : "Reveal email"}
+              </button>
+            )}
+            {FeedbackLabel}
+            <button
+              onClick={handleViewDossier}
+              className="rounded-input border border-surface-3 px-2.5 py-1 text-[10px] font-medium text-text-secondary transition-colors hover:bg-surface-2"
+            >
+              View dossier
+            </button>
+            <button
+              onClick={handleDraftEmail}
+              className="rounded-input border border-surface-3 px-2.5 py-1 text-[10px] font-medium text-text-secondary transition-colors hover:bg-surface-2"
+            >
+              Draft email
+            </button>
+            <button
+              onClick={handleExclude}
+              className="ml-auto rounded-input border border-danger/30 px-2.5 py-1 text-[10px] font-medium text-danger/70 transition-colors hover:bg-danger/10"
+            >
+              Exclude
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CompanyPopover({
+  company,
+  onMouseEnter,
+  onMouseLeave,
+  onViewDossier,
+}: {
+  company: CompanyEnriched;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+  onViewDossier: (e: React.MouseEvent) => void;
+}) {
+  const statusLabel: Record<string, string> = {
+    none: "No CRM record",
+    new_lead: "New Lead",
+    contacted: "Contacted",
+    negotiation: "Negotiation",
+    won: "Won",
+    lost: "Lost",
+    customer: "Customer",
+    new: "New",
+    open: "Open",
+    in_progress: "In Progress",
+    closed_won: "Closed Won",
+    closed_lost: "Closed Lost",
+  };
+
+  return (
+    <div
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      className="absolute bottom-full left-0 z-30 mb-1 w-56 rounded-card border border-surface-3 bg-surface-1 p-3 shadow-lg"
+    >
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-medium text-text-primary">{company.name ?? "Unknown"}</span>
+        <IcpScoreBadge score={company.icpScore ?? 0} />
+      </div>
+      <p className="mt-0.5 text-[10px] text-text-tertiary">{company.domain}</p>
+      <div className="mt-2 space-y-1 text-xs">
+        <div>
+          <span className="text-text-tertiary">Employees:</span>{" "}
+          <span className="text-text-secondary">{company.employeeCount?.toLocaleString() ?? "—"}</span>
+        </div>
+        <div>
+          <span className="text-text-tertiary">Industry:</span>{" "}
+          <span className="text-text-secondary">{company.industry || company.vertical || "—"}</span>
+        </div>
+        {company.hubspotStatus !== "none" && (
+          <div>
+            <span className="text-text-tertiary">HubSpot:</span>{" "}
+            <span className="text-text-secondary">{statusLabel[company.hubspotStatus] ?? company.hubspotStatus}</span>
+          </div>
+        )}
+        {company.freshsalesStatus !== "none" && (
+          <div>
+            <span className="text-text-tertiary">Freshsales:</span>{" "}
+            <span className="text-text-secondary">{statusLabel[company.freshsalesStatus] ?? company.freshsalesStatus}</span>
+          </div>
+        )}
+      </div>
+      <button
+        onClick={onViewDossier}
+        className="mt-2 text-[10px] text-accent-secondary hover:underline"
+      >
+        View dossier
+      </button>
+    </div>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}

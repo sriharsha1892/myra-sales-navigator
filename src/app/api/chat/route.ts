@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import Groq from "groq-sdk";
-import { buildChatSystemPrompt } from "@/lib/llm/chatSystemPrompt";
-import type { ChatbotConfig } from "@/lib/types";
+import { buildChatSystemPrompt } from "@/lib/navigator/llm/chatSystemPrompt";
+import type { ChatbotConfig } from "@/lib/navigator/types";
 import { createServerClient } from "@/lib/supabase/server";
 
 interface ChatMessage {

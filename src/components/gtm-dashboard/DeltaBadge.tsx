@@ -16,7 +16,13 @@ export function DeltaBadge({
   invert = false,
 }: DeltaBadgeProps) {
   const delta = current - previous;
-  if (delta === 0) return null;
+  if (delta === 0) {
+    return (
+      <span className="inline-flex items-center text-xs font-medium px-1.5 py-0.5 rounded-md bg-gray-50 text-gray-400">
+        &ndash;
+      </span>
+    );
+  }
 
   const isPositive = invert ? delta < 0 : delta > 0;
   const arrow = delta > 0 ? "\u2191" : "\u2193";

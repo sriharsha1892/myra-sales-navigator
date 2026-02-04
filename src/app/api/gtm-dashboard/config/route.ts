@@ -14,7 +14,8 @@ export async function GET(request: NextRequest) {
     }
     const value = await getConfig(key);
     return NextResponse.json({ value });
-  } catch {
+  } catch (e) {
+    console.error("[gtm-dashboard/config] GET error:", e);
     return NextResponse.json(
       { error: "Failed to fetch config" },
       { status: 500 }
@@ -37,7 +38,8 @@ export async function PUT(request: NextRequest) {
     }
     await setConfig(parsed.data.key, parsed.data.value);
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (e) {
+    console.error("[gtm-dashboard/config] PUT error:", e);
     return NextResponse.json(
       { error: "Failed to update config" },
       { status: 500 }

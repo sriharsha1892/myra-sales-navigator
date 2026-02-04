@@ -12,7 +12,8 @@ export async function GET(request: NextRequest) {
       request.nextUrl.searchParams.get("snapshotId") ?? undefined;
     const leadGen = await getLeadGen(snapshotId);
     return NextResponse.json({ leadGen });
-  } catch {
+  } catch (e) {
+    console.error("[gtm-dashboard/lead-gen] GET error:", e);
     return NextResponse.json(
       { error: "Failed to fetch lead gen" },
       { status: 500 }
@@ -35,7 +36,8 @@ export async function POST(request: NextRequest) {
     }
     const leadGen = await upsertLeadGen(parsed.data);
     return NextResponse.json({ leadGen });
-  } catch {
+  } catch (e) {
+    console.error("[gtm-dashboard/lead-gen] POST error:", e);
     return NextResponse.json(
       { error: "Failed to update lead gen" },
       { status: 500 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { signSessionToken } from "@/lib/auth";
+import { signSessionToken } from "@/lib/navigator/auth";
 
 /**
  * DEV ONLY — bypass magic link for local testing.

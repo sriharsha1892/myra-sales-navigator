@@ -3,8 +3,8 @@ import localFont from "next/font/local";
 import { Geist_Mono } from "next/font/google";
 import { QueryProvider } from "@/providers/QueryProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
-import { SessionExpiryOverlay } from "@/components/SessionExpiryOverlay";
-import { ToastContainer } from "@/components/feedback/ToastContainer";
+import { SessionExpiryOverlay } from "@/components/navigator/SessionExpiryOverlay";
+import { ToastContainer } from "@/components/navigator/feedback/ToastContainer";
 import "./globals.css";
 
 const satoshi = localFont({

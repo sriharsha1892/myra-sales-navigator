@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { findEmailsBatch } from "@/lib/providers/clearout";
-import type { FindEmailBatchInput } from "@/lib/providers/clearout";
+import { findEmailsBatch } from "@/lib/navigator/providers/clearout";
+import type { FindEmailBatchInput } from "@/lib/navigator/providers/clearout";
 
 interface RequestBody {
   domain: string;

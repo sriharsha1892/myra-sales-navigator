@@ -10,7 +10,8 @@ export async function GET(request: NextRequest) {
   try {
     const snapshots = await getSnapshots();
     return NextResponse.json({ snapshots });
-  } catch {
+  } catch (e) {
+    console.error("[gtm-dashboard/snapshots] GET error:", e);
     return NextResponse.json(
       { error: "Failed to fetch snapshots" },
       { status: 500 }
@@ -36,7 +37,8 @@ export async function POST(request: NextRequest) {
       parsed.data.snapshotData
     );
     return NextResponse.json({ snapshot });
-  } catch {
+  } catch (e) {
+    console.error("[gtm-dashboard/snapshots] POST error:", e);
     return NextResponse.json(
       { error: "Failed to create snapshot" },
       { status: 500 }

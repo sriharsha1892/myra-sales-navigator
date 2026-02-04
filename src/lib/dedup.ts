@@ -1,4 +1,4 @@
-import type { CompanyEnriched, ResultSource } from "./types";
+import type { CompanyEnriched, ResultSource } from "./navigator/types";
 import { normalizeDomain } from "./cache";
 
 export function deduplicateCompanies(companies: CompanyEnriched[]): CompanyEnriched[] {

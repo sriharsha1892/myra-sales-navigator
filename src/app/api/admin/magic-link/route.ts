@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { signMagicLinkToken } from "@/lib/auth";
+import { signMagicLinkToken } from "@/lib/navigator/auth";
 import { createServerClient } from "@/lib/supabase/server";
-import type { TeamMember, AuthSettings } from "@/lib/types";
-import { logAuthEvent } from "@/lib/auth-log";
+import type { TeamMember, AuthSettings } from "@/lib/navigator/types";
+import { logAuthEvent } from "@/lib/navigator/auth-log";
 
 export async function POST(request: Request) {
   const body = (await request.json()) as { email?: string; emails?: string[] };

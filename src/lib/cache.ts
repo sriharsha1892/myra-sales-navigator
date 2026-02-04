@@ -43,6 +43,15 @@ export function normalizeDomain(domain: string): string {
   return domain.toLowerCase().replace(/^www\./, "").trim();
 }
 
+export function getRootDomain(domain: string): string {
+  const parts = domain.replace(/^www\./, "").toLowerCase().trim().split(".");
+  if (parts.length <= 2) return parts.join(".");
+  const coTlds = ["co.uk", "com.au", "co.in", "co.jp", "com.br"];
+  const last2 = parts.slice(-2).join(".");
+  if (coTlds.includes(last2)) return parts.slice(-3).join(".");
+  return parts.slice(-2).join(".");
+}
+
 // ---------------------------------------------------------------------------
 // Cache key builders
 // ---------------------------------------------------------------------------

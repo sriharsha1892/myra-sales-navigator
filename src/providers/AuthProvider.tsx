@@ -8,8 +8,8 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { useStore } from "@/lib/store";
-import { pick } from "@/lib/ui-copy";
+import { useStore } from "@/lib/navigator/store";
+import { pick } from "@/lib/navigator/ui-copy";
 
 interface UnreadMention {
   noteId: string;

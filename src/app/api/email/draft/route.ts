@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { getGemini, getGroq, isGeminiAvailable, isGroqAvailable } from "@/lib/llm/client";
-import { buildEmailPrompt } from "@/lib/llm/emailPrompts";
-import { defaultAdminConfig } from "@/lib/mock-data";
-import type { EmailDraftRequest, EmailDraftResponse } from "@/lib/types";
+import { getGemini, getGroq, isGeminiAvailable, isGroqAvailable } from "@/lib/navigator/llm/client";
+import { buildEmailPrompt } from "@/lib/navigator/llm/emailPrompts";
+import { defaultAdminConfig } from "@/lib/navigator/mock-data";
+import type { EmailDraftRequest, EmailDraftResponse } from "@/lib/navigator/types";
 
 export async function POST(request: Request) {
   if (!isGeminiAvailable() && !isGroqAvailable()) {
