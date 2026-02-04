@@ -9,11 +9,14 @@ const secret = new TextEncoder().encode(
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip auth check for login page and static files
+  // Skip auth check for login page, static files, and GTM pages (GTM has its own pin auth)
   if (
     pathname === "/login" ||
     pathname.startsWith("/_next/") ||
-    pathname.startsWith("/favicon")
+    pathname.startsWith("/favicon") ||
+    pathname.startsWith("/gtmcatchup") ||
+    pathname.startsWith("/gtm-dashboard") ||
+    pathname.startsWith("/gtm-admin")
   ) {
     return NextResponse.next();
   }
