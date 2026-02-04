@@ -41,6 +41,16 @@ export default function Home() {
 
   useKeyboardShortcuts();
 
+  // Sync search bar from Cmd+K / store (covers Cmd+K searches and pill clears)
+  const lastSearchQuery = useStore((s) => s.lastSearchQuery);
+  useEffect(() => {
+    if (lastSearchQuery) {
+      setSearchInput(lastSearchQuery);
+    } else {
+      setSearchInput("");
+    }
+  }, [lastSearchQuery]);
+
   // First-visit typing effect + glow
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -153,7 +163,6 @@ export default function Home() {
             onKeyDown={(e) => {
               if (e.key === "Enter" && searchInput.trim()) {
                 useStore.getState().setPendingFreeTextSearch(searchInput.trim());
-                setSearchInput("");
               }
               if (e.key === "k" && e.metaKey) {
                 e.preventDefault();
