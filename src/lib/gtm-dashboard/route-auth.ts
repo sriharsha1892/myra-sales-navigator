@@ -10,7 +10,7 @@ export function hashPin(pin: string): string {
 export function setAuthCookie(response: NextResponse, pin: string): void {
   response.cookies.set(COOKIE_NAME, hashPin(pin), {
     httpOnly: true,
-    path: "/api/gtm",
+    path: "/",
     sameSite: "strict",
     secure: process.env.NODE_ENV === "production",
     maxAge: 60 * 60 * 24 * 7, // 7 days

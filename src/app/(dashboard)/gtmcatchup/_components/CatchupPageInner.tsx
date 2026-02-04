@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { isGtmAuthed, setGtmAuthed } from "@/lib/gtm-dashboard/auth";
 import { PinAuthModal } from "@/components/gtm-dashboard/PinAuthModal";
 import {
@@ -35,6 +36,7 @@ function getStoredLayout(): DashboardLayout {
 
 export default function CatchupPageInner() {
   const [authed, setAuthed] = useState(() => isGtmAuthed());
+  const qc = useQueryClient();
   const [layout, setLayout] = useState<DashboardLayout>(() => getStoredLayout());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
@@ -101,13 +103,14 @@ export default function CatchupPageInner() {
         onSuccess={() => {
           setGtmAuthed();
           setAuthed(true);
+          qc.invalidateQueries({ queryKey: ["gtm-v2"] });
         }}
       />
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#e8ecf3] via-[#f3eff8] to-[#edf5f2] bg-fixed">
+    <div className="h-screen flex flex-col bg-gradient-to-br from-[#e8ecf3] via-[#f3eff8] to-[#edf5f2] bg-fixed overflow-hidden">
       {/* Header */}
       <div className="border-b border-gray-200/50 bg-white/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -162,7 +165,7 @@ export default function CatchupPageInner() {
       </div>
 
       {/* Content */}
-      <div className="max-w-5xl mx-auto px-6 py-6 space-y-4">
+      <div className="flex-1 min-h-0 max-w-5xl w-full mx-auto px-6 py-4 flex flex-col">
         {entriesError ? (
           <div className="text-center py-16">
             <p className="text-sm text-gray-500 mb-2">
@@ -199,13 +202,21 @@ export default function CatchupPageInner() {
           <ExecutiveDashboard latest={latest} previous={finalPrevious} />
         ) : (
           <>
-            {/* Expanded (default) layout */}
+            {/* Expanded (default) layout — 2-column like old dashboard */}
             <KpiStrip latest={latest} previous={finalPrevious} />
-            <PipelineSection latest={latest} previous={finalPrevious} />
-            <LeadGenSection latest={latest} previous={finalPrevious} />
-            <CostSection latest={latest} previous={finalPrevious} />
-            <AmDemoSection latest={latest} />
-            <AgendaPanel latest={latest} previous={finalPrevious} />
+            <div className="flex-1 min-h-0 grid grid-cols-[340px_1fr] gap-4 mt-4">
+              {/* Left column: Pipeline + Lead Gen */}
+              <div className="flex flex-col gap-4 overflow-auto">
+                <PipelineSection latest={latest} previous={finalPrevious} />
+                <LeadGenSection latest={latest} previous={finalPrevious} />
+                <AmDemoSection latest={latest} />
+              </div>
+              {/* Right column: Cost table (fills height) */}
+              <div className="flex flex-col gap-4 overflow-auto">
+                <CostSection latest={latest} previous={finalPrevious} />
+                <AgendaPanel latest={latest} previous={finalPrevious} />
+              </div>
+            </div>
           </>
         )}
       </div>
