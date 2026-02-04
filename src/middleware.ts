@@ -9,13 +9,34 @@ const secret = new TextEncoder().encode(
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip auth check for login page, API routes, and static files
+  // Skip auth check for login page and static files
   if (
     pathname === "/login" ||
-    pathname.startsWith("/api/") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon")
   ) {
+    return NextResponse.next();
+  }
+
+  // Skip auth for auth routes and GTM routes (GTM has its own auth)
+  if (
+    pathname.startsWith("/api/auth/") ||
+    pathname.startsWith("/api/gtm/") ||
+    pathname.startsWith("/api/gtm-dashboard/")
+  ) {
+    return NextResponse.next();
+  }
+
+  // Navigator API routes: require myra_session or myra_user cookie
+  if (pathname.startsWith("/api/")) {
+    const sessionToken = request.cookies.get("myra_session")?.value;
+    const legacyCookie = request.cookies.get("myra_user")?.value;
+    if (!sessionToken && !legacyCookie) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
     return NextResponse.next();
   }
 
