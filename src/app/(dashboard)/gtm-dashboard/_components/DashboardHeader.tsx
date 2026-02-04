@@ -63,9 +63,9 @@ export function DashboardHeader({
           Data as of{" "}
           {snapshotId && snapshots
             ? new Date(
-                snapshots.find((s) => s.id === snapshotId)?.createdAt ?? Date.now()
+                snapshots.find((s) => s.id === snapshotId)?.createdAt ?? ""
               ).toLocaleDateString()
-            : new Date().toLocaleDateString()}
+            : ""}
         </span>
         <SnapshotSwitcher
           selectedId={snapshotId}

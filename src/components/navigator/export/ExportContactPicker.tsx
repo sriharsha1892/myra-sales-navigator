@@ -20,7 +20,10 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
   const companies = useStore((s) => s.companies);
   const selectedCompanyDomains = useStore((s) => s.selectedCompanyDomains);
   const [selected, setSelected] = useState<Set<string>>(new Set(contactIds));
-  const [loading, setLoading] = useState(true);
+  const hasDomainsMissingContacts = [...selectedCompanyDomains].some(
+    (d) => !useStore.getState().contactsByDomain[d]
+  );
+  const [loading, setLoading] = useState(hasDomainsMissingContacts);
   const [fetchError, setFetchError] = useState(false);
   const queryClient = useQueryClient();
 
@@ -32,11 +35,9 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
     );
 
     if (domainsToFetch.length === 0) {
-      setLoading(false);
       return;
     }
 
-    setLoading(true);
     Promise.all(
       domainsToFetch.map((domain) =>
         queryClient.fetchQuery({

@@ -750,15 +750,20 @@ function ContactsView({
   retryDomain: (domain: string) => void;
 }) {
   // 300ms minimum skeleton display to prevent "0 contacts" flash on tab switch
-  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
+  const [minTimeElapsed, setMinTimeElapsed] = useState(!contactsLoading);
+  const [prevContactsLoading, setPrevContactsLoading] = useState(contactsLoading);
+
+  // Track loading transitions during render (React-recommended derived state pattern)
+  if (contactsLoading !== prevContactsLoading) {
+    setPrevContactsLoading(contactsLoading);
+    setMinTimeElapsed(!contactsLoading);
+  }
+
+  // Timer: after 300ms of loading, allow content to show even if still loading
   useEffect(() => {
-    if (contactsLoading) {
-      setMinTimeElapsed(false);
-      const timer = setTimeout(() => setMinTimeElapsed(true), 300);
-      return () => clearTimeout(timer);
-    } else {
-      setMinTimeElapsed(true);
-    }
+    if (!contactsLoading) return;
+    const timer = setTimeout(() => setMinTimeElapsed(true), 300);
+    return () => clearTimeout(timer);
   }, [contactsLoading]);
 
   // Loading with no contacts yet
