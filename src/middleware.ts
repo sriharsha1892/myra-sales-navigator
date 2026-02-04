@@ -8,10 +8,11 @@ const secret = new TextEncoder().encode(
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const appMode = process.env.APP_MODE;
+  // GTM-only mode: detect by hostname or env var
+  const host = request.headers.get("host") ?? "";
+  const isGtmApp = host.startsWith("myragtm") || process.env.APP_MODE === "gtm";
 
-  // GTM-only mode: block everything except GTM routes
-  if (appMode === "gtm") {
+  if (isGtmApp) {
     if (
       pathname.startsWith("/_next/") ||
       pathname.startsWith("/favicon") ||
