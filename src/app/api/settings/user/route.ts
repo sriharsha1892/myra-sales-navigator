@@ -1,11 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { verifySessionToken } from "@/lib/navigator/auth";
+
+async function resolveUserName(request: NextRequest): Promise<string | null> {
+  // Explicit query param takes priority
+  const fromParam = request.nextUrl.searchParams.get("user");
+  if (fromParam) return fromParam;
+
+  // Fall back to session JWT
+  const sessionToken = request.cookies.get("myra_session")?.value;
+  if (sessionToken) {
+    try {
+      const { name } = await verifySessionToken(sessionToken);
+      return name;
+    } catch { /* invalid token */ }
+  }
+
+  // Fall back to legacy cookie
+  const legacyCookie = request.cookies.get("myra_user")?.value;
+  if (legacyCookie) return decodeURIComponent(legacyCookie);
+
+  return null;
+}
 
 export async function GET(request: NextRequest) {
   try {
-    const userName = request.nextUrl.searchParams.get("user");
+    const userName = await resolveUserName(request);
     if (!userName) {
-      return NextResponse.json({ error: "user query param required" }, { status: 400 });
+      return NextResponse.json({ error: "Could not determine user" }, { status: 400 });
     }
 
     const supabase = createServerClient();
