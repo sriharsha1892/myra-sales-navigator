@@ -34,15 +34,7 @@ export function BulkActionBar() {
   const count = selectedIds.size;
   const domains = Array.from(selectedCompanyDomains);
 
-  const requestBulkExclude = useCallback(() => {
-    if (domains.length > 3) {
-      setShowExcludeConfirm(true);
-    } else {
-      handleBulkExclude();
-    }
-  }, [domains.length]);
-
-  const handleBulkExclude = async () => {
+  const handleBulkExclude = useCallback(async () => {
     setShowExcludeConfirm(false);
     if (!userName) return;
     // Optimistic local exclusion
@@ -61,7 +53,15 @@ export function BulkActionBar() {
       addToast({ message: pick("bulk_action_failed"), type: "error" });
     }
     clearSelection();
-  };
+  }, [domains, userName, excludeCompany, addToast, clearSelection]);
+
+  const requestBulkExclude = useCallback(() => {
+    if (domains.length > 3) {
+      setShowExcludeConfirm(true);
+    } else {
+      handleBulkExclude();
+    }
+  }, [domains.length, handleBulkExclude]);
 
   const handleBulkStatus = async (status: string) => {
     if (!userName) return;

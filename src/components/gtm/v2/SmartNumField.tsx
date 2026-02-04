@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { cn } from "@/lib/cn";
 
 type InputMode = "absolute" | "delta";
@@ -27,13 +27,6 @@ export function SmartNumField({
   const [deltaInput, setDeltaInput] = useState(() =>
     mode === "delta" ? String(value - base) : "0"
   );
-
-  // Sync deltaInput when value/base changes externally
-  useEffect(() => {
-    if (mode === "delta") {
-      setDeltaInput(String(value - base));
-    }
-  }, [value, base, mode]);
 
   const clamp = useCallback((n: number) => Math.max(0, Math.round(n)), []);
 
