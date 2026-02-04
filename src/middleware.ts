@@ -8,6 +8,24 @@ const secret = new TextEncoder().encode(
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const appMode = process.env.APP_MODE;
+
+  // GTM-only mode: block everything except GTM routes
+  if (appMode === "gtm") {
+    if (
+      pathname.startsWith("/_next/") ||
+      pathname.startsWith("/favicon") ||
+      pathname.startsWith("/gtmcatchup") ||
+      pathname.startsWith("/gtm-dashboard") ||
+      pathname.startsWith("/gtm-admin") ||
+      pathname.startsWith("/api/gtm/") ||
+      pathname.startsWith("/api/gtm-dashboard/")
+    ) {
+      return NextResponse.next();
+    }
+    // Redirect everything else to /gtmcatchup
+    return NextResponse.redirect(new URL("/gtmcatchup", request.url));
+  }
 
   // Skip auth check for login page, static files, and GTM pages (GTM has its own pin auth)
   if (
