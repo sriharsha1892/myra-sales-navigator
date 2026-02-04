@@ -284,6 +284,17 @@ export async function upsertEntry(
   return mapEntry(data);
 }
 
+/** Return all distinct entry_date values, descending */
+export async function getEntryDates(): Promise<string[]> {
+  const sb = createServerClient();
+  const { data, error } = await sb
+    .from("gtm_entries")
+    .select("entry_date")
+    .order("entry_date", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r: { entry_date: string }) => r.entry_date);
+}
+
 // --- Agenda ---
 
 export async function getAgendaItems(

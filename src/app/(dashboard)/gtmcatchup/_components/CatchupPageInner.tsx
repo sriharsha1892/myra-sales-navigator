@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { isGtmAuthed, setGtmAuthed } from "@/lib/gtm-dashboard/auth";
 import { PinAuthModal } from "@/components/gtm-dashboard/PinAuthModal";
-import { useV2Entries } from "@/hooks/dashboard/useGtmV2";
+import {
+  useV2Entries,
+  useV2EntryByDate,
+  useEntryDates,
+} from "@/hooks/dashboard/useGtmV2";
 import { formatEntryDate } from "@/lib/gtm/v2-utils";
 import { KpiStrip } from "@/components/gtm/v2/KpiStrip";
 import { PipelineSection } from "@/components/gtm/v2/PipelineSection";
@@ -11,19 +15,85 @@ import { LeadGenSection } from "@/components/gtm/v2/LeadGenSection";
 import { CostSection } from "@/components/gtm/v2/CostSection";
 import { AmDemoSection } from "@/components/gtm/v2/AmDemoSection";
 import { AgendaPanel } from "@/components/gtm/v2/AgendaPanel";
-import { SkeletonKpi, SkeletonSection } from "@/components/gtm/v2/SkeletonCards";
+import { CompactDashboard } from "@/components/gtm/v2/CompactDashboard";
+import { ExecutiveDashboard } from "@/components/gtm/v2/ExecutiveDashboard";
+import {
+  LayoutSwitcher,
+  type DashboardLayout,
+} from "@/components/gtm/v2/LayoutSwitcher";
+import {
+  SkeletonKpi,
+  SkeletonSection,
+} from "@/components/gtm/v2/SkeletonCards";
+
+function getStoredLayout(): DashboardLayout {
+  if (typeof window === "undefined") return "expanded";
+  const v = localStorage.getItem("gtm-dashboard-layout");
+  if (v === "compact" || v === "executive") return v;
+  return "expanded";
+}
 
 export default function CatchupPageInner() {
   const [authed, setAuthed] = useState(() => isGtmAuthed());
+  const [layout, setLayout] = useState<DashboardLayout>(() => getStoredLayout());
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
+  const handleLayoutChange = useCallback((l: DashboardLayout) => {
+    setLayout(l);
+    localStorage.setItem("gtm-dashboard-layout", l);
+  }, []);
+
+  // Fetch all entry dates for the date picker
+  const { data: allDates = [] } = useEntryDates();
+
+  // Default entries (latest + previous)
   const {
     data: entriesData,
     isLoading: entriesLoading,
     isError: entriesError,
   } = useV2Entries();
 
-  const latest = entriesData?.latest ?? null;
-  const previous = entriesData?.previous ?? null;
+  // Fetch selected date's entry (when user picks a historical date)
+  const { data: selectedEntry, isLoading: selectedLoading } =
+    useV2EntryByDate(selectedDate);
+
+  // Determine which entries to display
+  const isHistorical = selectedDate !== null;
+  const defaultLatest = entriesData?.latest ?? null;
+  const defaultPrevious = entriesData?.previous ?? null;
+
+  // For historical: find the previous entry relative to the selected date
+  const latest = isHistorical ? (selectedEntry ?? null) : defaultLatest;
+  const previous = (() => {
+    if (!isHistorical) return defaultPrevious;
+    if (!selectedDate || allDates.length === 0) return null;
+    const idx = allDates.indexOf(selectedDate);
+    // The date before selectedDate in sorted-desc list is idx+1
+    if (idx >= 0 && idx + 1 < allDates.length) {
+      // We need the previous entry — fetch it via the entries data if available
+      // For now, if selectedDate is the latest, use defaultPrevious
+      if (selectedDate === defaultLatest?.entryDate) return defaultPrevious;
+    }
+    return null;
+  })();
+
+  // When latest data loads and no date selected, stay on latest
+  const isLoading = entriesLoading || (isHistorical && selectedLoading);
+
+  // Also fetch the previous entry for historical dates
+  const prevDateForSelected = (() => {
+    if (!isHistorical || !selectedDate || allDates.length === 0) return null;
+    const idx = allDates.indexOf(selectedDate);
+    if (idx >= 0 && idx + 1 < allDates.length) return allDates[idx + 1];
+    return null;
+  })();
+
+  const { data: prevEntryForSelected } = useV2EntryByDate(prevDateForSelected);
+
+  // Final previous entry: use fetched previous for historical, or default
+  const finalPrevious = isHistorical
+    ? (prevEntryForSelected ?? null)
+    : defaultPrevious;
 
   if (!authed) {
     return (
@@ -38,7 +108,7 @@ export default function CatchupPageInner() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#e8ecf3] via-[#f3eff8] to-[#edf5f2] bg-fixed">
-      {/* Level 1: Header */}
+      {/* Header */}
       <div className="border-b border-gray-200/50 bg-white/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
           <div>
@@ -48,10 +118,11 @@ export default function CatchupPageInner() {
             <div className="flex items-center gap-2 mt-0.5">
               {latest && (
                 <p className="text-xs text-gray-500">
-                  Last entry: {formatEntryDate(latest.entryDate)}
-                  {previous && (
+                  {isHistorical ? "Viewing:" : "Last entry:"}{" "}
+                  {formatEntryDate(latest.entryDate)}
+                  {finalPrevious && (
                     <span className="ml-2 px-1.5 py-0.5 bg-gray-100 rounded text-[10px]">
-                      Changes since {formatEntryDate(previous.entryDate)}
+                      Changes since {formatEntryDate(finalPrevious.entryDate)}
                     </span>
                   )}
                 </p>
@@ -59,6 +130,27 @@ export default function CatchupPageInner() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {/* Date picker */}
+            {allDates.length > 1 && (
+              <select
+                value={selectedDate ?? ""}
+                onChange={(e) =>
+                  setSelectedDate(e.target.value || null)
+                }
+                className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-300"
+              >
+                <option value="">Latest</option>
+                {allDates.map((d) => (
+                  <option key={d} value={d}>
+                    {formatEntryDate(d)}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {/* Layout switcher */}
+            <LayoutSwitcher value={layout} onChange={handleLayoutChange} />
+
             <a
               href="/gtmcatchup/entry"
               className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors"
@@ -83,7 +175,7 @@ export default function CatchupPageInner() {
               Refresh page
             </button>
           </div>
-        ) : entriesLoading ? (
+        ) : isLoading ? (
           <div className="space-y-4">
             <SkeletonKpi />
             <SkeletonSection rows={5} />
@@ -101,25 +193,19 @@ export default function CatchupPageInner() {
               Create First Entry
             </a>
           </div>
+        ) : layout === "compact" ? (
+          <CompactDashboard latest={latest} previous={finalPrevious} />
+        ) : layout === "executive" ? (
+          <ExecutiveDashboard latest={latest} previous={finalPrevious} />
         ) : (
           <>
-            {/* Level 2: KPI Strip */}
-            <KpiStrip latest={latest} previous={previous} />
-
-            {/* Level 3: Pipeline Overview */}
-            <PipelineSection latest={latest} previous={previous} />
-
-            {/* Level 4: Lead Generation */}
-            <LeadGenSection latest={latest} previous={previous} />
-
-            {/* Level 5: Cost Economics */}
-            <CostSection latest={latest} previous={previous} />
-
-            {/* Level 6: AM Demo Performance */}
+            {/* Expanded (default) layout */}
+            <KpiStrip latest={latest} previous={finalPrevious} />
+            <PipelineSection latest={latest} previous={finalPrevious} />
+            <LeadGenSection latest={latest} previous={finalPrevious} />
+            <CostSection latest={latest} previous={finalPrevious} />
             <AmDemoSection latest={latest} />
-
-            {/* Level 7: Agenda Panel */}
-            <AgendaPanel latest={latest} previous={previous} />
+            <AgendaPanel latest={latest} previous={finalPrevious} />
           </>
         )}
       </div>

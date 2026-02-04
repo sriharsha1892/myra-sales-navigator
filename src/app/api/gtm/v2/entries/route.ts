@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireGtmAuth } from "@/lib/gtm-dashboard/route-auth";
-import { getLatestEntries, getEntryByDate, upsertEntry } from "@/lib/gtm/v2-queries";
+import { getLatestEntries, getEntryByDate, getEntryDates, upsertEntry } from "@/lib/gtm/v2-queries";
 import { v2EntrySchema } from "@/lib/gtm/v2-validation";
 
 export async function GET(request: NextRequest) {
@@ -8,6 +8,12 @@ export async function GET(request: NextRequest) {
   if (authErr) return authErr;
 
   try {
+    const list = request.nextUrl.searchParams.get("list");
+    if (list === "dates") {
+      const dates = await getEntryDates();
+      return NextResponse.json({ dates });
+    }
+
     const date = request.nextUrl.searchParams.get("date");
     if (date) {
       const entry = await getEntryByDate(date);

@@ -116,6 +116,17 @@ export function useBulkCreateV2Orgs() {
 
 // --- Entries ---
 
+export function useEntryDates() {
+  return useQuery({
+    queryKey: [...Q.entries, "dates"],
+    queryFn: () =>
+      api<{ dates: string[] }>("/api/gtm/v2/entries?list=dates").then(
+        (r) => r.dates
+      ),
+    staleTime: 5 * 60_000,
+  });
+}
+
 export function useV2Entries() {
   return useQuery({
     queryKey: [...Q.entries],
