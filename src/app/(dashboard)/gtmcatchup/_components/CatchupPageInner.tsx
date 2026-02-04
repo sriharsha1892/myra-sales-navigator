@@ -46,15 +46,15 @@ export default function CatchupPageInner() {
     localStorage.setItem("gtm-dashboard-layout", l);
   }, []);
 
-  // Fetch all entry dates for the date picker
-  const { data: allDates = [] } = useEntryDates();
+  // Fetch all entry dates for the date picker — only after PIN auth
+  const { data: allDates = [] } = useEntryDates(authed);
 
-  // Default entries (latest + previous)
+  // Default entries (latest + previous) — only after PIN auth
   const {
     data: entriesData,
     isLoading: entriesLoading,
     isError: entriesError,
-  } = useV2Entries();
+  } = useV2Entries(authed);
 
   // Fetch selected date's entry (when user picks a historical date)
   const { data: selectedEntry, isLoading: selectedLoading } =

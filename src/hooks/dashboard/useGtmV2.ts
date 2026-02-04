@@ -116,7 +116,7 @@ export function useBulkCreateV2Orgs() {
 
 // --- Entries ---
 
-export function useEntryDates() {
+export function useEntryDates(enabled = true) {
   return useQuery({
     queryKey: [...Q.entries, "dates"],
     queryFn: () =>
@@ -124,10 +124,11 @@ export function useEntryDates() {
         (r) => r.dates
       ),
     staleTime: 5 * 60_000,
+    enabled,
   });
 }
 
-export function useV2Entries() {
+export function useV2Entries(enabled = true) {
   return useQuery({
     queryKey: [...Q.entries],
     queryFn: () =>
@@ -135,6 +136,7 @@ export function useV2Entries() {
         "/api/gtm/v2/entries"
       ),
     staleTime: 2 * 60_000,
+    enabled,
   });
 }
 

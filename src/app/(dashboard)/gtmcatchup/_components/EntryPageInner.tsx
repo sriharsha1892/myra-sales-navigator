@@ -52,7 +52,7 @@ function EntryPageContent() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const { addToast } = useGtmToast();
 
-  const { data: entriesData, isLoading: entriesLoading } = useV2Entries();
+  const { data: entriesData, isLoading: entriesLoading } = useV2Entries(authed);
   const { data: dateEntry, isLoading: dateEntryLoading } = useV2EntryByDate(entryDate);
   const saveEntry = useSaveEntry();
 

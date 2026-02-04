@@ -100,6 +100,12 @@ function clearJustLoggedInCookie() {
   document.cookie = "myra_just_logged_in=; path=/; max-age=0";
 }
 
+function isGtmPage(): boolean {
+  if (typeof window === "undefined") return false;
+  const path = window.location.pathname;
+  return path.startsWith("/gtmcatchup") || path.startsWith("/gtm-dashboard") || path.startsWith("/gtm-admin");
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { setUserName, addToast } = useStore();
   const userName = useStore((s) => s.userName);
@@ -111,6 +117,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [unreadMentions, setUnreadMentions] = useState<UnreadMention[]>([]);
 
   useEffect(() => {
+    // GTM pages use their own PIN auth — skip Navigator auth check entirely
+    if (isGtmPage()) {
+      setIsLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     async function checkAuth() {
