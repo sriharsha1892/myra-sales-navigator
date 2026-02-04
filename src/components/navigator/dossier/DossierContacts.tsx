@@ -3,7 +3,8 @@
 import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useStore } from "@/lib/navigator/store";
-import { EmailDraftModal } from "@/components/navigator/email/EmailDraftModal";
+import { OutreachDraftModal } from "@/components/navigator/outreach/OutreachDraftModal";
+import { useOutreachSuggestion } from "@/lib/navigator/outreach/useOutreachSuggestion";
 import { ContactRow } from "@/components/navigator/contacts/ContactRow";
 import { useExport } from "@/hooks/navigator/useExport";
 import type { Contact } from "@/lib/navigator/types";
@@ -25,6 +26,7 @@ export function DossierContacts({ companyDomain, contacts: contactsProp }: Dossi
   const company = selectedCompany();
 
   const [draftContact, setDraftContact] = useState<Contact | null>(null);
+  const suggestion = useOutreachSuggestion(company, draftContact, !!draftContact);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [findingEmails, setFindingEmails] = useState(false);
 
@@ -264,10 +266,14 @@ export function DossierContacts({ companyDomain, contacts: contactsProp }: Dossi
       )}
 
       {draftContact && company && (
-        <EmailDraftModal
+        <OutreachDraftModal
           contact={draftContact}
           company={company}
           onClose={() => setDraftContact(null)}
+          suggestedChannel={suggestion?.channel}
+          suggestedTemplate={suggestion?.template as import("@/lib/navigator/types").EmailTemplate | undefined}
+          suggestedTone={suggestion?.tone}
+          suggestionReason={suggestion?.reason}
         />
       )}
     </div>

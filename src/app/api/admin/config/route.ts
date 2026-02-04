@@ -37,6 +37,8 @@ export async function GET() {
       uiPreferences: data.ui_preferences ?? {},
       emailPrompts: data.email_prompts ?? {},
       analyticsSettings: data.analytics_settings ?? {},
+      enrichmentLimits: data.enrichment_limits ?? { maxSearchEnrich: 10, maxContactAutoEnrich: 5, maxClearoutFinds: 10 },
+      icpProfiles: data.icp_profiles ?? [],
       freshsalesSettings: (() => {
         const db = (data.freshsales_settings ?? {}) as Record<string, unknown>;
         return {
@@ -48,6 +50,15 @@ export async function GET() {
       })(),
       authLog: data.auth_log ?? [],
       authRequests: data.auth_requests ?? [],
+      outreachChannelConfig: data.outreach_channel_config ?? {
+        enabledChannels: ["email", "linkedin_connect", "linkedin_inmail", "whatsapp"],
+        defaultChannel: "email",
+        channelInstructions: {},
+        writingRulesDefault: "",
+      },
+      outreachSuggestionRules: data.outreach_suggestion_rules ?? [],
+      actionRecommendationRules: data.action_recommendation_rules ?? [],
+      actionRecommendationEnabled: data.action_recommendation_enabled ?? true,
     };
 
     // Mask API keys in the response
@@ -96,9 +107,15 @@ export async function PUT(request: NextRequest) {
       uiPreferences: "ui_preferences",
       emailPrompts: "email_prompts",
       analyticsSettings: "analytics_settings",
+      enrichmentLimits: "enrichment_limits",
+      icpProfiles: "icp_profiles",
       freshsalesSettings: "freshsales_settings",
       authLog: "auth_log",
       authRequests: "auth_requests",
+      outreachChannelConfig: "outreach_channel_config",
+      outreachSuggestionRules: "outreach_suggestion_rules",
+      actionRecommendationRules: "action_recommendation_rules",
+      actionRecommendationEnabled: "action_recommendation_enabled",
     };
 
     for (const [key, value] of Object.entries(body)) {

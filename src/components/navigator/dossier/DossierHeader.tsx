@@ -4,6 +4,7 @@ import type { CompanyEnriched } from "@/lib/navigator/types";
 import { IcpScoreBadge, SourceBadge } from "@/components/navigator/badges";
 import { StalenessIndicator } from "@/components/navigator/shared/StalenessIndicator";
 import { CompanyStatusBadge } from "./CompanyStatusBadge";
+import { RecommendedActionBar } from "./RecommendedActionBar";
 import { useStore } from "@/lib/navigator/store";
 
 interface DossierHeaderProps {
@@ -13,6 +14,7 @@ interface DossierHeaderProps {
 
 export function DossierHeader({ company, onRefresh }: DossierHeaderProps) {
   const searchSimilar = useStore((s) => s.searchSimilar);
+  const contacts = useStore((s) => s.contactsByDomain[company.domain] ?? []);
 
   return (
     <div className="border-b border-surface-3 px-4 py-3">
@@ -35,6 +37,7 @@ export function DossierHeader({ company, onRefresh }: DossierHeaderProps) {
           </p>
         </div>
       )}
+      <RecommendedActionBar company={company} contacts={contacts} />
       {company.freshsalesStatus && company.freshsalesStatus !== "none" && (
         <div
           className={`mt-2 rounded-input px-3 py-1.5 text-[11px] font-medium ${

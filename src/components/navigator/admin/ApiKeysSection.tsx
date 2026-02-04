@@ -53,7 +53,7 @@ function StatusDot({ configured }: { configured: boolean }) {
       className={`inline-block h-2 w-2 flex-shrink-0 rounded-full ${
         configured ? "bg-success" : "bg-text-tertiary"
       }`}
-      title={configured ? "Connected" : "Not configured"}
+      aria-label={configured ? "Connected" : "Not configured"}
     />
   );
 }

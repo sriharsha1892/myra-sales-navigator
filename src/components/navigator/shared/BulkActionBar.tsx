@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useStore } from "@/lib/navigator/store";
+import { ConfirmDialog } from "@/components/navigator/shared/ConfirmDialog";
 import { useExport } from "@/hooks/navigator/useExport";
 import { ExportContactPicker } from "@/components/navigator/export/ExportContactPicker";
 import { VerificationProgress } from "@/components/navigator/export/VerificationProgress";
@@ -26,13 +27,23 @@ export function BulkActionBar() {
 
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [showNoteInput, setShowNoteInput] = useState(false);
+  const [showExcludeConfirm, setShowExcludeConfirm] = useState(false);
 
   const selectedIds = viewMode === "contacts" ? selectedContactIds : selectedCompanyDomains;
   const clearSelection = viewMode === "contacts" ? deselectAllContacts : deselectAllCompanies;
   const count = selectedIds.size;
   const domains = Array.from(selectedCompanyDomains);
 
+  const requestBulkExclude = useCallback(() => {
+    if (domains.length > 3) {
+      setShowExcludeConfirm(true);
+    } else {
+      handleBulkExclude();
+    }
+  }, [domains.length]);
+
   const handleBulkExclude = async () => {
+    setShowExcludeConfirm(false);
     if (!userName) return;
     // Optimistic local exclusion
     for (const domain of domains) {
@@ -120,7 +131,7 @@ export function BulkActionBar() {
                 <BulkButton onClick={() => initiateExport("excel")} label="Excel" />
                 {viewMode === "companies" && (
                   <>
-                    <BulkButton onClick={handleBulkExclude} label="Exclude" variant="danger" />
+                    <BulkButton onClick={requestBulkExclude} label="Exclude" variant="danger" />
                     <BulkButton onClick={() => setShowStatusDropdown(true)} label="Set Status" />
                     <BulkButton onClick={() => setShowNoteInput(true)} label="Add Note" />
                   </>
@@ -144,6 +155,16 @@ export function BulkActionBar() {
       {exportState?.step === "verify" && (
         <VerificationProgress exportState={exportState} />
       )}
+
+      <ConfirmDialog
+        open={showExcludeConfirm}
+        title="Exclude companies?"
+        message={`You're about to exclude ${domains.length} companies. They will be hidden from future search results.`}
+        confirmLabel={`Exclude ${domains.length}`}
+        onConfirm={handleBulkExclude}
+        onCancel={() => setShowExcludeConfirm(false)}
+        destructive
+      />
     </>
   );
 }

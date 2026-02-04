@@ -11,21 +11,35 @@ function getSupabase() {
 
 export async function GET(request: NextRequest) {
   const domain = request.nextUrl.searchParams.get("domain");
-  if (!domain) {
-    return NextResponse.json({ error: "domain required" }, { status: 400 });
-  }
+  const user = request.nextUrl.searchParams.get("user");
+  const since = request.nextUrl.searchParams.get("since");
+  const until = request.nextUrl.searchParams.get("until");
 
   const sb = getSupabase();
   if (!sb) {
     return NextResponse.json({ exports: [] });
   }
 
-  const { data, error } = await sb
+  let query = sb
     .from("exported_contacts")
     .select("*")
-    .eq("company_domain", domain)
     .order("exported_at", { ascending: false })
-    .limit(100);
+    .limit(200);
+
+  if (domain) {
+    query = query.eq("company_domain", domain);
+  }
+  if (user) {
+    query = query.eq("exported_by", user);
+  }
+  if (since) {
+    query = query.gte("exported_at", since);
+  }
+  if (until) {
+    query = query.lte("exported_at", until);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error("[ExportHistory] GET error:", error);

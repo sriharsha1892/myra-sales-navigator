@@ -51,7 +51,7 @@ export function KpiStrip({ latest, previous }: KpiStripProps) {
       value: stats.paying.count,
       prev: stats.paying.prev,
       color: "text-emerald-600",
-      gradient: "from-emerald-50 to-emerald-100/50",
+      gradient: "from-emerald-50 to-emerald-100",
       names: stats.paying.names,
     },
     {
@@ -59,7 +59,7 @@ export function KpiStrip({ latest, previous }: KpiStripProps) {
       value: stats.prospects.count,
       prev: stats.prospects.prev,
       color: "text-blue-600",
-      gradient: "from-blue-50 to-blue-100/50",
+      gradient: "from-blue-50 to-blue-100",
       names: stats.prospects.names,
     },
     {
@@ -67,7 +67,7 @@ export function KpiStrip({ latest, previous }: KpiStripProps) {
       value: stats.activeEngagement.count,
       prev: stats.activeEngagement.prev,
       color: "text-purple-600",
-      gradient: "from-purple-50 to-purple-100/50",
+      gradient: "from-purple-50 to-purple-100",
       names: stats.activeEngagement.names,
     },
   ];
@@ -84,12 +84,12 @@ export function KpiStrip({ latest, previous }: KpiStripProps) {
           }
         >
           <div
-            className={`bg-gradient-to-br ${card.gradient} rounded-[14px] border border-white/90 shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-5 cursor-default transition-all duration-[180ms] ease-out hover:shadow-[0_6px_24px_rgba(0,0,0,0.08)]`}
+            className={`bg-gradient-to-br ${card.gradient} rounded-[14px] border border-white/90 shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-4 cursor-default transition-all duration-[180ms] ease-out hover:shadow-[0_6px_24px_rgba(0,0,0,0.08)]`}
           >
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+            <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
               {card.label}
             </p>
-            <div className="flex items-baseline gap-2 mt-1">
+            <div className="flex items-baseline gap-2 mt-0.5">
               <span className={`text-3xl font-semibold font-mono tabular-nums ${card.color}`}>
                 {card.value}
               </span>

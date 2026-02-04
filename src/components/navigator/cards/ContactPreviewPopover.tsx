@@ -16,7 +16,7 @@ export function ContactPreviewPopover({ domain }: ContactPreviewPopoverProps) {
 
   if (!contacts || contacts.length === 0) {
     return (
-      <div className="absolute bottom-full right-0 z-20 mb-1 hidden w-64 rounded-card border border-surface-3 bg-surface-1 p-2 shadow-lg group-hover/contacts:block">
+      <div className="absolute bottom-full right-0 z-20 mb-1 hidden w-64 rounded-card border border-surface-3 bg-surface-1 p-2.5 shadow-lg group-hover/contacts:block">
         <p className="text-xs italic text-text-tertiary">Open dossier to see contacts</p>
       </div>
     );
@@ -29,7 +29,7 @@ export function ContactPreviewPopover({ domain }: ContactPreviewPopoverProps) {
   const remaining = contacts.length - 3;
 
   return (
-    <div className="absolute bottom-full right-0 z-20 mb-1 hidden w-64 rounded-card border border-surface-3 bg-surface-1 p-2 shadow-lg group-hover/contacts:block">
+    <div className="absolute bottom-full right-0 z-20 mb-1 hidden w-64 rounded-card border border-surface-3 bg-surface-1 p-2.5 shadow-lg group-hover/contacts:block">
       <div className="space-y-1.5">
         {top3.map((c) => (
           <div key={c.id} className="flex items-center gap-1.5 text-[10px]">

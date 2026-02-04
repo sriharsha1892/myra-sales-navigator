@@ -30,7 +30,7 @@ export function ToastContainer() {
       {undoToasts.length > 0 && (
         <div
           aria-live="assertive"
-          className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 flex-col gap-2"
+          className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 flex-col gap-2"
         >
           {undoToasts.map((toast) => (
             <UndoBar key={toast.id} toast={toast} />

@@ -32,9 +32,16 @@ import { AuthSettingsSection } from "@/components/navigator/admin/AuthSettingsSe
 import { AuthActivityLog } from "@/components/navigator/admin/AuthActivityLog";
 import { UiPreferencesSection } from "@/components/navigator/admin/UiPreferencesSection";
 import { EmailPromptsSection } from "@/components/navigator/admin/EmailPromptsSection";
+import { EmailTemplatesSection } from "@/components/navigator/admin/EmailTemplatesSection";
+import { OutreachChannelsSection } from "@/components/navigator/admin/OutreachChannelsSection";
+import { OutreachSuggestionsSection } from "@/components/navigator/admin/OutreachSuggestionsSection";
+import { ActionRecommendationsSection } from "@/components/navigator/admin/ActionRecommendationsSection";
 import { PipelineStagesSection } from "@/components/navigator/admin/PipelineStagesSection";
 import { ChatbotConfigSection } from "@/components/navigator/admin/ChatbotConfigSection";
 import { FreshsalesSettingsSection } from "@/components/navigator/admin/FreshsalesSettingsSection";
+import { EnrichmentConfigSection } from "@/components/navigator/admin/EnrichmentConfigSection";
+import { UserActivitySection } from "@/components/navigator/admin/UserActivitySection";
+import { IcpProfilesSection } from "@/components/navigator/admin/IcpProfilesSection";
 
 // Analytics dashboard
 import { WeeklyKpiCards } from "@/components/navigator/admin/analytics/WeeklyKpiCards";
@@ -207,6 +214,8 @@ export default function AdminPage() {
         <div className={cn("space-y-6", isDirty && "pb-16")}>
           {activeTab === "general" && (
             <>
+              <EnrichmentConfigSection />
+              <IcpProfilesSection />
               <IcpWeightsSection />
               <VerticalConfigSection />
               <SizeSweetSpotSection />
@@ -241,7 +250,15 @@ export default function AdminPage() {
               <AuthActivityLog />
             </>
           )}
-          {activeTab === "email-prompts" && <EmailPromptsSection />}
+          {activeTab === "email-prompts" && (
+            <>
+              <EmailPromptsSection />
+              <EmailTemplatesSection />
+              <OutreachChannelsSection />
+              <OutreachSuggestionsSection />
+              <ActionRecommendationsSection />
+            </>
+          )}
           {activeTab === "ui" && (
             <>
               <UiPreferencesSection />
@@ -259,6 +276,7 @@ export default function AdminPage() {
                   saving={savingTargets}
                 />
               </div>
+              <UserActivitySection />
               <WeeklyKpiCards data={analytics?.kpis ?? null} targets={kpiTargets} />
               <DiscoveryFunnel data={analytics?.funnel ?? null} />
               <TeamActivity data={analytics?.teamActivity ?? null} />

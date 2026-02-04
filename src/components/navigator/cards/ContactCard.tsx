@@ -8,8 +8,11 @@ import { SourceBadge, ConfidenceBadge, IcpScoreBadge, VerificationBadge } from "
 import { MissingData } from "@/components/navigator/shared/MissingData";
 import { useInlineFeedback } from "@/hooks/navigator/useInlineFeedback";
 import { useStore } from "@/lib/navigator/store";
+import { Tooltip } from "@/components/navigator/shared/Tooltip";
 
-const EmailDraftModal = lazy(() => import("@/components/navigator/email/EmailDraftModal").then((m) => ({ default: m.EmailDraftModal })));
+import { useOutreachSuggestion } from "@/lib/navigator/outreach/useOutreachSuggestion";
+
+const OutreachDraftModal = lazy(() => import("@/components/navigator/outreach/OutreachDraftModal").then((m) => ({ default: m.OutreachDraftModal })));
 
 function safeDate(iso: string | null | undefined): string {
   if (!iso) return "";
@@ -48,11 +51,22 @@ export function ContactCard({
   const [revealLoading, setRevealLoading] = useState(false);
   const [revealedEmail, setRevealedEmail] = useState<string | null>(null);
   const [revealFailed, setRevealFailed] = useState(false);
+  const [revealConfirm, setRevealConfirm] = useState(false);
   const [draftModalOpen, setDraftModalOpen] = useState(false);
+  const suggestion = useOutreachSuggestion(company, contact, draftModalOpen);
+
+  const handleRevealClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (revealLoading || revealedEmail || revealFailed) return;
+    setRevealConfirm(true);
+    // Auto-dismiss confirm after 4s
+    setTimeout(() => setRevealConfirm(false), 4000);
+  }, [revealLoading, revealedEmail, revealFailed]);
 
   const handleRevealEmail = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (revealLoading || revealedEmail) return;
+    setRevealConfirm(false);
     setRevealLoading(true);
     setRevealFailed(false);
     try {
@@ -110,11 +124,11 @@ export function ContactCard({
         );
       } else {
         setRevealFailed(true);
-        trigger("Not found", "error");
+        trigger("Email not found", "error");
       }
     } catch {
       setRevealFailed(true);
-      trigger("Failed", "error");
+      trigger("Couldn't reveal — try again", "error");
     } finally {
       setRevealLoading(false);
     }
@@ -139,7 +153,7 @@ export function ContactCard({
     navigator.clipboard.writeText(emailToCopy).then(() => {
       trigger("Copied");
     }).catch(() => {
-      trigger("Failed", "error");
+      trigger("Copy failed", "error");
     });
   };
 
@@ -225,7 +239,7 @@ export function ContactCard({
           {initials}
         </div>
 
-        {/* Name + title */}
+        {/* Name + title + headline */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             {show("name") && (
@@ -238,7 +252,23 @@ export function ContactCard({
                 {contact.title ?? ""}
               </span>
             )}
+            {contact.linkedinUrl && (
+              <Tooltip text="LinkedIn profile">
+                <a
+                  href={contact.linkedinUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex-shrink-0 text-text-tertiary transition-colors hover:text-accent-secondary"
+                >
+                  <LinkedInIcon />
+                </a>
+              </Tooltip>
+            )}
           </div>
+          {contact.headline && (
+            <p className="truncate text-xs text-text-tertiary">{contact.headline}</p>
+          )}
         </div>
 
         {/* Email (hero element — state-based display) */}
@@ -248,11 +278,18 @@ export function ContactCard({
               const isObfuscated = contact.lastName?.includes("***");
               const verification = contact.verificationStatus;
 
-              // State 1: No email
+              // State 1: No email — two-step: click to confirm, then reveal
               if (!displayEmail && !isObfuscated) {
-                return (
+                return revealConfirm ? (
                   <button
                     onClick={handleRevealEmail}
+                    className="flex items-center gap-1 rounded-input border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400 transition-colors hover:bg-amber-500/20"
+                  >
+                    Uses 1 credit — Confirm
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleRevealClick}
                     disabled={revealLoading || revealFailed}
                     className="flex items-center gap-1 rounded-input border border-accent-secondary/30 bg-accent-secondary/5 px-2 py-0.5 text-[10px] font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/10 disabled:opacity-50"
                   >
@@ -265,9 +302,16 @@ export function ContactCard({
 
               // State 2: Obfuscated
               if (!displayEmail && isObfuscated) {
-                return (
+                return revealConfirm ? (
                   <button
                     onClick={handleRevealEmail}
+                    className="flex items-center gap-1 rounded-input border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400 transition-colors hover:bg-amber-500/20"
+                  >
+                    Uses 1 credit — Confirm reveal
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleRevealClick}
                     disabled={revealLoading}
                     className="flex items-center gap-1 rounded-input border border-accent-secondary/30 bg-accent-secondary/10 px-2 py-0.5 text-xs font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/20 disabled:opacity-50"
                   >
@@ -296,9 +340,9 @@ export function ContactCard({
                   <>
                     <span className="truncate font-mono text-sm text-text-primary">{displayEmail}</span>
                     <VerificationBadge status={verification} safeToSend={contact.safeToSend} />
-                    <button onClick={handleCopyEmail} className="text-text-tertiary hover:text-accent-primary" title="Copy email">
+                    <Tooltip text="Copy email"><button onClick={handleCopyEmail} className="text-text-tertiary hover:text-accent-primary">
                       <CopyIcon />
-                    </button>
+                    </button></Tooltip>
                   </>
                 );
               }
@@ -308,9 +352,9 @@ export function ContactCard({
                 <>
                   <span className="truncate font-mono text-sm text-text-secondary">{displayEmail}</span>
                   <VerificationBadge status="unverified" />
-                  <button onClick={handleCopyEmail} className="text-text-tertiary hover:text-accent-primary" title="Copy email">
+                  <Tooltip text="Copy email"><button onClick={handleCopyEmail} className="text-text-tertiary hover:text-accent-primary">
                     <CopyIcon />
-                  </button>
+                  </button></Tooltip>
                 </>
               );
             })()}
@@ -362,10 +406,14 @@ export function ContactCard({
       {/* Draft email modal */}
       {draftModalOpen && company && (
         <Suspense fallback={null}>
-          <EmailDraftModal
+          <OutreachDraftModal
             contact={contact}
             company={company}
             onClose={() => setDraftModalOpen(false)}
+            suggestedChannel={suggestion?.channel}
+            suggestedTemplate={suggestion?.template as import("@/lib/navigator/types").EmailTemplate | undefined}
+            suggestedTone={suggestion?.tone}
+            suggestionReason={suggestion?.reason}
           />
         </Suspense>
       )}
@@ -400,9 +448,16 @@ export function ContactCard({
                     <SourceBadge source={contact.fieldSources.email} />
                   )}
                 </>
-              ) : (
+              ) : revealConfirm ? (
                 <button
                   onClick={handleRevealEmail}
+                  className="flex items-center gap-1 rounded-input border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400 transition-colors hover:bg-amber-500/20"
+                >
+                  Uses 1 credit — Confirm
+                </button>
+              ) : (
+                <button
+                  onClick={handleRevealClick}
                   disabled={revealLoading || revealFailed}
                   className="flex items-center gap-1 rounded-input border border-accent-secondary/30 bg-accent-secondary/5 px-2 py-0.5 text-[10px] font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/10 disabled:opacity-50"
                 >
@@ -503,9 +558,16 @@ export function ContactCard({
               >
                 Copy email
               </button>
-            ) : (
+            ) : revealConfirm ? (
               <button
                 onClick={handleRevealEmail}
+                className="rounded-input border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-400 transition-colors hover:bg-amber-500/20"
+              >
+                Uses 1 credit — Confirm
+              </button>
+            ) : (
+              <button
+                onClick={handleRevealClick}
                 disabled={revealLoading || revealFailed}
                 className="rounded-input border border-accent-secondary/30 bg-accent-secondary/5 px-2.5 py-1 text-[10px] font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/10 disabled:opacity-50"
               >
@@ -612,6 +674,14 @@ function CopyIcon() {
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}
+
+function LinkedInIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
     </svg>
   );
 }

@@ -15,7 +15,7 @@ interface CreditsResponse {
 
 async function fetchCredits(): Promise<CreditsResponse> {
   const res = await fetch("/api/admin/credits");
-  if (!res.ok) throw new Error("Failed to fetch credits");
+  if (!res.ok) throw new Error("Credit info unavailable");
   return res.json();
 }
 
@@ -50,7 +50,7 @@ export function CreditUsageIndicator() {
             className={`cursor-pointer rounded-pill border border-surface-3 px-2 py-0.5 font-mono text-[10px] transition-colors hover:border-accent-primary hover:text-accent-primary ${
               isLow ? "text-danger" : "text-text-tertiary"
             }`}
-            title={`${source.label}: ${source.credits.available.toLocaleString()} credits remaining`}
+            aria-label={`${source.label}: ${source.credits.available.toLocaleString()} credits remaining`}
           >
             {source.label} {source.credits.available.toLocaleString()}
           </Link>

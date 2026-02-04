@@ -10,6 +10,7 @@ import { useStore } from "@/lib/navigator/store";
 import { ContactPreviewPopover } from "./ContactPreviewPopover";
 import { HighlightTerms } from "@/components/navigator/shared/HighlightTerms";
 import { pick } from "@/lib/navigator/ui-copy";
+import { Tooltip } from "@/components/navigator/shared/Tooltip";
 
 interface CompanyCardProps {
   company: CompanyEnriched;
@@ -27,21 +28,39 @@ const signalPillColors: Record<string, string> = {
 };
 
 const hubspotLabels: Record<string, string> = {
-  new: "HS: New",
-  open: "HS: Open",
-  in_progress: "HS: In Progress",
-  closed_won: "HS: Won",
-  closed_lost: "HS: Lost",
+  new: "CRM: New",
+  open: "CRM: Open",
+  in_progress: "CRM: In Progress",
+  closed_won: "CRM: Won",
+  closed_lost: "CRM: Lost",
   none: "",
 };
 
+const crmStatusColors: Record<string, { bg: string; text: string }> = {
+  // Active deals / opportunities
+  open: { bg: "rgba(34, 197, 94, 0.12)", text: "#22c55e" },
+  in_progress: { bg: "rgba(34, 197, 94, 0.12)", text: "#22c55e" },
+  negotiation: { bg: "rgba(34, 197, 94, 0.12)", text: "#22c55e" },
+  // Leads / prospects
+  new: { bg: "rgba(59, 130, 246, 0.12)", text: "#3b82f6" },
+  new_lead: { bg: "rgba(59, 130, 246, 0.12)", text: "#3b82f6" },
+  contacted: { bg: "rgba(59, 130, 246, 0.12)", text: "#3b82f6" },
+  // Won / customer
+  closed_won: { bg: "rgba(249, 115, 22, 0.12)", text: "#f97316" },
+  won: { bg: "rgba(249, 115, 22, 0.12)", text: "#f97316" },
+  customer: { bg: "rgba(249, 115, 22, 0.12)", text: "#f97316" },
+  // Lost
+  closed_lost: { bg: "rgba(239, 68, 68, 0.12)", text: "#ef4444" },
+  lost: { bg: "rgba(239, 68, 68, 0.12)", text: "#ef4444" },
+};
+
 const freshsalesLabels: Record<string, string> = {
-  new_lead: "FS: New Lead",
-  contacted: "FS: Contacted",
-  negotiation: "FS: Negotiation",
-  won: "FS: Won",
-  lost: "FS: Lost",
-  customer: "FS: Customer",
+  new_lead: "CRM: New Lead",
+  contacted: "CRM: Contacted",
+  negotiation: "CRM: Negotiation",
+  won: "CRM: Won",
+  lost: "CRM: Lost",
+  customer: "CRM: Customer",
   none: "",
 };
 
@@ -166,20 +185,45 @@ export function CompanyCard({
               {company.name}
             </h3>
             <div className="flex items-center gap-1.5">
-              <IcpScoreBadge score={company.icpScore} breakdown={company.icpBreakdown} />
+              <IcpScoreBadge score={company.icpScore} breakdown={company.icpBreakdown} showBreakdown />
               <SignalStrengthBar signalCount={company.signals.length} />
             </div>
           </div>
 
-          {/* Freshsales status pill */}
-          {company.freshsalesStatus !== "none" && (
-            <div className="mt-1">
-              <span
-                className="rounded-pill px-1.5 py-0.5 text-[11px] font-medium"
-                style={{ backgroundColor: "rgba(62, 166, 123, 0.12)", color: "#3EA67B" }}
-              >
-                {freshsalesLabels[company.freshsalesStatus] ?? `FS: ${company.freshsalesStatus}`}
-              </span>
+          {/* CRM status badges — prominent color-coded */}
+          {(company.freshsalesStatus !== "none" || (company.hubspotStatus !== "none" && company.hubspotStatus)) && (
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              {company.freshsalesStatus !== "none" && (() => {
+                const colors = crmStatusColors[company.freshsalesStatus] ?? { bg: "rgba(107, 114, 128, 0.12)", text: "#6b7280" };
+                const deal = company.freshsalesIntel?.deals?.[0];
+                const label = deal
+                  ? `${freshsalesLabels[company.freshsalesStatus] ?? company.freshsalesStatus}${deal.amount ? ` · $${(deal.amount / 1000).toFixed(0)}K` : ""}${deal.stage ? ` · ${deal.stage}` : ""}`
+                  : (freshsalesLabels[company.freshsalesStatus] ?? `CRM: ${company.freshsalesStatus}`);
+                return (
+                  <span
+                    className="rounded-pill px-1.5 py-0.5 text-[11px] font-medium"
+                    style={{ backgroundColor: colors.bg, color: colors.text }}
+                  >
+                    {label}
+                  </span>
+                );
+              })()}
+              {company.hubspotStatus !== "none" && company.hubspotStatus && (() => {
+                const colors = crmStatusColors[company.hubspotStatus] ?? { bg: "rgba(107, 114, 128, 0.12)", text: "#6b7280" };
+                return (
+                  <span
+                    className="rounded-pill px-1.5 py-0.5 text-[11px] font-medium"
+                    style={{ backgroundColor: colors.bg, color: colors.text }}
+                  >
+                    {hubspotLabels[company.hubspotStatus] || `CRM: ${company.hubspotStatus}`}
+                  </span>
+                );
+              })()}
+              {company.freshsalesStatus === "none" && (company.hubspotStatus === "none" || !company.hubspotStatus) && (
+                <span className="rounded-pill bg-surface-2 px-1.5 py-0.5 text-xs text-text-tertiary">
+                  Net new
+                </span>
+              )}
             </div>
           )}
 
@@ -257,15 +301,16 @@ export function CompanyCard({
               {hasIntel && <IntelBadge className="ml-1" />}
             </div>
             {filledCount <= 4 && (
-              <span
-                className={cn(
-                  "font-mono text-[10px]",
-                  filledCount <= 2 ? "text-danger" : "text-warning"
-                )}
-                title="Data completeness"
-              >
-                {filledCount}/6
-              </span>
+              <Tooltip text="Data completeness — fields populated out of 6">
+                <span
+                  className={cn(
+                    "font-mono text-[10px]",
+                    filledCount <= 2 ? "text-danger" : "text-warning"
+                  )}
+                >
+                  {filledCount}/6
+                </span>
+              </Tooltip>
             )}
             {company.sources.length === 1 && company.sources[0] === "exa" && (
               <span className="text-[10px] italic text-warning">Limited data</span>

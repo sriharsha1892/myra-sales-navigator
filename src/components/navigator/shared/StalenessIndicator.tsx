@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/cn";
+import { Tooltip } from "@/components/navigator/shared/Tooltip";
 
 interface StalenessIndicatorProps {
   lastRefreshed: string;
@@ -31,14 +32,15 @@ export function StalenessIndicator({ lastRefreshed, onRefresh, className }: Stal
     <span className={cn("inline-flex items-center gap-1.5 font-mono text-xs text-text-tertiary", className)}>
       <span>Last refreshed: {formatTimeAgo(lastRefreshed)}</span>
       {onRefresh && (
-        <button
-          onClick={onRefresh}
-          className="text-text-tertiary transition-colors hover:text-accent-primary"
-          title="Refresh data"
-          aria-label="Refresh data"
-        >
+        <Tooltip text="Refresh data">
+          <button
+            onClick={onRefresh}
+            className="text-text-tertiary transition-colors hover:text-accent-primary"
+            aria-label="Refresh data"
+          >
           &#x21bb;
         </button>
+        </Tooltip>
       )}
     </span>
   );

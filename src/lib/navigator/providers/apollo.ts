@@ -165,6 +165,7 @@ export async function findContacts(domain: string): Promise<Contact[]> {
           email: (p.email as string) || null,
           phone: null, // not returned in api_search
           linkedinUrl: (p.linkedin_url as string) || null,
+          headline: (p.headline as string) || null,
           emailConfidence: p.email ? 70 : 0,
           confidenceLevel: p.email ? "medium" : "none",
           sources: ["apollo"],
@@ -265,6 +266,7 @@ export async function enrichContact(
       email: p.email || null,
       phone: p.phone_numbers?.[0]?.sanitized_number || null,
       linkedinUrl: p.linkedin_url || null,
+      headline: p.headline || null,
       emailConfidence: p.email
         ? Math.round(p.email_confidence ?? 70)
         : 0,

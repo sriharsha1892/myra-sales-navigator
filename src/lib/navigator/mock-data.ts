@@ -436,8 +436,45 @@ export const defaultAdminConfig: AdminConfig = {
   emailPrompts: defaultEmailPrompts,
   analyticsSettings: { kpiTargets: { exportsThisWeek: 20, avgIcpScore: 60 } },
   freshsalesSettings: defaultFreshsalesSettings,
+  enrichmentLimits: { maxSearchEnrich: 10, maxContactAutoEnrich: 5, maxClearoutFinds: 10 },
+  icpProfiles: [
+    {
+      id: "default",
+      name: "Default — All Verticals",
+      verticals: ["Food Ingredients", "Chemicals", "Pharma", "Packaging", "Flavors & Fragrances", "Specialty Chemicals", "Biopharmaceuticals"],
+      sizeMin: 200,
+      sizeMax: 50000,
+      regions: ["North America", "Europe", "Asia Pacific"],
+      signalTypes: ["hiring", "funding", "expansion"],
+      isDefault: true,
+    },
+  ],
   authLog: [],
   authRequests: [],
+  outreachChannelConfig: {
+    enabledChannels: ["email", "linkedin_connect", "linkedin_inmail", "whatsapp"],
+    defaultChannel: "email",
+    channelInstructions: {},
+    writingRulesDefault: "",
+  },
+  outreachSuggestionRules: [
+    { id: "net_new_connect", name: "Net-new → LinkedIn Connect", enabled: true },
+    { id: "net_new_has_connect", name: "Has connect draft → Email intro", enabled: true },
+    { id: "open_deal_stale", name: "Open deal stale >30d → Re-engagement", enabled: true },
+    { id: "won_customer", name: "Won/customer → Follow-up", enabled: true },
+    { id: "high_icp_signals", name: "High ICP + signals → Email intro", enabled: true },
+    { id: "c_level_inmail", name: "C-level/VP → InMail", enabled: true },
+    { id: "fallback", name: "Default → Email intro", enabled: true },
+  ],
+  actionRecommendationRules: [
+    { id: "high_icp_new", name: "High ICP + signals + no exports → Draft outreach", enabled: true },
+    { id: "researching_stale", name: "Researching >5d → Time to act", enabled: true },
+    { id: "exported_stale", name: "Exported >7d ago → Follow up", enabled: true },
+    { id: "expansion_opp", name: "Won + expansion signal → Expansion", enabled: true },
+    { id: "low_icp", name: "Low ICP → Consider skipping", enabled: true },
+    { id: "no_contacts", name: "No contacts → Load contacts", enabled: true },
+  ],
+  actionRecommendationEnabled: true,
 };
 
 export const mockNotes: CompanyNote[] = [

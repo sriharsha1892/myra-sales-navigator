@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/cn";
 import { useStore } from "@/lib/navigator/store";
+import { Tooltip } from "@/components/navigator/shared/Tooltip";
 import type { ContactSortField } from "@/lib/navigator/types";
 
 const SENIORITY_OPTIONS = [
@@ -164,7 +165,6 @@ export function ContactFilters() {
         <button
           onClick={allCollapsed ? expandAllContactGroups : collapseAllContactGroups}
           className="text-[10px] text-text-tertiary hover:text-text-secondary"
-          title={allCollapsed ? "Expand all groups" : "Collapse all groups"}
         >
           {allCollapsed ? "Expand all" : "Collapse all"}
         </button>
@@ -174,7 +174,7 @@ export function ContactFilters() {
           <button
             onClick={() => setGearOpen(!gearOpen)}
             className="flex items-center justify-center rounded p-1 text-text-tertiary hover:bg-surface-2 hover:text-text-secondary"
-            title="Configure visible fields"
+            aria-label="Configure visible fields"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" />

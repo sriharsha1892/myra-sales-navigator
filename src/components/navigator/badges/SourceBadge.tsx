@@ -3,6 +3,7 @@
 import { cn } from "@/lib/cn";
 import type { ResultSource } from "@/lib/navigator/types";
 import { HelpTip } from "@/components/navigator/shared/HelpTip";
+import { Tooltip } from "@/components/navigator/shared/Tooltip";
 
 const config: Partial<Record<ResultSource, { label: string; color: string }>> = {
   exa: { label: "E", color: "bg-source-exa text-text-inverse" },
@@ -23,17 +24,19 @@ export function SourceBadge({ source, className, showHelp }: SourceBadgeProps) {
   const entry = config[source];
   if (!entry) return null;
   const { label, color } = entry;
+  const fullName = source.charAt(0).toUpperCase() + source.slice(1);
   const badge = (
-    <span
-      className={cn(
-        "inline-flex h-4 w-4 items-center justify-center rounded text-[10px] font-bold leading-none",
-        color,
-        className
-      )}
-      title={source.charAt(0).toUpperCase() + source.slice(1)}
-    >
-      {label}
-    </span>
+    <Tooltip text={fullName}>
+      <span
+        className={cn(
+          "inline-flex h-4 w-4 items-center justify-center rounded text-[10px] font-bold leading-none",
+          color,
+          className
+        )}
+      >
+        {label}
+      </span>
+    </Tooltip>
   );
 
   if (showHelp) {

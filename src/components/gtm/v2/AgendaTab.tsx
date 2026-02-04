@@ -30,10 +30,11 @@ export function AgendaTab({ entryDate, currentEntry, previousEntry }: AgendaTabP
       ? buildDeltaSummary(currentEntry, previousEntry)
       : null;
 
-  // Items carried forward: unresolved from previous dates
-  const carriedForward = unresolvedItems.filter(
-    (item) => item.entryDate !== entryDate
-  );
+  // Items carried forward: unresolved from the most recent previous entry only
+  const prevDate = previousEntry?.entryDate;
+  const carriedForward = prevDate
+    ? unresolvedItems.filter((item) => item.entryDate === prevDate)
+    : [];
 
   if (itemsLoading && unresolvedLoading) {
     return (
@@ -54,12 +55,29 @@ export function AgendaTab({ entryDate, currentEntry, previousEntry }: AgendaTabP
         </div>
       )}
 
-      {/* Carried forward items */}
+      {/* Carried forward items from previous entry */}
       {carriedForward.length > 0 && (
         <div className="p-3 bg-amber-50 rounded-lg border border-amber-100">
-          <p className="text-xs font-semibold text-amber-800 mb-2">
-            Unresolved from previous entries ({carriedForward.length})
-          </p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-amber-800">
+              Unresolved from {prevDate} ({carriedForward.length})
+            </p>
+            <button
+              onClick={() => {
+                for (const item of carriedForward) {
+                  createItem.mutate({
+                    entryDate,
+                    section: item.section,
+                    content: item.content,
+                    sortOrder: items.filter((i) => i.section === item.section).length,
+                  });
+                }
+              }}
+              className="text-[10px] font-medium text-amber-700 hover:text-amber-900 bg-amber-100 hover:bg-amber-200 px-2 py-0.5 rounded transition-colors"
+            >
+              Copy all to this entry
+            </button>
+          </div>
           <div className="space-y-1">
             {carriedForward.map((item) => (
               <div
@@ -74,9 +92,19 @@ export function AgendaTab({ entryDate, currentEntry, previousEntry }: AgendaTabP
                   aria-label="Mark as resolved"
                 />
                 <span>{item.content}</span>
-                <span className="text-amber-500 text-[10px]">
-                  ({item.entryDate})
-                </span>
+                <button
+                  onClick={() =>
+                    createItem.mutate({
+                      entryDate,
+                      section: item.section,
+                      content: item.content,
+                      sortOrder: items.filter((i) => i.section === item.section).length,
+                    })
+                  }
+                  className="text-[10px] text-amber-500 hover:text-amber-700 underline ml-auto flex-shrink-0"
+                >
+                  copy
+                </button>
               </div>
             ))}
           </div>

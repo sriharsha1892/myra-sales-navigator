@@ -8,6 +8,7 @@ const chipConfig: { key: QuickFilter; label: string }[] = [
   { key: "high_icp", label: "High ICP (80+)" },
   { key: "has_signals", label: "Has Buying Signals" },
   { key: "not_in_hubspot", label: "Not in HubSpot" },
+  { key: "not_in_freshsales", label: "Net New (No CRM)" },
   { key: "verified_email", label: "Verified Email" },
 ];
 

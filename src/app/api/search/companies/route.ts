@@ -16,13 +16,35 @@ import type { Company, FilterState, IcpWeights } from "@/lib/navigator/types";
 // Returns enriched companies (Apollo firmographics merged onto Exa shells)
 // ---------------------------------------------------------------------------
 
+async function getEnrichmentLimits(): Promise<{ maxSearchEnrich: number; maxContactAutoEnrich: number; maxClearoutFinds: number }> {
+  const defaults = { maxSearchEnrich: 10, maxContactAutoEnrich: 5, maxClearoutFinds: 10 };
+  try {
+    const cached = await getCached<typeof defaults>("admin:enrichment-limits");
+    if (cached) return cached;
+    const supabase = createServerClient();
+    const { data } = await supabase
+      .from("admin_config")
+      .select("enrichment_limits")
+      .eq("id", "global")
+      .single();
+    if (data?.enrichment_limits) {
+      const limits = { ...defaults, ...(data.enrichment_limits as Record<string, number>) };
+      await setCached("admin:enrichment-limits", limits, 60);
+      return limits;
+    }
+  } catch { /* use defaults */ }
+  return defaults;
+}
+
 async function apolloStructuredSearch(
-  exaCompanies: Company[]
+  exaCompanies: Company[],
+  maxEnrich?: number
 ): Promise<Company[]> {
   if (!isApolloAvailable() || exaCompanies.length === 0) return [];
 
-  // Pick up to 25 unique domains from Exa results for Apollo enrichment
-  const domains = [...new Set(exaCompanies.map((c) => c.domain))].slice(0, 25);
+  const limit = maxEnrich ?? 10;
+  // Pick up to `limit` unique domains from Exa results for Apollo enrichment (Smart Enrich)
+  const domains = [...new Set(exaCompanies.map((c) => c.domain))].slice(0, limit);
 
   const enriched = await Promise.allSettled(
     domains.map(async (domain) => {
@@ -182,8 +204,9 @@ export async function POST(request: Request) {
     const exaCompanies = filteredExa.slice(0, 25);
 
     // Apollo structured enrichment — runs in parallel on Exa domains
-    // Merges firmographic data (industry, size, location) onto Exa shells
-    const apolloEnriched = await apolloStructuredSearch(exaCompanies);
+    // Smart Enrich: only top N by Exa relevance (admin-configurable, default 10)
+    const enrichLimits = await getEnrichmentLimits();
+    const apolloEnriched = await apolloStructuredSearch(exaCompanies, enrichLimits.maxSearchEnrich);
 
     // Build final company list: Apollo-enriched where available, raw Exa otherwise
     const enrichedDomains = new Set(apolloEnriched.map((c) => c.domain));

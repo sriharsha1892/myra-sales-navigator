@@ -9,7 +9,7 @@ import {
   useV2EntryByDate,
   useEntryDates,
 } from "@/hooks/dashboard/useGtmV2";
-import { formatEntryDate } from "@/lib/gtm/v2-utils";
+import { formatEntryDate, buildTeamsSummary } from "@/lib/gtm/v2-utils";
 import { KpiStrip } from "@/components/gtm/v2/KpiStrip";
 import { PipelineSection } from "@/components/gtm/v2/PipelineSection";
 import { LeadGenSection } from "@/components/gtm/v2/LeadGenSection";
@@ -39,6 +39,7 @@ export default function CatchupPageInner() {
   const qc = useQueryClient();
   const [layout, setLayout] = useState<DashboardLayout>(() => getStoredLayout());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [copyFlash, setCopyFlash] = useState(false);
 
   const handleLayoutChange = useCallback((l: DashboardLayout) => {
     setLayout(l);
@@ -154,6 +155,25 @@ export default function CatchupPageInner() {
             {/* Layout switcher */}
             <LayoutSwitcher value={layout} onChange={handleLayoutChange} />
 
+            {latest && (
+              <button
+                onClick={() => {
+                  const text = buildTeamsSummary(latest, finalPrevious);
+                  navigator.clipboard.writeText(text).then(() => {
+                    setCopyFlash(true);
+                    setTimeout(() => setCopyFlash(false), 1500);
+                  });
+                }}
+                className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
+                  copyFlash
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                    : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {copyFlash ? "Copied!" : "Copy Summary"}
+              </button>
+            )}
+
             <a
               href="/gtmcatchup/entry"
               className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors"
@@ -201,23 +221,19 @@ export default function CatchupPageInner() {
         ) : layout === "executive" ? (
           <ExecutiveDashboard latest={latest} previous={finalPrevious} />
         ) : (
-          <>
-            {/* Expanded (default) layout — 2-column like old dashboard */}
+          <div className="flex flex-col gap-4 overflow-auto flex-1 min-h-0">
+            {/* Expanded layout — full-width sections */}
             <KpiStrip latest={latest} previous={finalPrevious} />
-            <div className="flex-1 min-h-0 grid grid-cols-[340px_1fr] gap-4 mt-4">
-              {/* Left column: Pipeline + Lead Gen */}
-              <div className="flex flex-col gap-4 overflow-auto">
-                <PipelineSection latest={latest} previous={finalPrevious} />
-                <LeadGenSection latest={latest} previous={finalPrevious} />
-                <AmDemoSection latest={latest} />
-              </div>
-              {/* Right column: Cost table (fills height) */}
-              <div className="flex flex-col gap-4 overflow-auto">
-                <CostSection latest={latest} previous={finalPrevious} />
-                <AgendaPanel latest={latest} previous={finalPrevious} />
-              </div>
+            <PipelineSection latest={latest} previous={finalPrevious} />
+            <div className="grid grid-cols-2 gap-4">
+              <LeadGenSection latest={latest} previous={finalPrevious} />
+              <CostSection latest={latest} previous={finalPrevious} />
             </div>
-          </>
+            <div className="grid grid-cols-2 gap-4">
+              <AmDemoSection latest={latest} />
+              <AgendaPanel latest={latest} previous={finalPrevious} />
+            </div>
+          </div>
         )}
       </div>
     </div>

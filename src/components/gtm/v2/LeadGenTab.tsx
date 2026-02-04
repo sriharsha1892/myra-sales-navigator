@@ -1,6 +1,7 @@
 "use client";
 
 import type { GtmEntry } from "@/lib/gtm/v2-types";
+import { SmartNumField } from "./SmartNumField";
 
 interface LeadGenTabProps {
   values: {
@@ -25,22 +26,25 @@ export function LeadGenTab({ values, onChange, previous }: LeadGenTabProps) {
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-3">Inbound</h3>
         <div className="grid grid-cols-3 gap-4">
-          <NumField
+          <SmartNumField
             label="Total"
             value={values.inboundTotal}
-            prev={previous?.inboundTotal}
+            baseValue={previous?.inboundTotal}
+            defaultMode="delta"
             onChange={(v) => onChange("inboundTotal", v)}
           />
-          <NumField
+          <SmartNumField
             label="Active"
             value={values.inboundActive}
-            prev={previous?.inboundActive}
+            baseValue={previous?.inboundActive}
+            defaultMode="delta"
             onChange={(v) => onChange("inboundActive", v)}
           />
-          <NumField
+          <SmartNumField
             label="Junk"
             value={values.inboundJunk}
-            prev={previous?.inboundJunk}
+            baseValue={previous?.inboundJunk}
+            defaultMode="delta"
             onChange={(v) => onChange("inboundJunk", v)}
           />
         </div>
@@ -50,28 +54,32 @@ export function LeadGenTab({ values, onChange, previous }: LeadGenTabProps) {
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-3">Outbound Funnel</h3>
         <div className="grid grid-cols-4 gap-4">
-          <NumField
+          <SmartNumField
             label="Leads"
             value={values.outboundLeads}
-            prev={previous?.outboundLeads}
+            baseValue={previous?.outboundLeads}
+            defaultMode="delta"
             onChange={(v) => onChange("outboundLeads", v)}
           />
-          <NumField
+          <SmartNumField
             label="Reached"
             value={values.outboundReached}
-            prev={previous?.outboundReached}
+            baseValue={previous?.outboundReached}
+            defaultMode="delta"
             onChange={(v) => onChange("outboundReached", v)}
           />
-          <NumField
+          <SmartNumField
             label="Followed"
             value={values.outboundFollowed}
-            prev={previous?.outboundFollowed}
+            baseValue={previous?.outboundFollowed}
+            defaultMode="delta"
             onChange={(v) => onChange("outboundFollowed", v)}
           />
-          <NumField
+          <SmartNumField
             label="Qualified"
             value={values.outboundQualified}
-            prev={previous?.outboundQualified}
+            baseValue={previous?.outboundQualified}
+            defaultMode="delta"
             onChange={(v) => onChange("outboundQualified", v)}
           />
         </div>
@@ -81,10 +89,11 @@ export function LeadGenTab({ values, onChange, previous }: LeadGenTabProps) {
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-3">Apollo</h3>
         <div className="grid grid-cols-2 gap-4">
-          <NumField
+          <SmartNumField
             label="Contacts"
             value={values.apolloContacts}
-            prev={previous?.apolloContacts}
+            baseValue={previous?.apolloContacts}
+            defaultMode="absolute"
             onChange={(v) => onChange("apolloContacts", v)}
           />
           <div>
@@ -98,45 +107,6 @@ export function LeadGenTab({ values, onChange, previous }: LeadGenTabProps) {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function NumField({
-  label,
-  value,
-  prev,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  prev?: number;
-  onChange: (v: number) => void;
-}) {
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-1">
-        <label className="text-xs text-gray-500">{label}</label>
-        {prev !== undefined && prev > 0 && (
-          <span className="text-[10px] text-gray-400 font-mono tabular-nums">
-            prev: {prev}
-          </span>
-        )}
-      </div>
-      <input
-        type="number"
-        value={value || ""}
-        onChange={(e) => {
-          const n = Number(e.target.value);
-          onChange(Number.isFinite(n) && n >= 0 ? Math.round(n) : 0);
-        }}
-        min={0}
-        step={1}
-        onKeyDown={(e) => {
-          if (e.key === "-" || e.key === "e" || e.key === ".") e.preventDefault();
-        }}
-        className="w-full px-3 py-2 text-sm font-mono border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/10 tabular-nums"
-      />
     </div>
   );
 }

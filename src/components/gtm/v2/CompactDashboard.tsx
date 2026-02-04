@@ -7,6 +7,7 @@ import { useAgendaItems } from "@/hooks/dashboard/useGtmV2";
 import type { GtmEntry, GtmV2Segment, CostItem } from "@/lib/gtm/v2-types";
 import { SEGMENT_LABELS, AGENDA_SECTIONS } from "@/lib/gtm/v2-types";
 import { buildDeltaSummary } from "@/lib/gtm/v2-utils";
+import { formatUsd } from "@/lib/gtm/format";
 import { cn } from "@/lib/cn";
 
 interface CompactDashboardProps {
@@ -18,6 +19,34 @@ const PIPELINE_SEGMENTS: GtmV2Segment[] = [
   "paying", "prospect", "trial", "post_demo", "demo_queued", "dormant", "lost", "early",
 ];
 
+const COMPACT_TILE_BG: Record<GtmV2Segment, string> = {
+  paying: "bg-emerald-50 border-emerald-200",
+  prospect: "bg-blue-50 border-blue-200",
+  trial: "bg-purple-50 border-purple-200",
+  post_demo: "bg-amber-50 border-amber-200",
+  demo_queued: "bg-orange-50 border-orange-200",
+  dormant: "bg-gray-50 border-gray-200",
+  lost: "bg-red-50 border-red-200",
+  early: "bg-gray-50 border-gray-150",
+};
+
+const COMPACT_TILE_TEXT: Record<GtmV2Segment, string> = {
+  paying: "text-emerald-700",
+  prospect: "text-blue-700",
+  trial: "text-purple-700",
+  post_demo: "text-amber-700",
+  demo_queued: "text-orange-700",
+  dormant: "text-gray-600",
+  lost: "text-red-600",
+  early: "text-gray-500",
+};
+
+function conversionColor(pct: number): string {
+  if (pct >= 70) return "text-emerald-600 bg-emerald-50";
+  if (pct >= 40) return "text-amber-600 bg-amber-50";
+  return "text-red-600 bg-red-50";
+}
+
 export function CompactDashboard({ latest, previous }: CompactDashboardProps) {
   const snap = latest.orgSnapshot;
   const prevSnap = previous?.orgSnapshot;
@@ -26,6 +55,7 @@ export function CompactDashboard({ latest, previous }: CompactDashboardProps) {
     () => costItems.slice().sort((a, b) => b.costUsd - a.costUsd).slice(0, 5),
     [costItems]
   );
+  const maxCost = topCostItems.length > 0 ? topCostItems[0].costUsd : 1;
 
   const demos = latest.amDemos ?? {};
   const demoEntries = Object.entries(demos).filter(([, v]) => v > 0).sort(([, a], [, b]) => b - a);
@@ -33,27 +63,40 @@ export function CompactDashboard({ latest, previous }: CompactDashboardProps) {
   const { data: agendaItems = [] } = useAgendaItems(latest.entryDate);
   const deltaSummary = previous ? buildDeltaSummary(latest, previous) : null;
 
-  // KPI strip (inline, compact)
   const kpis = useMemo(() => {
     const paying = snap?.counts?.paying ?? 0;
     const prospects = snap?.counts?.prospect ?? 0;
     const trials = snap?.counts?.trial ?? 0;
     return [
-      { label: "Paying", value: paying, prev: prevSnap?.counts?.paying ?? 0, color: "text-emerald-600" },
-      { label: "Prospects", value: prospects, prev: prevSnap?.counts?.prospect ?? 0, color: "text-blue-600" },
-      { label: "Active", value: paying + prospects + trials, prev: (prevSnap?.counts?.paying ?? 0) + (prevSnap?.counts?.prospect ?? 0) + (prevSnap?.counts?.trial ?? 0), color: "text-purple-600" },
+      { label: "Paying", value: paying, prev: prevSnap?.counts?.paying ?? 0, color: "text-emerald-600", gradient: "from-emerald-50 to-emerald-100" },
+      { label: "Prospects", value: prospects, prev: prevSnap?.counts?.prospect ?? 0, color: "text-blue-600", gradient: "from-blue-50 to-blue-100" },
+      { label: "Active", value: paying + prospects + trials, prev: (prevSnap?.counts?.paying ?? 0) + (prevSnap?.counts?.prospect ?? 0) + (prevSnap?.counts?.trial ?? 0), color: "text-purple-600", gradient: "from-purple-50 to-purple-100" },
     ];
   }, [snap, prevSnap]);
 
+  const funnelSteps = [
+    { label: "Leads", value: latest.outboundLeads, prev: previous?.outboundLeads ?? 0 },
+    { label: "Reached", value: latest.outboundReached, prev: previous?.outboundReached ?? 0 },
+    { label: "Followed", value: latest.outboundFollowed, prev: previous?.outboundFollowed ?? 0 },
+    { label: "Qualified", value: latest.outboundQualified, prev: previous?.outboundQualified ?? 0 },
+  ];
+
+  const conversions: (number | null)[] = funnelSteps.map((step, i) => {
+    if (i === 0) return null;
+    const prev = funnelSteps[i - 1].value;
+    if (prev === 0) return null;
+    return Math.round((step.value / prev) * 100);
+  });
+
   return (
     <div className="space-y-4">
-      {/* KPI Strip — compact horizontal */}
+      {/* KPI Strip — colored backgrounds */}
       <div className="grid grid-cols-3 gap-3">
         {kpis.map((k) => (
-          <div key={k.label} className="bg-white/70 rounded-xl border border-white/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] px-4 py-3">
+          <div key={k.label} className={`bg-gradient-to-br ${k.gradient} rounded-xl border border-white/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] px-4 py-3`}>
             <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">{k.label}</p>
-            <div className="flex items-baseline gap-2 mt-0.5">
-              <span className={cn("text-2xl font-semibold font-mono tabular-nums", k.color)}>{k.value}</span>
+            <span className={cn("text-2xl font-semibold font-mono tabular-nums block mt-0.5", k.color)}>{k.value}</span>
+            <div className="mt-1">
               <DeltaBadge current={k.value} previous={k.prev} />
             </div>
           </div>
@@ -64,25 +107,35 @@ export function CompactDashboard({ latest, previous }: CompactDashboardProps) {
       <div className="grid grid-cols-2 gap-4">
         {/* LEFT: Pipeline + Lead Gen */}
         <div className="space-y-4">
-          {/* Pipeline */}
+          {/* Pipeline — compressed tile grid */}
           <div className="bg-white/70 rounded-[14px] border border-white/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] p-4">
             <h3 className="text-xs font-semibold text-gray-900 mb-3">Pipeline</h3>
-            <div className="space-y-1">
+            <div className="grid grid-cols-4 gap-2">
               {PIPELINE_SEGMENTS.map((seg) => {
                 const count = snap?.counts?.[seg] ?? 0;
                 const prev = prevSnap?.counts?.[seg] ?? 0;
-                if (count === 0 && prev === 0) return null;
+                if (count === 0 && prev === 0) {
+                  return (
+                    <div key={seg} className="rounded-lg border border-dashed border-gray-200 p-2 opacity-40">
+                      <p className="text-[9px] font-medium text-gray-400 uppercase tracking-wide truncate">
+                        {SEGMENT_LABELS[seg]}
+                      </p>
+                    </div>
+                  );
+                }
                 return (
                   <HoverTooltip
                     key={seg}
                     content={(snap?.names?.[seg] ?? []).join("\n") || "None"}
                   >
-                    <div className="flex items-center justify-between py-1 px-2 rounded hover:bg-gray-50/80 transition-colors cursor-default">
-                      <span className="text-xs text-gray-600">{SEGMENT_LABELS[seg]}</span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-semibold text-gray-900 font-mono tabular-nums">{count}</span>
-                        <DeltaBadge current={count} previous={prev} />
-                      </div>
+                    <div className={cn("rounded-lg border p-2 cursor-default", COMPACT_TILE_BG[seg])}>
+                      <p className="text-[9px] font-medium text-gray-500 uppercase tracking-wide truncate">
+                        {SEGMENT_LABELS[seg]}
+                      </p>
+                      <span className={cn("text-lg font-semibold font-mono tabular-nums block", COMPACT_TILE_TEXT[seg])}>
+                        {count}
+                      </span>
+                      <DeltaBadge current={count} previous={prev} />
                     </div>
                   </HoverTooltip>
                 );
@@ -90,7 +143,7 @@ export function CompactDashboard({ latest, previous }: CompactDashboardProps) {
             </div>
           </div>
 
-          {/* Lead Gen */}
+          {/* Lead Gen — compact funnel with conversion % */}
           <div className="bg-white/70 rounded-[14px] border border-white/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] p-4">
             <h3 className="text-xs font-semibold text-gray-900 mb-3">Lead Gen</h3>
             <div className="grid grid-cols-3 gap-2 mb-3">
@@ -106,19 +159,22 @@ export function CompactDashboard({ latest, previous }: CompactDashboardProps) {
                 </div>
               ))}
             </div>
-            <div className="flex items-center gap-1.5 text-[10px]">
-              {[
-                { label: "Leads", value: latest.outboundLeads, prev: previous?.outboundLeads ?? 0 },
-                { label: "Reached", value: latest.outboundReached, prev: previous?.outboundReached ?? 0 },
-                { label: "Followed", value: latest.outboundFollowed, prev: previous?.outboundFollowed ?? 0 },
-                { label: "Qualified", value: latest.outboundQualified, prev: previous?.outboundQualified ?? 0 },
-              ].map((s, i, arr) => (
-                <div key={s.label} className="flex items-center gap-1.5 flex-1">
-                  <div className="flex-1 text-center p-1.5 bg-gray-50 rounded">
-                    <p className="text-gray-500 uppercase">{s.label}</p>
+            {/* Compact funnel row */}
+            <div className="flex items-center gap-0 text-[10px]">
+              {funnelSteps.map((s, i) => (
+                <div key={s.label} className="flex items-center flex-1 min-w-0">
+                  {conversions[i] !== null && conversions[i] !== undefined && (
+                    <div className="flex flex-col items-center px-1 shrink-0">
+                      <span className="text-gray-300 text-[10px]">&rarr;</span>
+                      <span className={cn("text-[9px] font-semibold font-mono px-1 py-0.5 rounded-full", conversionColor(conversions[i]!))}>
+                        {conversions[i]}%
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex-1 text-center p-1.5 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-gray-500 uppercase font-medium">{s.label}</p>
                     <p className="text-sm font-semibold text-gray-900 font-mono tabular-nums">{s.value}</p>
                   </div>
-                  {i < arr.length - 1 && <span className="text-gray-300">→</span>}
                 </div>
               ))}
             </div>
@@ -130,27 +186,38 @@ export function CompactDashboard({ latest, previous }: CompactDashboardProps) {
           {/* Cost banner */}
           <div className="p-4 bg-gradient-to-r from-gray-900 to-gray-800 rounded-xl text-white">
             <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
-              Total Cost{latest.costPeriod ? ` — ${latest.costPeriod}` : ""}
+              Total Cost{latest.costPeriod ? ` \u2014 ${latest.costPeriod}` : ""}
             </p>
             <div className="flex items-baseline gap-2">
               <span className="text-xl font-semibold font-mono tabular-nums">
-                ${latest.totalCostUsd.toLocaleString()}
+                {formatUsd(latest.totalCostUsd)}
               </span>
-              {previous && <DeltaBadge current={latest.totalCostUsd} previous={previous.totalCostUsd} invert />}
+              {previous && <DeltaBadge current={latest.totalCostUsd} previous={previous.totalCostUsd} invert prefix="$" />}
             </div>
           </div>
 
-          {/* Top 5 cost items */}
+          {/* Top 5 cost items — mini horizontal bars */}
           {topCostItems.length > 0 && (
             <div className="bg-white/70 rounded-[14px] border border-white/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] p-4">
               <h3 className="text-xs font-semibold text-gray-900 mb-2">Top Cost Items</h3>
-              <div className="space-y-1">
-                {topCostItems.map((item, i) => (
-                  <div key={i} className="flex items-center justify-between text-xs py-1">
-                    <span className="text-gray-700 truncate mr-2">{item.name}</span>
-                    <span className="font-mono tabular-nums text-gray-900 font-medium">${item.costUsd.toLocaleString()}</span>
-                  </div>
-                ))}
+              <div className="space-y-1.5">
+                {topCostItems.map((item, i) => {
+                  const pct = maxCost > 0 ? (item.costUsd / maxCost) * 100 : 0;
+                  return (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-[11px] text-gray-700 truncate w-[100px] shrink-0">{item.name}</span>
+                      <div className="flex-1 h-3.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className={cn("h-full rounded-full", i < 3 ? "bg-gray-700" : "bg-gray-400")}
+                          style={{ width: `${Math.max(pct, 3)}%` }}
+                        />
+                      </div>
+                      <span className="text-[11px] font-mono tabular-nums text-gray-900 font-medium shrink-0 w-[60px] text-right">
+                        {formatUsd(item.costUsd)}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -236,4 +303,3 @@ function AgendaCompact({
     </div>
   );
 }
-

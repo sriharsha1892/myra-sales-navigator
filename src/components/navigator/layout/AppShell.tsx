@@ -38,7 +38,7 @@ export function AppShell() {
           <button
             onClick={toggleDetailPane}
             className="absolute -left-3 top-1/2 z-30 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-surface-3 bg-surface-1 text-text-tertiary shadow-sm transition-colors hover:text-text-primary hover:bg-surface-2"
-            title={detailPaneCollapsed ? "Expand detail pane" : "Collapse detail pane"}
+            aria-label={detailPaneCollapsed ? "Expand detail pane" : "Collapse detail pane"}
           >
             <svg
               width="10"

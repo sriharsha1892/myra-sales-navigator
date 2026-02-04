@@ -86,6 +86,7 @@ export interface CostItem {
   name: string;
   costUsd: number;
   users: number;
+  conversations?: number;
 }
 
 export interface OrgSnapshot {

@@ -12,6 +12,7 @@ import type {
   EmailTemplate,
   EmailDraftResponse,
   HubSpotStatus,
+  CustomEmailTemplate,
 } from "@/lib/navigator/types";
 
 interface EmailDraftModalProps {
@@ -26,27 +27,42 @@ const TONE_OPTIONS: { value: EmailTone; label: string }[] = [
   { value: "direct", label: "Direct" },
 ];
 
-const TEMPLATE_OPTIONS: { value: EmailTemplate | ""; label: string }[] = [
+const BUILT_IN_TEMPLATES: { value: EmailTemplate; label: string }[] = [
   { value: "intro", label: "Cold Intro" },
   { value: "follow_up", label: "Follow-up" },
   { value: "re_engagement", label: "Re-engagement" },
 ];
 
+/** @deprecated Use OutreachDraftModal instead. Kept for backward compatibility. */
 export function EmailDraftModal({ contact, company, onClose }: EmailDraftModalProps) {
   const addToast = useStore((s) => s.addToast);
   const emailPrompts = useStore((s) => s.adminConfig.emailPrompts);
   const { trigger, FeedbackLabel } = useInlineFeedback();
 
+  const customTemplates: CustomEmailTemplate[] = emailPrompts.customTemplates ?? [];
+
   const [tone, setTone] = useState<EmailTone>(emailPrompts.defaultTone);
   const [template, setTemplate] = useState<EmailTemplate | "">(emailPrompts.defaultTemplate);
+  const [customTemplateId, setCustomTemplateId] = useState<string>("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
 
+  const handleTemplateChange = (value: string) => {
+    if (value.startsWith("custom:")) {
+      setCustomTemplateId(value.replace("custom:", ""));
+      setTemplate("");
+    } else {
+      setCustomTemplateId("");
+      setTemplate(value as EmailTemplate);
+    }
+  };
+
   const generate = useCallback(async () => {
     setIsGenerating(true);
     try {
+      const deal = company.freshsalesIntel?.deals?.[0];
       const res = await fetch("/api/email/draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -59,6 +75,15 @@ export function EmailDraftModal({ contact, company, onClose }: EmailDraftModalPr
           hubspotStatus: (company.hubspotStatus || "none") as HubSpotStatus,
           template: template || undefined,
           tone,
+          // Richer context
+          contactHeadline: contact.headline ?? undefined,
+          contactSeniority: contact.seniority ?? undefined,
+          icpScore: company.icpScore ?? undefined,
+          icpBreakdown: company.icpBreakdown ?? undefined,
+          freshsalesStatus: company.freshsalesStatus !== "none" ? company.freshsalesStatus : undefined,
+          freshsalesDealStage: deal?.stage ?? undefined,
+          freshsalesDealAmount: deal?.amount ?? undefined,
+          customTemplateId: customTemplateId || undefined,
         }),
       });
 
@@ -73,20 +98,20 @@ export function EmailDraftModal({ contact, company, onClose }: EmailDraftModalPr
       setHasGenerated(true);
     } catch (err) {
       addToast({
-        message: err instanceof Error ? err.message : "Failed to generate email",
+        message: err instanceof Error ? err.message : "Email draft failed — check your connection and try again",
         type: "error",
       });
     } finally {
       setIsGenerating(false);
     }
-  }, [contact, company, tone, template, addToast]);
+  }, [contact, company, tone, template, customTemplateId, addToast]);
 
   const handleCopy = useCallback(() => {
     const fullEmail = `Subject: ${subject}\n\n${body}`;
     navigator.clipboard.writeText(fullEmail).then(() => {
       trigger("Copied");
     }).catch(() => {
-      trigger("Failed", "error");
+      trigger("Copy failed", "error");
     });
   }, [subject, body, trigger]);
 
@@ -105,7 +130,7 @@ export function EmailDraftModal({ contact, company, onClose }: EmailDraftModalPr
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-text-tertiary transition-colors hover:bg-surface-2 hover:text-text-primary"
+            className="rounded-lg p-2 text-text-tertiary transition-colors hover:bg-surface-2 hover:text-text-primary"
             aria-label="Close"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -122,15 +147,24 @@ export function EmailDraftModal({ contact, company, onClose }: EmailDraftModalPr
               Template
             </label>
             <select
-              value={template}
-              onChange={(e) => setTemplate(e.target.value as EmailTemplate | "")}
+              value={customTemplateId ? `custom:${customTemplateId}` : template}
+              onChange={(e) => handleTemplateChange(e.target.value)}
               className="w-full rounded-lg border border-surface-3 bg-surface-0 px-2.5 py-1.5 text-xs text-text-primary outline-none transition-colors focus:border-accent-primary"
             >
-              {TEMPLATE_OPTIONS.map((opt) => (
+              {BUILT_IN_TEMPLATES.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
               ))}
+              {customTemplates.length > 0 && (
+                <optgroup label="Custom Templates">
+                  {customTemplates.map((t) => (
+                    <option key={t.id} value={`custom:${t.id}`}>
+                      {t.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </div>
 

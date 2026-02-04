@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import type { CostItem } from "@/lib/gtm/v2-types";
+import { formatUsd } from "@/lib/gtm/format";
 
 interface CostsTabProps {
   costItems: CostItem[];
@@ -36,7 +37,7 @@ export function CostsTab({
   );
 
   const addItem = useCallback(() => {
-    onCostItemsChange([...costItems, { name: "", costUsd: 0, users: 0 }]);
+    onCostItemsChange([...costItems, { name: "", costUsd: 0, users: 0, conversations: 0 }]);
   }, [costItems, onCostItemsChange]);
 
   const parseTsvRows = useCallback((text: string): CostItem[] => {
@@ -49,11 +50,13 @@ export function CostsTab({
         const name = parts[0]?.trim() ?? "";
         const costUsd = Number(parts[1]?.replace(/[,$]/g, "").trim() ?? 0);
         const users = Number(parts[2]?.trim() ?? 0);
+        const conversations = Number(parts[3]?.trim() ?? 0);
         if (name) {
           parsed.push({
             name,
             costUsd: Number.isFinite(costUsd) ? costUsd : 0,
             users: Number.isFinite(users) ? Math.round(users) : 0,
+            conversations: Number.isFinite(conversations) ? Math.round(conversations) : 0,
           });
         }
       }
@@ -99,6 +102,7 @@ export function CostsTab({
 
   const totalCost = costItems.reduce((s, it) => s + (it.costUsd || 0), 0);
   const totalUsers = costItems.reduce((s, it) => s + (it.users || 0), 0);
+  const totalConversations = costItems.reduce((s, it) => s + (it.conversations || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -136,7 +140,7 @@ export function CostsTab({
         {/* Header */}
         <div
           className="grid items-center bg-gray-50 border-b border-gray-200"
-          style={{ gridTemplateColumns: "minmax(200px, 2fr) 140px 100px 36px" }}
+          style={{ gridTemplateColumns: "minmax(180px, 2fr) 130px 80px 80px 36px" }}
         >
           <div className="px-3 py-2 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
             Name
@@ -147,6 +151,9 @@ export function CostsTab({
           <div className="px-3 py-2 text-[11px] font-semibold text-gray-500 uppercase tracking-wider text-right">
             Users
           </div>
+          <div className="px-3 py-2 text-[11px] font-semibold text-gray-500 uppercase tracking-wider text-right">
+            Conv.
+          </div>
           <div />
         </div>
 
@@ -155,7 +162,7 @@ export function CostsTab({
           <div
             key={i}
             className="grid items-center border-b border-gray-100 hover:bg-gray-50/50 transition-colors"
-            style={{ gridTemplateColumns: "minmax(200px, 2fr) 140px 100px 36px" }}
+            style={{ gridTemplateColumns: "minmax(180px, 2fr) 130px 80px 80px 36px" }}
           >
             <div className="px-2 py-1">
               <input
@@ -193,6 +200,18 @@ export function CostsTab({
                 className="w-full px-2 py-1.5 text-sm font-mono text-right border border-transparent rounded focus:outline-none focus:border-gray-300 focus:ring-2 focus:ring-blue-500/20 bg-transparent tabular-nums"
               />
             </div>
+            <div className="px-2 py-1">
+              <input
+                type="number"
+                value={item.conversations || ""}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  updateItem(i, "conversations", Number.isFinite(n) ? Math.round(n) : 0);
+                }}
+                min={0}
+                className="w-full px-2 py-1.5 text-sm font-mono text-right border border-transparent rounded focus:outline-none focus:border-gray-300 focus:ring-2 focus:ring-blue-500/20 bg-transparent tabular-nums"
+              />
+            </div>
             <div className="flex items-center justify-center">
               <button
                 onClick={() => removeItem(i)}
@@ -220,16 +239,19 @@ export function CostsTab({
         {costItems.length > 0 && (
           <div
             className="grid items-center bg-gray-50 border-t border-gray-200"
-            style={{ gridTemplateColumns: "minmax(200px, 2fr) 140px 100px 36px" }}
+            style={{ gridTemplateColumns: "minmax(180px, 2fr) 130px 80px 80px 36px" }}
           >
             <div className="px-3 py-2 text-xs font-semibold text-gray-700">
               Total
             </div>
             <div className="px-3 py-2 text-sm font-semibold text-gray-900 font-mono tabular-nums text-right">
-              ${totalCost.toLocaleString("en-US")}
+              {formatUsd(totalCost)}
             </div>
             <div className="px-3 py-2 text-sm font-semibold text-gray-900 font-mono tabular-nums text-right">
               {totalUsers}
+            </div>
+            <div className="px-3 py-2 text-sm font-semibold text-gray-900 font-mono tabular-nums text-right">
+              {totalConversations.toLocaleString("en-US")}
             </div>
             <div />
           </div>

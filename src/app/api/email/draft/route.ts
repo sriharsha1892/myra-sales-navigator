@@ -2,7 +2,35 @@ import { NextResponse } from "next/server";
 import { getGemini, getGroq, isGeminiAvailable, isGroqAvailable } from "@/lib/navigator/llm/client";
 import { buildEmailPrompt } from "@/lib/navigator/llm/emailPrompts";
 import { defaultAdminConfig } from "@/lib/navigator/mock-data";
-import type { EmailDraftRequest, EmailDraftResponse } from "@/lib/navigator/types";
+import { getCached, setCached } from "@/lib/cache";
+import type { EmailDraftRequest, EmailDraftResponse, EmailPromptsConfig } from "@/lib/navigator/types";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+async function getEmailPromptsConfig(): Promise<EmailPromptsConfig> {
+  const cacheKey = "admin:email-prompts";
+  const cached = await getCached<EmailPromptsConfig>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const { data } = await supabase
+      .from("admin_config")
+      .select("email_prompts")
+      .eq("id", "global")
+      .single();
+    if (data?.email_prompts) {
+      await setCached(cacheKey, data.email_prompts, 60).catch(() => {});
+      return data.email_prompts as EmailPromptsConfig;
+    }
+  } catch {
+    // Fall through to default
+  }
+  return defaultAdminConfig.emailPrompts;
+}
 
 export async function POST(request: Request) {
   if (!isGeminiAvailable() && !isGroqAvailable()) {
@@ -31,10 +59,11 @@ export async function POST(request: Request) {
   if (!body.hubspotStatus) body.hubspotStatus = "none";
   if (!body.contactTitle) body.contactTitle = "";
   if (!body.companyIndustry) body.companyIndustry = "";
+  if (!body.contactHeadline) body.contactHeadline = undefined;
+  if (!body.contactSeniority) body.contactSeniority = undefined;
 
   try {
-    // TODO: read from Supabase when wired; for now use in-memory default
-    const emailPromptsConfig = defaultAdminConfig.emailPrompts;
+    const emailPromptsConfig = await getEmailPromptsConfig();
     const prompt = buildEmailPrompt(body, emailPromptsConfig);
     // Try Gemini first, fall back to Groq if unavailable or fails
     let raw: string;

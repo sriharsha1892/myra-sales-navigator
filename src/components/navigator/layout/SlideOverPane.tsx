@@ -121,7 +121,7 @@ export function SlideOverPane() {
                 <button
                   onClick={() => setSlideOverMode("dossier")}
                   className="min-w-0 truncate text-text-tertiary transition-colors hover:text-accent-primary"
-                  title={company.name}
+                  aria-label={company.name}
                 >
                   {company.name}
                 </button>
@@ -129,7 +129,7 @@ export function SlideOverPane() {
                 <span className="flex-shrink-0 font-medium text-text-primary">Contacts</span>
               </>
             ) : (
-              <span className="min-w-0 truncate font-medium text-text-primary" title={company.name}>
+              <span className="min-w-0 truncate font-medium text-text-primary" aria-label={company.name}>
                 {company.name}
               </span>
             )}

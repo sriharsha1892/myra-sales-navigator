@@ -59,7 +59,7 @@ export function NotificationSection() {
                   <button
                     onClick={() => removeRecipient(r)}
                     className="ml-0.5 text-text-tertiary hover:text-danger"
-                    title="Remove"
+                    aria-label="Remove"
                   >
                     &times;
                   </button>

@@ -58,6 +58,7 @@ export function getRootDomain(domain: string): string {
 
 export const CacheKeys = {
   search: (hash: string) => `search:${hash}`,
+  exaSearch: (hash: string) => `exa-search:${hash}`,
   company: (domain: string) => `company:${normalizeDomain(domain)}`,
   contacts: (domain: string) => `contacts:${normalizeDomain(domain)}`,
   signals: (domain: string) => `signals:${normalizeDomain(domain)}`,
@@ -73,6 +74,7 @@ export const CacheKeys = {
 
 export const CacheTTL = {
   search: 60,
+  exaSearch: 360, // 6 hours — Exa search results
   company: 120,
   contacts: 120,
   signals: 60,

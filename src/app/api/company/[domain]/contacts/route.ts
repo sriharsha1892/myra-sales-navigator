@@ -57,13 +57,32 @@ export async function GET(
     // Merge and deduplicate
     const merged = mergeContacts(apolloContacts, hubspotContacts, freshsalesContacts);
 
-    // Auto-enrich all contacts by seniority that have no email (Apollo contacts only)
-    // Cap at 5 concurrent. Apollo is 100 req/min shared. Don't be a hero.
+    // Auto-enrich top N contacts by seniority that have no email (Apollo contacts only)
+    // N is admin-configurable (default 5). Cap at 5 concurrent API calls.
     const limit = pLimit(5);
     const seniorityOrder: Record<string, number> = { c_level: 0, vp: 1, director: 2, manager: 3, staff: 4 };
+    let maxAutoEnrich = 5;
+    let maxClearoutFinds = 10;
+    try {
+      const cached = await getCached<{ maxContactAutoEnrich?: number; maxClearoutFinds?: number }>("admin:enrichment-limits");
+      if (cached) {
+        maxAutoEnrich = cached.maxContactAutoEnrich ?? 5;
+        maxClearoutFinds = cached.maxClearoutFinds ?? 10;
+      } else {
+        const supabase2 = createServerClient();
+        const { data: limitsRow } = await supabase2.from("admin_config").select("enrichment_limits").eq("id", "global").single();
+        if (limitsRow?.enrichment_limits) {
+          const limits = limitsRow.enrichment_limits as Record<string, number>;
+          maxAutoEnrich = limits.maxContactAutoEnrich ?? 5;
+          maxClearoutFinds = limits.maxClearoutFinds ?? 10;
+          await setCached("admin:enrichment-limits", limits, 60);
+        }
+      }
+    } catch { /* use defaults */ }
     const needsEnrich = merged
       .filter((c) => !c.email && c.id && !c.id.startsWith("hubspot-") && !c.id.startsWith("freshsales-"))
-      .sort((a, b) => (seniorityOrder[a.seniority] ?? 5) - (seniorityOrder[b.seniority] ?? 5));
+      .sort((a, b) => (seniorityOrder[a.seniority] ?? 5) - (seniorityOrder[b.seniority] ?? 5))
+      .slice(0, maxAutoEnrich);
 
     if (needsEnrich.length > 0 && apolloAvailable) {
       const enrichResults = await Promise.allSettled(
@@ -103,12 +122,12 @@ export async function GET(
     const stillMissing = merged.filter((c) => !c.email && c.firstName);
     if (stillMissing.length > 0 && isClearoutAvailable()) {
       try {
-        const batch = stillMissing.slice(0, 10).map((c) => ({
+        const batch = stillMissing.slice(0, maxClearoutFinds).map((c) => ({
           contactId: c.id,
           firstName: c.firstName,
           lastName: c.lastName,
         }));
-        const clearoutResults = await findEmailsBatch(batch, normalized, 10);
+        const clearoutResults = await findEmailsBatch(batch, normalized, maxClearoutFinds);
         for (const cr of clearoutResults) {
           if (!cr.email) continue;
           const idx = merged.findIndex((c) => c.id === cr.contactId);

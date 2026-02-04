@@ -40,6 +40,7 @@ const costItemSchema = z.object({
   name: z.string(),
   costUsd: z.number().min(0),
   users: z.number().int().min(0),
+  conversations: z.number().int().min(0).optional(),
 });
 
 const orgSnapshotSchema = z.object({

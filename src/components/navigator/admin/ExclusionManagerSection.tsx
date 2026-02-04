@@ -85,7 +85,7 @@ export function ExclusionManagerSection() {
 
       const data = await res.json();
       if (!res.ok) {
-        addToast({ message: data.error || "Failed to add exclusion", type: "error" });
+        addToast({ message: data.error || "Couldn't add exclusion — try again", type: "error" });
         return;
       }
 
@@ -94,7 +94,7 @@ export function ExclusionManagerSection() {
       setNewValue("");
       setNewReason("");
     } catch {
-      addToast({ message: "Failed to add exclusion", type: "error" });
+      addToast({ message: "Couldn't add exclusion — check your connection and try again", type: "error" });
     } finally {
       setAdding(false);
     }
@@ -124,7 +124,7 @@ export function ExclusionManagerSection() {
         if (!res.ok) {
           // Restore on failure
           useStore.setState({ exclusions: snapshot });
-          addToast({ message: "Failed to delete exclusion", type: "error" });
+          addToast({ message: "Couldn't remove exclusion — refresh the page and try again", type: "error" });
         }
       } catch {
         useStore.setState({ exclusions: snapshot });
@@ -245,7 +245,7 @@ export function ExclusionManagerSection() {
             <button
               onClick={() => handleDelete(e)}
               className="text-[10px] text-text-tertiary opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
-              title="Remove exclusion"
+              aria-label="Remove exclusion"
             >
               &times;
             </button>

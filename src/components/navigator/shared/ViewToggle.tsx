@@ -9,29 +9,32 @@ interface ViewToggleProps {
   onChange: (mode: ViewMode) => void;
   companyCount?: number;
   contactCount?: number;
+  exportedCount?: number;
   selectedCompanyContactCount?: number;
   selectedCompanyName?: string;
 }
 
-export function ViewToggle({ value, onChange, companyCount = 0, contactCount = 0, selectedCompanyContactCount, selectedCompanyName }: ViewToggleProps) {
-  const isContacts = value === "contacts";
+export function ViewToggle({ value, onChange, companyCount = 0, contactCount = 0, exportedCount, selectedCompanyContactCount, selectedCompanyName }: ViewToggleProps) {
   const companiesRef = useRef<HTMLButtonElement>(null);
   const contactsRef = useRef<HTMLButtonElement>(null);
+  const exportedRef = useRef<HTMLButtonElement>(null);
   const [underline, setUnderline] = useState({ left: 0, width: 0 });
 
   useEffect(() => {
-    const activeRef = isContacts ? contactsRef : companiesRef;
-    if (activeRef.current) {
+    const refMap: Record<ViewMode, React.RefObject<HTMLButtonElement | null>> = {
+      companies: companiesRef,
+      contacts: contactsRef,
+      exported: exportedRef,
+    };
+    const activeRef = refMap[value];
+    if (activeRef?.current) {
       const el = activeRef.current;
-      const parent = el.parentElement;
-      if (parent) {
-        setUnderline({
-          left: el.offsetLeft,
-          width: el.offsetWidth,
-        });
-      }
+      setUnderline({
+        left: el.offsetLeft,
+        width: el.offsetWidth,
+      });
     }
-  }, [isContacts]);
+  }, [value]);
 
   return (
     <div className="relative flex items-center gap-0">
@@ -40,7 +43,7 @@ export function ViewToggle({ value, onChange, companyCount = 0, contactCount = 0
         onClick={() => onChange("companies")}
         className={cn(
           "relative flex items-center gap-1.5 px-2.5 py-1.5 text-sm transition-all duration-200",
-          !isContacts
+          value === "companies"
             ? "font-semibold text-text-primary"
             : "text-text-tertiary hover:text-text-secondary"
         )}
@@ -61,7 +64,7 @@ export function ViewToggle({ value, onChange, companyCount = 0, contactCount = 0
         onClick={() => onChange("contacts")}
         className={cn(
           "relative flex items-center gap-1.5 px-2.5 py-1.5 text-sm transition-all duration-200",
-          isContacts
+          value === "contacts"
             ? "font-semibold text-text-primary"
             : "text-text-tertiary hover:text-text-secondary"
         )}
@@ -70,6 +73,27 @@ export function ViewToggle({ value, onChange, companyCount = 0, contactCount = 0
         {(contactCount > 0 || (selectedCompanyContactCount != null && selectedCompanyContactCount > 0)) && (
           <span className="font-mono text-[10px] tabular-nums text-text-tertiary">
             {selectedCompanyContactCount != null ? selectedCompanyContactCount : contactCount}
+          </span>
+        )}
+      </button>
+
+      {/* Thin vertical divider */}
+      <div className="h-3.5 w-px bg-surface-3" />
+
+      <button
+        ref={exportedRef}
+        onClick={() => onChange("exported")}
+        className={cn(
+          "relative flex items-center gap-1.5 px-2.5 py-1.5 text-sm transition-all duration-200",
+          value === "exported"
+            ? "font-semibold text-text-primary"
+            : "text-text-tertiary hover:text-text-secondary"
+        )}
+      >
+        Exported
+        {exportedCount != null && exportedCount > 0 && (
+          <span className="font-mono text-[10px] tabular-nums text-text-tertiary">
+            {exportedCount}
           </span>
         )}
       </button>

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useStore } from "@/lib/navigator/store";
+import { ConfirmDialog } from "@/components/navigator/shared/ConfirmDialog";
 import { FilterSection } from "@/components/navigator/filters/FilterSection";
 import { VerticalFilter } from "@/components/navigator/filters/VerticalFilter";
 import { RegionFilter } from "@/components/navigator/filters/RegionFilter";
@@ -53,16 +54,23 @@ export function FilterPanel() {
     setShowSavePreset(false);
   };
 
-  const handleDeletePreset = (id: string, name: string) => {
-    const preset = presets.find((p) => p.id === id);
-    deletePreset(id);
-    addUndoToast(`Deleted preset "${name}"`, () => {
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
+
+  const handleDeletePreset = useCallback((id: string, name: string) => {
+    setConfirmDelete({ id, name });
+  }, []);
+
+  const confirmPresetDelete = useCallback(() => {
+    if (!confirmDelete) return;
+    const preset = presets.find((p) => p.id === confirmDelete.id);
+    deletePreset(confirmDelete.id);
+    addUndoToast(`Deleted preset "${confirmDelete.name}"`, () => {
       if (preset) {
-        // Re-add manually via store
         useStore.getState().savePreset(preset.name);
       }
     });
-  };
+    setConfirmDelete(null);
+  }, [confirmDelete, presets, deletePreset, addUndoToast]);
 
   const recentCompanyData = recentDomains
     .map((domain) => companies.find((c) => c.domain === domain))
@@ -145,8 +153,8 @@ export function FilterPanel() {
                       e.stopPropagation();
                       handleDeletePreset(p.id, p.name);
                     }}
-                    className="flex-shrink-0 text-text-tertiary opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
-                    title="Delete preset"
+                    className="flex-shrink-0 text-text-tertiary opacity-40 transition-opacity hover:text-danger group-hover:opacity-100"
+                    aria-label="Delete preset"
                   >
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <path d="M18 6 6 18M6 6l12 12" />
@@ -277,6 +285,16 @@ export function FilterPanel() {
       <FilterSection title={<span className="inline-flex items-center gap-1">Exclusions <HelpTip text="Companies or contacts your team has already ruled out. Hidden from results when this filter is on." /></span>} defaultOpen={false}>
         <ExclusionToggle />
       </FilterSection>
+
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        title="Delete preset?"
+        message={`Are you sure you want to delete "${confirmDelete?.name ?? ""}"? This action can be undone.`}
+        confirmLabel="Delete"
+        onConfirm={confirmPresetDelete}
+        onCancel={() => setConfirmDelete(null)}
+        destructive
+      />
     </div>
   );
 }

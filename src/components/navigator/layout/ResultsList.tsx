@@ -5,6 +5,7 @@ import { CompanyCard } from "@/components/navigator/cards/CompanyCard";
 import { ContactCard } from "@/components/navigator/cards/ContactCard";
 import { SkeletonCard } from "@/components/navigator/cards/SkeletonCard";
 import { ViewToggle, QuickFilterChips, ResultFilterChips, EmptyState } from "@/components/navigator/shared";
+import { ActiveFilterPills } from "@/components/navigator/shared/ActiveFilterPills";
 import { ContactFilters } from "@/components/navigator/shared/ContactFilters";
 import type { SortField, CompanyEnriched, ResultSource } from "@/lib/navigator/types";
 import React, { useState, useEffect, useRef, useMemo } from "react";
@@ -14,6 +15,9 @@ import { timeAgo } from "@/lib/utils";
 import { MyProspects } from "./MyProspects";
 import { pick } from "@/lib/navigator/ui-copy";
 import { IcpScoreBadge } from "@/components/navigator/badges";
+import { ExportedContactsPanel } from "@/components/navigator/exports/ExportedContactsPanel";
+import { SessionStarterCard } from "@/components/navigator/home/SessionStarterCard";
+import { FollowUpNudges } from "@/components/navigator/shared/FollowUpNudges";
 
 interface TrendingCompany {
   domain: string;
@@ -48,6 +52,7 @@ export function ResultsList() {
 
   const setFilters = useStore((s) => s.setFilters);
   const setPendingFilterSearch = useStore((s) => s.setPendingFilterSearch);
+  const lastSearchQuery = useStore((s) => s.lastSearchQuery);
   const { history } = useSearchHistory();
 
   const filteredCompanies = useStore((s) => s.filteredCompanies);
@@ -156,7 +161,7 @@ export function ResultsList() {
     ? `~${estimatedTotal} contacts (loading...)`
     : `${totalContactsDisplayed} contacts`;
 
-  const count = viewMode === "companies" ? companies.length : totalContactsDisplayed;
+  const count = viewMode === "companies" ? companies.length : viewMode === "contacts" ? totalContactsDisplayed : 0;
   const hasSearched = searchResults !== null;
 
   const handleSortChange = (field: SortField) => {
@@ -259,7 +264,7 @@ export function ResultsList() {
                 <button
                   onClick={() => setSortDirection(sortDirection === "desc" ? "asc" : "desc")}
                   className="btn-press text-xs text-text-tertiary hover:text-text-primary transition-colors duration-[180ms]"
-                  title={sortDirection === "desc" ? "Descending" : "Ascending"}
+                  aria-label={sortDirection === "desc" ? "Descending" : "Ascending"}
                 >
                   {sortDirection === "desc" ? "\u2193" : "\u2191"}
                 </button>
@@ -294,19 +299,33 @@ export function ResultsList() {
         </div>
       </div>
 
+      {/* Persistent search query header — visible during loading and after results */}
+      {(hasSearched || searchLoading) && lastSearchQuery && (
+        <div className="flex flex-shrink-0 items-center gap-2 border-b border-surface-3 bg-surface-1/50 px-4 py-1.5">
+          <span className="text-xs text-text-tertiary">Results for</span>
+          <span className="font-mono text-xs text-text-secondary">&ldquo;{lastSearchQuery}&rdquo;</span>
+          {!searchLoading && companies.length > 0 && (
+            <span className="text-xs text-text-tertiary">({companies.length} companies)</span>
+          )}
+        </div>
+      )}
+
       {/* Preset pills */}
       {hasSearched && !searchLoading && <PresetPills />}
 
-      {/* Contact-specific filters */}
-      {viewMode === "contacts" && hasSearched && !searchLoading && (
-        <ContactFilters />
-      )}
-
-      {/* Filter chips — single merged row, only shown after first search */}
-      {viewMode === "companies" && hasSearched && !searchLoading && (
-        <div className="bg-surface-0 flex flex-shrink-0 flex-wrap gap-1.5 border-b border-surface-3 px-4 py-2">
-          <QuickFilterChips />
-          <ResultFilterChips />
+      {/* Sticky filter pill bar — visible on both tabs after search */}
+      {(hasSearched || searchLoading) && (
+        <div className="sticky top-0 z-10 flex flex-shrink-0 flex-col gap-1 border-b border-surface-3 bg-surface-0 px-4 py-2">
+          <ActiveFilterPills />
+          {viewMode === "companies" && !searchLoading && (
+            <div className="flex flex-wrap gap-1.5">
+              <QuickFilterChips />
+              <ResultFilterChips />
+            </div>
+          )}
+          {viewMode === "contacts" && !searchLoading && (
+            <ContactFilters />
+          )}
         </div>
       )}
 
@@ -334,6 +353,9 @@ export function ResultsList() {
               <SkeletonCard key={i} />
             ))}
           </div>
+        ) : viewMode === "exported" ? (
+          /* ======== Exported contacts view (works pre-search too) ======== */
+          <ExportedContactsPanel />
         ) : !hasSearched ? (
           /* Welcome state — before first search */
           <div className="flex h-full flex-col items-center justify-center">
@@ -353,6 +375,8 @@ export function ResultsList() {
                 </div>
               </div>
             )}
+            <SessionStarterCard />
+            <FollowUpNudges />
             <h2 className="animate-fadeInUp font-display text-2xl text-text-primary" style={{ animationDelay: "0ms" }}>
               Search for companies
             </h2>

@@ -71,7 +71,7 @@ export type SignalType = "hiring" | "funding" | "expansion" | "news";
 
 export type ConfidenceLevel = "high" | "medium" | "low" | "none";
 
-export type ViewMode = "companies" | "contacts";
+export type ViewMode = "companies" | "contacts" | "exported";
 
 export type SortField = "icp_score" | "name" | "employee_count" | "relevance";
 
@@ -208,6 +208,7 @@ export interface Contact {
   email: string | null;
   phone: string | null;
   linkedinUrl: string | null;
+  headline?: string | null;
   emailConfidence: number;
   confidenceLevel: ConfidenceLevel;
   sources: ResultSource[];
@@ -306,6 +307,23 @@ export interface AnalyticsSettings {
   kpiTargets: { exportsThisWeek: number; avgIcpScore: number };
 }
 
+export interface EnrichmentLimits {
+  maxSearchEnrich: number;
+  maxContactAutoEnrich: number;
+  maxClearoutFinds: number;
+}
+
+export interface IcpProfile {
+  id: string;
+  name: string;
+  verticals: string[];
+  sizeMin: number;
+  sizeMax: number;
+  regions: string[];
+  signalTypes: string[];
+  isDefault: boolean;
+}
+
 export interface AdminConfig {
   icpWeights: IcpWeights;
   verticals: string[];
@@ -328,8 +346,22 @@ export interface AdminConfig {
   emailPrompts: EmailPromptsConfig;
   analyticsSettings: AnalyticsSettings;
   freshsalesSettings: FreshsalesSettings;
+  enrichmentLimits: EnrichmentLimits;
+  icpProfiles: IcpProfile[];
   authLog: AuthLogEntry[];
   authRequests: AuthAccessRequest[];
+  // Multi-channel outreach (Section 1)
+  outreachChannelConfig: {
+    enabledChannels: OutreachChannel[];
+    defaultChannel: OutreachChannel;
+    channelInstructions: Partial<Record<OutreachChannel, string>>;
+    writingRulesDefault: string;
+  };
+  // Smart template suggestion rules (Section 2)
+  outreachSuggestionRules: { id: string; name: string; enabled: boolean }[];
+  // Recommended next action rules (Section 3)
+  actionRecommendationRules: { id: string; name: string; enabled: boolean }[];
+  actionRecommendationEnabled: boolean;
 }
 
 export interface TeamMember {
@@ -572,11 +604,47 @@ export interface EmailDraftRequest {
   hubspotStatus: HubSpotStatus;
   template?: EmailTemplate;
   tone: EmailTone;
+  // Richer context (Item 5)
+  contactHeadline?: string;
+  contactSeniority?: string;
+  icpScore?: number;
+  icpBreakdown?: { factor: string; points: number; matched: boolean }[];
+  freshsalesStatus?: string;
+  freshsalesDealStage?: string;
+  freshsalesDealAmount?: number;
+  customTemplateId?: string;
 }
 
 export interface EmailDraftResponse {
   subject: string;
   body: string;
+}
+
+// ---------------------------------------------------------------------------
+// Multi-Channel Outreach
+// ---------------------------------------------------------------------------
+
+export type OutreachChannel = "email" | "linkedin_connect" | "linkedin_inmail" | "whatsapp";
+
+export interface ChannelConstraints {
+  maxChars: number | null; // null = no limit
+  maxWords: number | null;
+  hasSubject: boolean;
+  outputFields: ("subject" | "message")[];
+  platformGuidance: string;
+}
+
+export interface OutreachDraftRequest extends EmailDraftRequest {
+  channel: OutreachChannel;
+  contactId?: string;
+  writingRules?: string;
+  contextPlaceholders?: Record<string, string>;
+}
+
+export interface OutreachDraftResponse {
+  channel: OutreachChannel;
+  subject?: string;
+  message: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -636,6 +704,15 @@ export interface AdminUiPreferences {
 // Email Prompts Config (admin-configurable)
 // ---------------------------------------------------------------------------
 
+export interface CustomEmailTemplate {
+  id: string;
+  name: string;
+  tone: EmailTone;
+  type: EmailTemplate | "custom";
+  promptSuffix: string;
+  exampleOutput?: string;
+}
+
 export interface EmailPromptsConfig {
   companyDescription: string;
   valueProposition: string;
@@ -644,6 +721,7 @@ export interface EmailPromptsConfig {
   systemPromptSuffix: string;
   defaultTone: EmailTone;
   defaultTemplate: EmailTemplate;
+  customTemplates?: CustomEmailTemplate[];
 }
 
 // ---------------------------------------------------------------------------

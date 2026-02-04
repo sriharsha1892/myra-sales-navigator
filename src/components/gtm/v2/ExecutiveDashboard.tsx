@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { DeltaBadge } from "./DeltaBadge";
 import type { GtmEntry, GtmV2Segment, CostItem } from "@/lib/gtm/v2-types";
 import { SEGMENT_LABELS } from "@/lib/gtm/v2-types";
+import { formatUsd } from "@/lib/gtm/format";
 import { cn } from "@/lib/cn";
 
 interface ExecutiveDashboardProps {
@@ -24,6 +25,17 @@ const SEGMENT_BAR_COLORS: Record<GtmV2Segment, string> = {
   dormant: "bg-gray-400",
   lost: "bg-red-400",
   early: "bg-gray-300",
+};
+
+const SEGMENT_BAR_TEXT: Record<GtmV2Segment, string> = {
+  paying: "text-white",
+  prospect: "text-white",
+  trial: "text-white",
+  post_demo: "text-white",
+  demo_queued: "text-white",
+  dormant: "text-white",
+  lost: "text-white",
+  early: "text-gray-700",
 };
 
 export function ExecutiveDashboard({ latest, previous }: ExecutiveDashboardProps) {
@@ -60,27 +72,43 @@ export function ExecutiveDashboard({ latest, previous }: ExecutiveDashboardProps
     () => costItems.slice().sort((a, b) => b.costUsd - a.costUsd).slice(0, 3),
     [costItems]
   );
+  const maxCost = topCost.length > 0 ? topCost[0].costUsd : 1;
 
   return (
     <div className="space-y-5">
       {/* Large KPI cards */}
       <div className="grid grid-cols-3 gap-4">
-        <KpiCard label="Paying Customers" value={kpis.paying} prev={kpis.payingPrev} color="text-emerald-600" gradient="from-emerald-50 to-emerald-100/50" />
-        <KpiCard label="Strong Prospects" value={kpis.prospects} prev={kpis.prospectsPrev} color="text-blue-600" gradient="from-blue-50 to-blue-100/50" />
-        <KpiCard label="Active Engagement" value={kpis.active} prev={kpis.activePrev} color="text-purple-600" gradient="from-purple-50 to-purple-100/50" />
+        <KpiCard label="Paying Customers" value={kpis.paying} prev={kpis.payingPrev} color="text-emerald-600" gradient="from-emerald-50 to-emerald-100" />
+        <KpiCard label="Strong Prospects" value={kpis.prospects} prev={kpis.prospectsPrev} color="text-blue-600" gradient="from-blue-50 to-blue-100" />
+        <KpiCard label="Active Engagement" value={kpis.active} prev={kpis.activePrev} color="text-purple-600" gradient="from-purple-50 to-purple-100" />
       </div>
 
-      {/* Pipeline bar */}
+      {/* Pipeline bar — with labeled segments */}
       <div className="bg-white/70 rounded-[14px] border border-white/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] p-4">
         <h3 className="text-xs font-semibold text-gray-900 mb-3">Pipeline Distribution</h3>
-        <div className="flex h-6 rounded-lg overflow-hidden">
+        <div className="flex h-10 rounded-lg overflow-hidden">
           {pipelineSegments.map((s) => (
             <div
               key={s.segment}
-              className={cn("transition-all duration-[180ms]", SEGMENT_BAR_COLORS[s.segment])}
+              className={cn(
+                "transition-all duration-[180ms] flex items-center justify-center gap-1 overflow-hidden",
+                SEGMENT_BAR_COLORS[s.segment],
+                SEGMENT_BAR_TEXT[s.segment]
+              )}
               style={{ width: `${s.pct}%` }}
               title={`${SEGMENT_LABELS[s.segment]}: ${s.count}`}
-            />
+            >
+              {s.pct > 8 && (
+                <span className="text-[10px] font-medium truncate px-1">
+                  {SEGMENT_LABELS[s.segment]}
+                </span>
+              )}
+              {s.pct > 5 && (
+                <span className="text-[10px] font-semibold font-mono">
+                  {s.count}
+                </span>
+              )}
+            </div>
           ))}
         </div>
         <div className="flex flex-wrap gap-3 mt-2">
@@ -100,27 +128,39 @@ export function ExecutiveDashboard({ latest, previous }: ExecutiveDashboardProps
         <MetricTile label="Inbound Active" value={latest.inboundActive} prev={previous?.inboundActive ?? 0} />
         <MetricTile label="Outbound Leads" value={latest.outboundLeads} prev={previous?.outboundLeads ?? 0} />
         <MetricTile label="Outbound Qualified" value={latest.outboundQualified} prev={previous?.outboundQualified ?? 0} />
-        <MetricTile label="Total Cost" value={latest.totalCostUsd} prev={previous?.totalCostUsd ?? 0} invert prefix="$" />
+        <MetricTile label="Total Cost" value={latest.totalCostUsd} prev={previous?.totalCostUsd ?? 0} invert isCost />
         <MetricTile label="Users" value={snap?.totalUsers ?? 0} prev={prevSnap?.totalUsers ?? 0} />
         <MetricTile label="Conversations" value={snap?.totalConversations ?? 0} prev={prevSnap?.totalConversations ?? 0} />
         <MetricTile label="Apollo Contacts" value={latest.apolloContacts} prev={previous?.apolloContacts ?? 0} />
       </div>
 
-      {/* Cost summary — just total + top 3 */}
+      {/* Top Spending — horizontal bars */}
       {topCost.length > 0 && (
         <div className="bg-white/70 rounded-[14px] border border-white/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] p-4">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-semibold text-gray-900">Top Spending</h3>
-            <span className="text-xs font-mono text-gray-500">${latest.totalCostUsd.toLocaleString()} total</span>
+            <span className="text-xs font-mono text-gray-500">{formatUsd(latest.totalCostUsd)} total</span>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            {topCost.map((item, i) => (
-              <div key={i} className="p-3 bg-gray-50 rounded-lg">
-                <p className="text-[10px] text-gray-500 truncate mb-0.5">{item.name}</p>
-                <p className="text-sm font-semibold font-mono tabular-nums text-gray-900">${item.costUsd.toLocaleString()}</p>
-                <p className="text-[10px] text-gray-400">{item.users} users</p>
-              </div>
-            ))}
+          <div className="space-y-2">
+            {topCost.map((item, i) => {
+              const pct = maxCost > 0 ? (item.costUsd / maxCost) * 100 : 0;
+              return (
+                <div key={i} className="flex items-center gap-3">
+                  <span className="text-xs text-gray-700 truncate w-[120px] shrink-0 font-medium">
+                    {item.name}
+                  </span>
+                  <div className="flex-1 h-5 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gray-700 transition-all duration-[180ms]"
+                      style={{ width: `${Math.max(pct, 3)}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-mono tabular-nums text-gray-900 font-semibold shrink-0 w-[72px] text-right">
+                    {formatUsd(item.costUsd)}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -147,8 +187,8 @@ function KpiCard({
   return (
     <div className={cn("bg-gradient-to-br rounded-[14px] border border-white/90 shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-5", gradient)}>
       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
-      <div className="flex items-baseline gap-2 mt-1">
-        <span className={cn("text-4xl font-semibold font-mono tabular-nums", color)}>{value}</span>
+      <span className={cn("text-4xl font-semibold font-mono tabular-nums block mt-1", color)}>{value}</span>
+      <div className="mt-1.5">
         <DeltaBadge current={value} previous={prev} />
       </div>
       {prev > 0 && delta !== 0 && (
@@ -165,22 +205,22 @@ function MetricTile({
   value,
   prev,
   invert = false,
-  prefix = "",
+  isCost = false,
 }: {
   label: string;
   value: number;
   prev: number;
   invert?: boolean;
-  prefix?: string;
+  isCost?: boolean;
 }) {
   return (
     <div className="bg-white/70 rounded-xl border border-white/90 shadow-[0_2px_8px_rgba(0,0,0,0.03)] p-3">
       <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-1">{label}</p>
       <div className="flex items-baseline gap-1.5">
-        <span className="text-lg font-semibold font-mono tabular-nums text-gray-900">
-          {prefix}{value.toLocaleString()}
+        <span className="text-xl font-semibold font-mono tabular-nums text-gray-900">
+          {isCost ? formatUsd(value) : value.toLocaleString()}
         </span>
-        <DeltaBadge current={value} previous={prev} invert={invert} />
+        <DeltaBadge current={value} previous={prev} invert={invert} prefix={isCost ? "$" : undefined} />
       </div>
     </div>
   );

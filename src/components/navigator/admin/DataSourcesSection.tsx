@@ -144,7 +144,7 @@ export function DataSourcesSection() {
               <button
                 onClick={() => toggleEnabled(ds.id)}
                 className={`h-2 w-2 rounded-full ${ds.enabled ? "bg-success" : "bg-surface-3"}`}
-                title={ds.enabled ? "Enabled" : "Disabled"}
+                aria-label={ds.enabled ? "Enabled" : "Disabled"}
               />
               <div className="flex-1">
                 <span className="text-xs font-medium text-text-primary">{ds.name}</span>

@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 import { ConfidenceBadge, SourceBadge, VerificationBadge } from "@/components/navigator/badges";
 import { MissingData } from "@/components/navigator/shared/MissingData";
 import { useInlineFeedback } from "@/hooks/navigator/useInlineFeedback";
+import { Tooltip } from "@/components/navigator/shared/Tooltip";
 import type { Contact, ResultSource } from "@/lib/navigator/types";
 
 const fieldSourceLabels: Partial<Record<ResultSource, string>> = {
@@ -17,14 +18,21 @@ const fieldSourceLabels: Partial<Record<ResultSource, string>> = {
   mordor: "M",
 };
 
+const sourceFullNames: Partial<Record<ResultSource, string>> = {
+  apollo: "Apollo (contacts database)",
+  hubspot: "HubSpot (CRM)",
+  freshsales: "Freshsales (CRM)",
+  exa: "Exa (web intelligence)",
+  mordor: "Mordor (internal)",
+};
+
 function FieldSourceTag({ source }: { source: ResultSource }) {
   return (
-    <span
-      className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-sm bg-surface-2 font-mono text-[8px] font-bold text-text-tertiary"
-      title={source}
-    >
-      {fieldSourceLabels[source] ?? source[0].toUpperCase()}
-    </span>
+    <Tooltip text={sourceFullNames[source] ?? source.charAt(0).toUpperCase() + source.slice(1)}>
+      <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-sm bg-surface-2 font-mono text-[8px] font-bold text-text-tertiary">
+        {fieldSourceLabels[source] ?? source[0].toUpperCase()}
+      </span>
+    </Tooltip>
   );
 }
 
@@ -122,7 +130,7 @@ export function ContactRow({
         );
       }
     } catch {
-      trigger("Reveal failed", "error");
+      trigger("Couldn't reveal — try again", "error");
     } finally {
       setRevealing(false);
     }
@@ -132,7 +140,7 @@ export function ContactRow({
     navigator.clipboard
       .writeText(email)
       .then(() => trigger("Copied"))
-      .catch(() => trigger("Failed", "error"));
+      .catch(() => trigger("Copy failed", "error"));
   };
 
   const inFreshsales = contact.sources.includes("freshsales");
@@ -172,7 +180,7 @@ export function ContactRow({
           )}
           {inFreshsales && (
             <span className="rounded-pill px-1.5 py-0.5 text-[9px] font-medium" style={{ backgroundColor: "rgba(62, 166, 123, 0.12)", color: "#3EA67B" }}>
-              In FS
+              In CRM
             </span>
           )}
         </div>
@@ -235,17 +243,18 @@ export function ContactRow({
               status={contact.verificationStatus ?? "unverified"}
               safeToSend={contact.safeToSend}
             />
-            <button
-              onClick={() => handleCopy(contact.email!)}
-              className="text-text-tertiary hover:text-accent-primary"
-              title="Copy email"
-              aria-label="Copy email"
-            >
+            <Tooltip text="Copy email">
+              <button
+                onClick={() => handleCopy(contact.email!)}
+                className="text-text-tertiary hover:text-accent-primary"
+                aria-label="Copy email"
+              >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="9" y="9" width="13" height="13" rx="2" />
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
               </svg>
             </button>
+            </Tooltip>
             {FeedbackLabel}
           </>
         ) : (
@@ -285,7 +294,7 @@ export function ContactRow({
       {inFreshsales && (
         <div className="mt-1 flex items-center gap-2 pl-5">
           <span className="rounded-pill px-1.5 py-0.5 text-[9px] font-medium" style={{ backgroundColor: "rgba(62, 166, 123, 0.12)", color: "#3EA67B" }}>
-            In FS
+            In CRM
           </span>
         </div>
       )}

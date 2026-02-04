@@ -167,6 +167,14 @@ interface AppState {
   focusedContactId: string | null;
   setFocusedContactId: (id: string | null) => void;
 
+  // Outreach session state
+  writingRulesSession: string;
+  setWritingRules: (rules: string) => void;
+
+  // Follow-up nudges
+  followUpNudgesDismissed: boolean;
+  dismissFollowUpNudges: () => void;
+
   // Computed / derived
   filteredCompanies: () => CompanyEnriched[];
   selectedCompany: () => CompanyEnriched | null;
@@ -264,6 +272,14 @@ export const useStore = create<AppState>((set, get) => ({
   contactVisibleFields: new Set(["name", "email", "title", "seniority", "sources", "lastContacted"]),
   contactGroupsCollapsed: {},
   focusedContactId: null,
+
+  // Outreach session state
+  writingRulesSession: "",
+  setWritingRules: (rules) => set({ writingRulesSession: rules }),
+
+  // Follow-up nudges
+  followUpNudgesDismissed: false,
+  dismissFollowUpNudges: () => set({ followUpNudgesDismissed: true }),
 
   setViewMode: (mode) => set({ viewMode: mode, focusedContactId: null }),
 

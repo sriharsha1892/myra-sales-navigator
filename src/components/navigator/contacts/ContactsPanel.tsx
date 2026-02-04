@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useStore } from "@/lib/navigator/store";
 import { ContactRow } from "./ContactRow";
-import { EmailDraftModal } from "@/components/navigator/email/EmailDraftModal";
+import { OutreachDraftModal } from "@/components/navigator/outreach/OutreachDraftModal";
+import { useOutreachSuggestion } from "@/lib/navigator/outreach/useOutreachSuggestion";
 import type { Contact, CompanyEnriched } from "@/lib/navigator/types";
 
 interface ContactsPanelProps {
@@ -30,6 +31,7 @@ export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps)
 
   const [focusIndex, setFocusIndex] = useState(-1);
   const [draftContact, setDraftContact] = useState<Contact | null>(null);
+  const suggestion = useOutreachSuggestion(company, draftContact, !!draftContact);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Fetch export history
@@ -134,7 +136,7 @@ export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps)
                 className="rounded-pill px-1.5 py-0.5 text-[10px] font-medium"
                 style={{ backgroundColor: "rgba(62, 166, 123, 0.12)", color: "#3EA67B" }}
               >
-                FS: {fsStatus}
+                CRM: {fsStatus}
               </span>
             </>
           )}
@@ -184,10 +186,14 @@ export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps)
       </div>
 
       {draftContact && (
-        <EmailDraftModal
+        <OutreachDraftModal
           contact={draftContact}
           company={company}
           onClose={() => setDraftContact(null)}
+          suggestedChannel={suggestion?.channel}
+          suggestedTemplate={suggestion?.template as import("@/lib/navigator/types").EmailTemplate | undefined}
+          suggestedTone={suggestion?.tone}
+          suggestionReason={suggestion?.reason}
         />
       )}
     </>

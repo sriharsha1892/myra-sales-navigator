@@ -1,6 +1,7 @@
 import Exa from "exa-js";
 import type { Company, Signal, SignalType } from "../types";
 import { completeJSON, isGroqAvailable } from "../llm/client";
+import { getCached, setCached, CacheKeys, CacheTTL, hashFilters } from "@/lib/cache";
 
 // ---------------------------------------------------------------------------
 // Exa Client Singleton
@@ -147,6 +148,14 @@ export async function searchExa(
     return { companies: [], signals: [] };
   }
 
+  // Check cache first (6h TTL)
+  const cacheKey = CacheKeys.exaSearch(hashFilters({ query: params.query, numResults: params.numResults ?? 25 }));
+  const cached = await getCached<ExaSearchResult>(cacheKey);
+  if (cached) {
+    console.log("[Exa] Returning cached search results for:", params.query.slice(0, 60));
+    return cached;
+  }
+
   const exa = getExaClient();
   const numResults = params.numResults ?? 25;
 
@@ -215,7 +224,12 @@ export async function searchExa(
     }
   }
 
-  return { companies: dedupedCompanies, signals };
+  const result: ExaSearchResult = { companies: dedupedCompanies, signals };
+
+  // Cache for 6 hours
+  await setCached(cacheKey, result, CacheTTL.exaSearch).catch(() => {});
+
+  return result;
 }
 
 // ---------------------------------------------------------------------------
