@@ -26,6 +26,12 @@ export async function POST(request: Request) {
     );
   }
 
+  // Default optional fields to prevent crashes in prompt builder
+  if (!body.signals) body.signals = [];
+  if (!body.hubspotStatus) body.hubspotStatus = "none";
+  if (!body.contactTitle) body.contactTitle = "";
+  if (!body.companyIndustry) body.companyIndustry = "";
+
   try {
     // TODO: read from Supabase when wired; for now use in-memory default
     const emailPromptsConfig = defaultAdminConfig.emailPrompts;

@@ -207,7 +207,7 @@ export async function searchExa(
     // Attach source URLs from news results to matching signals
     for (const signal of signals) {
       const match = newsResults.results.find(
-        (r) => r.title && signal.title.toLowerCase().includes(r.title.toLowerCase().slice(0, 20))
+        (r) => r.title && signal.title && signal.title.toLowerCase().includes(r.title.toLowerCase().slice(0, 20))
       );
       if (match) {
         signal.sourceUrl = match.url;

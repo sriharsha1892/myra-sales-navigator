@@ -14,11 +14,12 @@ interface ContactPayload {
   emailConfidence?: number;
 }
 
-function escapeCsv(field: string): string {
-  if (field.includes(",") || field.includes('"') || field.includes("\n")) {
-    return '"' + field.replace(/"/g, '""') + '"';
+function escapeCsv(field: string | undefined | null): string {
+  const value = field ?? "";
+  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+    return '"' + value.replace(/"/g, '""') + '"';
   }
-  return field;
+  return value;
 }
 
 const ALL_COLUMNS: { key: string; header: string; extract: (c: ContactPayload) => string }[] = [
