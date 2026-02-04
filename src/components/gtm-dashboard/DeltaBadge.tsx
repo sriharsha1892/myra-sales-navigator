@@ -38,7 +38,7 @@ export function DeltaBadge({
       )}
     >
       {arrow}
-      {absVal}
+      {absVal.toLocaleString("en-US")}
       {suffix}
     </span>
   );

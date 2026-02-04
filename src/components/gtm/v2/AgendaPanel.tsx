@@ -12,9 +12,19 @@ interface AgendaPanelProps {
   previous: GtmEntry | null;
 }
 
+const SECTION_COLORS: Record<AgendaSection, string> = {
+  escalations: "bg-amber-100 text-amber-800",
+  decisions_needed: "bg-red-100 text-red-700",
+  action_items: "bg-gray-100 text-gray-700",
+  pipeline_updates: "bg-blue-100 text-blue-700",
+};
+
 export function AgendaPanel({ latest, previous }: AgendaPanelProps) {
-  const [expanded, setExpanded] = useState(false);
   const { data: items = [] } = useAgendaItems(latest.entryDate);
+  const openCount = items.filter((i) => !i.isResolved).length;
+  const hasEscalations = items.some((i) => !i.isResolved && i.section === "escalations");
+  const [expanded, setExpanded] = useState<boolean | null>(null);
+  const isExpanded = expanded !== null ? expanded : openCount <= 5 && openCount > 0;
 
   const deltaSummary = previous
     ? buildDeltaSummary(latest, previous)
@@ -37,20 +47,23 @@ export function AgendaPanel({ latest, previous }: AgendaPanelProps) {
   return (
     <div className="bg-white/70 rounded-[14px] border border-white/90 shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
       <button
-        onClick={() => setExpanded((p) => !p)}
+        onClick={() => setExpanded(!isExpanded)}
         className="w-full flex items-center justify-between p-5 text-left"
       >
         <h3 className="text-sm font-semibold text-gray-900">Agenda</h3>
         <div className="flex items-center gap-2">
-          {items.length > 0 && (
-            <span className="text-[10px] text-gray-400 font-mono">
-              {items.filter((i) => !i.isResolved).length} open
+          {openCount > 0 && (
+            <span className={cn(
+              "text-[10px] font-semibold font-mono px-2 py-0.5 rounded-full",
+              hasEscalations ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-600"
+            )}>
+              {openCount} open
             </span>
           )}
           <svg
             className={cn(
               "w-4 h-4 text-gray-400 transition-transform duration-[180ms]",
-              expanded && "rotate-180"
+              isExpanded && "rotate-180"
             )}
             fill="none"
             viewBox="0 0 24 24"
@@ -61,7 +74,7 @@ export function AgendaPanel({ latest, previous }: AgendaPanelProps) {
         </div>
       </button>
 
-      {expanded && (
+      {isExpanded && (
         <div className="px-5 pb-5 space-y-4">
           {/* Delta summary */}
           {deltaSummary && (
@@ -79,7 +92,10 @@ export function AgendaPanel({ latest, previous }: AgendaPanelProps) {
 
             return (
               <div key={key}>
-                <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2">
+                <p className={cn(
+                  "text-[11px] font-semibold uppercase tracking-wider mb-2 inline-block px-2 py-0.5 rounded-full",
+                  SECTION_COLORS[key]
+                )}>
                   {label}
                 </p>
                 <ul className="space-y-1">

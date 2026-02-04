@@ -41,6 +41,13 @@ const COMPACT_TILE_TEXT: Record<GtmV2Segment, string> = {
   early: "text-gray-500",
 };
 
+const SEGMENT_SHORT_LABELS: Partial<Record<GtmV2Segment, string>> = {
+  prospect: "Prospect",
+  post_demo: "Post Demo",
+  demo_queued: "Demo Q",
+  early: "Early",
+};
+
 function conversionColor(pct: number): string {
   if (pct >= 70) return "text-emerald-600 bg-emerald-50";
   if (pct >= 40) return "text-amber-600 bg-amber-50";
@@ -111,18 +118,13 @@ export function CompactDashboard({ latest, previous }: CompactDashboardProps) {
           <div className="bg-white/70 rounded-[14px] border border-white/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] p-4">
             <h3 className="text-xs font-semibold text-gray-900 mb-3">Pipeline</h3>
             <div className="grid grid-cols-4 gap-2">
-              {PIPELINE_SEGMENTS.map((seg) => {
+              {PIPELINE_SEGMENTS.filter((seg) => {
                 const count = snap?.counts?.[seg] ?? 0;
                 const prev = prevSnap?.counts?.[seg] ?? 0;
-                if (count === 0 && prev === 0) {
-                  return (
-                    <div key={seg} className="rounded-lg border border-dashed border-gray-200 p-2 opacity-40">
-                      <p className="text-[9px] font-medium text-gray-400 uppercase tracking-wide truncate">
-                        {SEGMENT_LABELS[seg]}
-                      </p>
-                    </div>
-                  );
-                }
+                return count > 0 || prev > 0;
+              }).map((seg) => {
+                const count = snap?.counts?.[seg] ?? 0;
+                const prev = prevSnap?.counts?.[seg] ?? 0;
                 return (
                   <HoverTooltip
                     key={seg}
@@ -130,7 +132,7 @@ export function CompactDashboard({ latest, previous }: CompactDashboardProps) {
                   >
                     <div className={cn("rounded-lg border p-2 cursor-default", COMPACT_TILE_BG[seg])}>
                       <p className="text-[9px] font-medium text-gray-500 uppercase tracking-wide truncate">
-                        {SEGMENT_LABELS[seg]}
+                        {SEGMENT_SHORT_LABELS[seg] ?? SEGMENT_LABELS[seg]}
                       </p>
                       <span className={cn("text-lg font-semibold font-mono tabular-nums block", COMPACT_TILE_TEXT[seg])}>
                         {count}
@@ -160,16 +162,13 @@ export function CompactDashboard({ latest, previous }: CompactDashboardProps) {
               ))}
             </div>
             {/* Compact funnel row */}
-            <div className="flex items-center gap-0 text-[10px]">
+            <div className="flex items-center gap-1 text-[10px]">
               {funnelSteps.map((s, i) => (
                 <div key={s.label} className="flex items-center flex-1 min-w-0">
                   {conversions[i] !== null && conversions[i] !== undefined && (
-                    <div className="flex flex-col items-center px-1 shrink-0">
-                      <span className="text-gray-300 text-[10px]">&rarr;</span>
-                      <span className={cn("text-[9px] font-semibold font-mono px-1 py-0.5 rounded-full", conversionColor(conversions[i]!))}>
-                        {conversions[i]}%
-                      </span>
-                    </div>
+                    <span className={cn("text-[10px] font-semibold font-mono px-1.5 py-0.5 rounded-full shrink-0", conversionColor(conversions[i]!))}>
+                      {conversions[i]}%
+                    </span>
                   )}
                   <div className="flex-1 text-center p-1.5 bg-gray-50 rounded-lg border border-gray-200">
                     <p className="text-gray-500 uppercase font-medium">{s.label}</p>
@@ -247,6 +246,13 @@ export function CompactDashboard({ latest, previous }: CompactDashboardProps) {
   );
 }
 
+const COMPACT_SECTION_COLORS: Record<string, string> = {
+  escalations: "bg-amber-100 text-amber-800",
+  decisions_needed: "bg-red-100 text-red-700",
+  action_items: "bg-gray-100 text-gray-700",
+  pipeline_updates: "bg-blue-100 text-blue-700",
+};
+
 function AgendaCompact({
   items,
   deltaSummary,
@@ -255,6 +261,7 @@ function AgendaCompact({
   deltaSummary: string | null;
 }) {
   const openCount = items.filter((i) => !i.isResolved).length;
+  const hasEscalations = items.some((i) => !i.isResolved && i.section === "escalations");
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -266,7 +273,12 @@ function AgendaCompact({
         <div className="flex items-center gap-2">
           <h3 className="text-xs font-semibold text-gray-900">Agenda</h3>
           {openCount > 0 && (
-            <span className="text-[10px] text-gray-400 font-mono">{openCount} open</span>
+            <span className={cn(
+              "text-[10px] font-semibold font-mono px-2 py-0.5 rounded-full",
+              hasEscalations ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-600"
+            )}>
+              {openCount} open
+            </span>
           )}
         </div>
         <svg
@@ -286,7 +298,12 @@ function AgendaCompact({
             if (sectionItems.length === 0) return null;
             return (
               <div key={key}>
-                <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1">{label}</p>
+                <p className={cn(
+                  "text-[10px] font-semibold uppercase tracking-wider mb-1 inline-block px-2 py-0.5 rounded-full",
+                  COMPACT_SECTION_COLORS[key] ?? "bg-gray-100 text-gray-700"
+                )}>
+                  {label}
+                </p>
                 <ul className="space-y-0.5">
                   {sectionItems.map((item) => (
                     <li key={item.id} className={cn("text-[11px] pl-2.5 relative", item.isResolved ? "text-gray-400 line-through" : "text-gray-700")}>

@@ -229,10 +229,8 @@ export default function CatchupPageInner() {
               <LeadGenSection latest={latest} previous={finalPrevious} />
               <CostSection latest={latest} previous={finalPrevious} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <AmDemoSection latest={latest} />
-              <AgendaPanel latest={latest} previous={finalPrevious} />
-            </div>
+            <AmDemoSection latest={latest} />
+            <AgendaPanel latest={latest} previous={finalPrevious} />
           </div>
         )}
       </div>

@@ -57,7 +57,7 @@ export function PipelineSection({ latest, previous }: PipelineSectionProps) {
   return (
     <div className="bg-white/70 rounded-[14px] border border-white/90 shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-4">
       <h3 className="text-sm font-semibold text-gray-900 mb-3">Pipeline Overview</h3>
-      <div className="grid grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2.5">
         {tiles.map(({ seg, count, prev, names }) => {
           const visibleNames = names.slice(0, MAX_VISIBLE_NAMES);
           const overflow = names.length - MAX_VISIBLE_NAMES;

@@ -64,9 +64,9 @@ export function LeadGenSection({ latest, previous }: LeadGenSectionProps) {
         {funnelSteps.map((step, i) => (
           <div key={step.label} className="flex items-center flex-1 min-w-0">
             {conversions[i] !== null && conversions[i] !== undefined && (
-              <div className="flex flex-col items-center px-1 shrink-0">
-                <span className="text-gray-300 text-xs">&rarr;</span>
-                <span className={cn("text-[9px] font-semibold font-mono px-1.5 py-0.5 rounded-full", conversionColor(conversions[i]!))}>
+              <div className="flex flex-col items-center px-1.5 shrink-0">
+                <span className="text-gray-300 text-base">&rarr;</span>
+                <span className={cn("text-[11px] font-semibold font-mono px-2 py-0.5 rounded-full", conversionColor(conversions[i]!))}>
                   {conversions[i]}%
                 </span>
               </div>

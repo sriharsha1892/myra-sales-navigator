@@ -22,7 +22,7 @@ export function DeltaBadge({ current, previous, invert = false, prefix }: DeltaB
   const isPositive = invert ? delta < 0 : delta > 0;
   const arrow = delta > 0 ? "\u2191" : "\u2193";
   const absVal = Math.abs(delta);
-  const display = prefix === "$" ? formatUsd(absVal).slice(1) : absVal;
+  const display = prefix === "$" ? formatUsd(absVal).slice(1) : absVal.toLocaleString("en-US");
 
   return (
     <span

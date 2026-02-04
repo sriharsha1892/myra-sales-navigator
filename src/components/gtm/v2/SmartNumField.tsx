@@ -27,6 +27,10 @@ export function SmartNumField({
   const [deltaInput, setDeltaInput] = useState(() =>
     mode === "delta" ? String(value - base) : "0"
   );
+  const [deltaFocused, setDeltaFocused] = useState(false);
+
+  // When not actively editing, show the derived delta value to stay in sync
+  const displayDelta = deltaFocused ? deltaInput : String(value - base);
 
   const clamp = useCallback((n: number) => Math.max(0, Math.round(n)), []);
 
@@ -106,9 +110,14 @@ export function SmartNumField({
               <input
                 type="text"
                 inputMode="numeric"
-                value={deltaInput}
+                value={displayDelta}
                 onChange={(e) => handleDeltaChange(e.target.value)}
+                onFocus={() => {
+                  setDeltaFocused(true);
+                  setDeltaInput(String(value - base));
+                }}
                 onBlur={() => {
+                  setDeltaFocused(false);
                   // Clean up on blur
                   const n = Number(deltaInput);
                   if (!Number.isFinite(n)) setDeltaInput("0");

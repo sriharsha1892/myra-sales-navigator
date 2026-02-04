@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { DeltaBadge } from "./DeltaBadge";
-import type { GtmEntry, GtmV2Segment, CostItem } from "@/lib/gtm/v2-types";
-import { SEGMENT_LABELS } from "@/lib/gtm/v2-types";
+import { useAgendaItems } from "@/hooks/dashboard/useGtmV2";
+import type { GtmEntry, GtmV2Segment, CostItem, AgendaSection } from "@/lib/gtm/v2-types";
+import { SEGMENT_LABELS, AGENDA_SECTIONS } from "@/lib/gtm/v2-types";
 import { formatUsd } from "@/lib/gtm/format";
 import { cn } from "@/lib/cn";
 
@@ -67,6 +68,8 @@ export function ExecutiveDashboard({ latest, previous }: ExecutiveDashboardProps
     })).filter((s) => s.count > 0);
   }, [snap]);
 
+  const { data: agendaItems = [] } = useAgendaItems(latest.entryDate);
+
   // Top 3 cost orgs
   const topCost = useMemo(
     () => costItems.slice().sort((a, b) => b.costUsd - a.costUsd).slice(0, 3),
@@ -111,15 +114,18 @@ export function ExecutiveDashboard({ latest, previous }: ExecutiveDashboardProps
             </div>
           ))}
         </div>
-        <div className="flex flex-wrap gap-3 mt-2">
-          {pipelineSegments.map((s) => (
-            <div key={s.segment} className="flex items-center gap-1.5">
-              <span className={cn("w-2 h-2 rounded-full", SEGMENT_BAR_COLORS[s.segment])} />
-              <span className="text-[10px] text-gray-600">{SEGMENT_LABELS[s.segment]}</span>
-              <span className="text-[10px] font-mono font-semibold text-gray-900">{s.count}</span>
-            </div>
-          ))}
-        </div>
+        {/* Tooltip-only legend for narrow segments */}
+        {pipelineSegments.some((s) => s.pct <= 8) && (
+          <div className="flex flex-wrap gap-3 mt-2">
+            {pipelineSegments.filter((s) => s.pct <= 8).map((s) => (
+              <div key={s.segment} className="flex items-center gap-1.5">
+                <span className={cn("w-2 h-2 rounded-full", SEGMENT_BAR_COLORS[s.segment])} />
+                <span className="text-[10px] text-gray-600">{SEGMENT_LABELS[s.segment]}</span>
+                <span className="text-[10px] font-mono font-semibold text-gray-900">{s.count}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 4x2 metrics grid */}
@@ -162,6 +168,89 @@ export function ExecutiveDashboard({ latest, previous }: ExecutiveDashboardProps
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Agenda summary */}
+      <ExecAgendaSummary items={agendaItems} />
+    </div>
+  );
+}
+
+function ExecAgendaSummary({
+  items,
+}: {
+  items: { id: string; section: string; content: string; isResolved: boolean }[];
+}) {
+  const openItems = items.filter((i) => !i.isResolved);
+  const [expanded, setExpanded] = useState(false);
+
+  if (openItems.length === 0) return null;
+
+  const escalations = openItems.filter((i) => i.section === "escalations").length;
+  const decisions = openItems.filter((i) => i.section === "decisions_needed").length;
+
+  const parts: string[] = [];
+  if (escalations > 0) parts.push(`${escalations} escalation${escalations > 1 ? "s" : ""}`);
+  if (decisions > 0) parts.push(`${decisions} decision${decisions > 1 ? "s" : ""} needed`);
+  const actionItems = openItems.filter((i) => i.section === "action_items").length;
+  if (actionItems > 0) parts.push(`${actionItems} action item${actionItems > 1 ? "s" : ""}`);
+  const pipelineUpdates = openItems.filter((i) => i.section === "pipeline_updates").length;
+  if (pipelineUpdates > 0) parts.push(`${pipelineUpdates} pipeline update${pipelineUpdates > 1 ? "s" : ""}`);
+
+  return (
+    <div className={cn(
+      "rounded-[14px] border shadow-[0_2px_12px_rgba(0,0,0,0.03)]",
+      escalations > 0 ? "bg-amber-50/70 border-amber-200" : "bg-white/70 border-white/90"
+    )}>
+      <button
+        onClick={() => setExpanded((p) => !p)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left"
+      >
+        <div className="flex items-center gap-2">
+          <h3 className="text-xs font-semibold text-gray-900">Agenda</h3>
+          <span className={cn(
+            "text-[10px] font-semibold font-mono px-2 py-0.5 rounded-full",
+            escalations > 0 ? "bg-amber-100 text-amber-800" : "bg-gray-100 text-gray-600"
+          )}>
+            {openItems.length} open
+          </span>
+          <span className="text-[11px] text-gray-500">{parts.join(", ")}</span>
+        </div>
+        <svg
+          className={cn("w-3.5 h-3.5 text-gray-400 transition-transform duration-[180ms]", expanded && "rotate-180")}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {expanded && (
+        <div className="px-4 pb-3 space-y-2">
+          {AGENDA_SECTIONS.map(({ key, label }) => {
+            const sectionItems = openItems.filter((i) => i.section === key);
+            if (sectionItems.length === 0) return null;
+            return (
+              <div key={key}>
+                <p className={cn(
+                  "text-[10px] font-semibold uppercase tracking-wider mb-1 inline-block px-2 py-0.5 rounded-full",
+                  key === "escalations" ? "bg-amber-100 text-amber-800" :
+                  key === "decisions_needed" ? "bg-red-100 text-red-700" :
+                  key === "action_items" ? "bg-gray-100 text-gray-700" :
+                  "bg-blue-100 text-blue-700"
+                )}>
+                  {label}
+                </p>
+                <ul className="space-y-0.5">
+                  {sectionItems.map((item) => (
+                    <li key={item.id} className="text-[11px] text-gray-700 pl-2.5 relative">
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-gray-400" />
+                      {item.content}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
