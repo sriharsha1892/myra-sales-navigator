@@ -122,6 +122,62 @@ export interface GtmAgendaItem {
   createdAt: string;
 }
 
+// --- AM Performance (manual report) ---
+
+export interface AmChannelBreakdown {
+  email: number;
+  calls: number;
+  linkedin: number;
+  waOther: number;
+}
+
+export interface AmPerformanceRow {
+  name: string;
+  outreach: number;
+  demos: number;
+  sales: number;
+  demoChannels: AmChannelBreakdown | null;
+  outreachChannels: AmChannelBreakdown | null;
+  note: string;
+  status: "active" | "inactive";
+}
+
+export interface AmPerformanceReport {
+  id: string;
+  periodStart: string; // YYYY-MM-DD
+  periodEnd: string;   // YYYY-MM-DD
+  amData: AmPerformanceRow[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// --- Checkpoint color palette (used across consolidated tabs) ---
+
+export const CHECKPOINT_COLORS = [
+  "text-emerald-700",
+  "text-blue-700",
+  "text-purple-700",
+  "text-amber-700",
+  "text-cyan-700",
+];
+
+export const CHECKPOINT_PILL_COLORS = [
+  "text-emerald-700 bg-emerald-50 border-emerald-200",
+  "text-blue-700 bg-blue-50 border-blue-200",
+  "text-purple-700 bg-purple-50 border-purple-200",
+  "text-amber-700 bg-amber-50 border-amber-200",
+  "text-cyan-700 bg-cyan-50 border-cyan-200",
+];
+
+// --- Consolidated tab types ---
+
+export const PIPELINE_GROUPS: { label: string; segments: GtmV2Segment[] }[] = [
+  { label: "Product Engagement", segments: ["trial", "prospect"] },
+  { label: "Sales Pipeline", segments: ["post_demo", "demo_queued"] },
+  { label: "Revenue", segments: ["paying"] },
+  { label: "Inactive", segments: ["dormant", "lost", "early"] },
+];
+
 // Delta computation types
 export interface SegmentDeltaV2 {
   segment: GtmV2Segment;

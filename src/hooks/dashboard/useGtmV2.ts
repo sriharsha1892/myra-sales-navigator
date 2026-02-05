@@ -7,6 +7,8 @@ import type {
   GtmAgendaItem,
   GtmV2Segment,
   OrgSnapshot,
+  AmPerformanceReport,
+  AmPerformanceRow,
 } from "@/lib/gtm/v2-types";
 
 const Q = {
@@ -203,7 +205,7 @@ export function useAgendaItems(entryDate: string) {
   });
 }
 
-export function useUnresolvedAgenda() {
+export function useUnresolvedAgenda(enabled = true) {
   return useQuery({
     queryKey: Q.unresolved,
     queryFn: () =>
@@ -211,6 +213,7 @@ export function useUnresolvedAgenda() {
         "/api/gtm/v2/agenda?unresolved=true"
       ).then((r) => r.items),
     staleTime: 60_000,
+    enabled,
   });
 }
 
@@ -255,6 +258,80 @@ export function useUpdateAgendaItem() {
       }).then((r) => r.item),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["gtm-v2", "agenda"] });
+    },
+  });
+}
+
+// --- Entries (multi-date) ---
+
+export function useEntriesByDates(dates: string[], enabled = true) {
+  return useQuery({
+    queryKey: [...Q.entries, "multi", ...dates],
+    queryFn: () =>
+      api<{ entries: GtmEntry[] }>(
+        `/api/gtm/v2/entries?dates=${dates.join(",")}`
+      ).then((r) => r.entries),
+    enabled: enabled && dates.length > 0,
+    staleTime: 2 * 60_000,
+  });
+}
+
+// --- AM Performance ---
+
+const QAM = ["gtm-v2", "am-performance"] as const;
+
+export function useAmPerformanceReports(enabled = true) {
+  return useQuery({
+    queryKey: [...QAM],
+    queryFn: () =>
+      api<{ reports: AmPerformanceReport[] }>(
+        "/api/gtm/v2/am-performance"
+      ).then((r) => r.reports),
+    staleTime: 5 * 60_000,
+    enabled,
+  });
+}
+
+export function useLatestAmPerformance(enabled = true) {
+  return useQuery({
+    queryKey: [...QAM, "latest"],
+    queryFn: () =>
+      api<{ report: AmPerformanceReport | null }>(
+        "/api/gtm/v2/am-performance?latest=true"
+      ).then((r) => r.report),
+    staleTime: 5 * 60_000,
+    enabled,
+  });
+}
+
+export function useAmPerformanceById(id: string | null) {
+  return useQuery({
+    queryKey: id ? [...QAM, id] : [...QAM],
+    queryFn: () =>
+      api<{ report: AmPerformanceReport | null }>(
+        `/api/gtm/v2/am-performance?id=${id}`
+      ).then((r) => r.report),
+    enabled: !!id,
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useSaveAmPerformance() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      id?: string;
+      periodStart: string;
+      periodEnd: string;
+      amData: AmPerformanceRow[];
+    }) =>
+      api<{ report: AmPerformanceReport }>("/api/gtm/v2/am-performance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }).then((r) => r.report),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...QAM] });
     },
   });
 }

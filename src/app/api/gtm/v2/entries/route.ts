@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireGtmAuth } from "@/lib/gtm-dashboard/route-auth";
-import { getLatestEntries, getEntryByDate, getEntryDates, upsertEntry } from "@/lib/gtm/v2-queries";
+import { getLatestEntries, getEntryByDate, getEntryDates, getEntriesByDates, upsertEntry } from "@/lib/gtm/v2-queries";
 import { v2EntrySchema } from "@/lib/gtm/v2-validation";
 
 export async function GET(request: NextRequest) {
@@ -12,6 +12,20 @@ export async function GET(request: NextRequest) {
     if (list === "dates") {
       const dates = await getEntryDates();
       return NextResponse.json({ dates });
+    }
+
+    // Multi-date fetch for consolidated view
+    const dates = request.nextUrl.searchParams.get("dates");
+    if (dates) {
+      const dateList = dates
+        .split(",")
+        .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
+        .slice(0, 50);
+      if (dateList.length === 0) {
+        return NextResponse.json({ error: "No valid dates" }, { status: 400 });
+      }
+      const entries = await getEntriesByDates(dateList);
+      return NextResponse.json({ entries });
     }
 
     const date = request.nextUrl.searchParams.get("date");
