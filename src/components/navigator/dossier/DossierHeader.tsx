@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import type { CompanyEnriched } from "@/lib/navigator/types";
 import { IcpScoreBadge, SourceBadge } from "@/components/navigator/badges";
 import { StalenessIndicator } from "@/components/navigator/shared/StalenessIndicator";
@@ -26,6 +27,29 @@ const completenessFields: { key: keyof CompanyEnriched; label: string }[] = [
 export function DossierHeader({ company, onRefresh, isRefreshing }: DossierHeaderProps) {
   const searchSimilar = useStore((s) => s.searchSimilar);
   const contacts = useStore((s) => s.contactsByDomain[company.domain] ?? []);
+
+  // Capture time at mount — avoids impure Date.now() in render (react-hooks/purity)
+  const [mountTime] = useState(() => Date.now());
+
+  const fsBanner = useMemo(() => {
+    if (!company.freshsalesStatus || company.freshsalesStatus === "none") return null;
+    const statusText = company.freshsalesStatus === "won" || company.freshsalesStatus === "customer"
+      ? "Existing customer in Freshsales"
+      : company.freshsalesStatus === "lost"
+        ? "Previously lost in Freshsales"
+        : `In Freshsales as ${company.freshsalesStatus.replace("_", " ")}`;
+    const owner = company.freshsalesIntel?.account?.owner ?? null;
+    const lastAct = company.freshsalesIntel?.recentActivity?.[0] ?? null;
+    const actDaysAgo = lastAct?.date
+      ? Math.floor((mountTime - new Date(lastAct.date).getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+    const colorClass = company.freshsalesStatus === "won" || company.freshsalesStatus === "customer"
+      ? "bg-emerald-500/10 text-emerald-400"
+      : company.freshsalesStatus === "lost"
+        ? "bg-red-500/10 text-red-400"
+        : "bg-amber-500/10 text-amber-400";
+    return { statusText, owner, lastAct, actDaysAgo, colorClass };
+  }, [company.freshsalesStatus, company.freshsalesIntel, mountTime]);
 
   const filled = completenessFields.filter((f) => {
     const v = company[f.key];
@@ -80,38 +104,17 @@ export function DossierHeader({ company, onRefresh, isRefreshing }: DossierHeade
         </div>
       )}
       <RecommendedActionBar company={company} contacts={contacts} />
-      {company.freshsalesStatus && company.freshsalesStatus !== "none" && (() => {
-        const statusText = company.freshsalesStatus === "won" || company.freshsalesStatus === "customer"
-          ? "Existing customer in Freshsales"
-          : company.freshsalesStatus === "lost"
-            ? "Previously lost in Freshsales"
-            : `In Freshsales as ${company.freshsalesStatus.replace("_", " ")}`;
-        const owner = company.freshsalesIntel?.account?.owner;
-        const lastAct = company.freshsalesIntel?.recentActivity?.[0];
-        // eslint-disable-next-line react-hooks/purity
-        const actDaysAgo = lastAct?.date
-          ? Math.floor((Date.now() - new Date(lastAct.date).getTime()) / (1000 * 60 * 60 * 24))
-          : null;
-        return (
-          <div
-            className={`mt-2 rounded-input px-3 py-1.5 text-[11px] font-medium ${
-              company.freshsalesStatus === "won" || company.freshsalesStatus === "customer"
-                ? "bg-emerald-500/10 text-emerald-400"
-                : company.freshsalesStatus === "lost"
-                  ? "bg-red-500/10 text-red-400"
-                  : "bg-amber-500/10 text-amber-400"
-            }`}
-          >
-            {statusText}
-            {owner && (
-              <> &middot; Owned by <span className="text-accent-secondary">{owner.name}</span></>
-            )}
-            {lastAct && actDaysAgo != null && (
-              <> &middot; Last touched {actDaysAgo === 0 ? "today" : `${actDaysAgo}d ago`} ({lastAct.type})</>
-            )}
-          </div>
-        );
-      })()}
+      {fsBanner && (
+        <div className={`mt-2 rounded-input px-3 py-1.5 text-[11px] font-medium ${fsBanner.colorClass}`}>
+          {fsBanner.statusText}
+          {fsBanner.owner && (
+            <> &middot; Owned by <span className="text-accent-secondary">{fsBanner.owner.name}</span></>
+          )}
+          {fsBanner.lastAct && fsBanner.actDaysAgo != null && (
+            <> &middot; Last touched {fsBanner.actDaysAgo === 0 ? "today" : `${fsBanner.actDaysAgo}d ago`} ({fsBanner.lastAct.type})</>
+          )}
+        </div>
+      )}
       <div className="mt-2 flex items-center gap-2">
         {/* Source badges with legend tooltip (C3) */}
         <Tooltip text="E = Exa (web intel) · A = Apollo (contacts) · H = HubSpot (CRM) · F = Freshsales (CRM)">
