@@ -31,7 +31,10 @@ export default function Home() {
   const setSearchResults = useStore((s) => s.setSearchResults);
   const setSearchError = useStore((s) => s.setSearchError);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [searchInput, setSearchInput] = useState("");
+  const lastSearchQuery = useStore((s) => s.lastSearchQuery);
+  const [searchInput, setSearchInput] = useState(
+    () => lastSearchQuery ?? ""
+  );
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Typing effect state
@@ -42,14 +45,11 @@ export default function Home() {
   useKeyboardShortcuts();
 
   // Sync search bar from Cmd+K / store (covers Cmd+K searches and pill clears)
-  const lastSearchQuery = useStore((s) => s.lastSearchQuery);
-  useEffect(() => {
-    if (lastSearchQuery) {
-      setSearchInput(lastSearchQuery);
-    } else {
-      setSearchInput("");
-    }
-  }, [lastSearchQuery]);
+  const [prevQuery, setPrevQuery] = useState(lastSearchQuery);
+  if (lastSearchQuery !== prevQuery) {
+    setPrevQuery(lastSearchQuery);
+    setSearchInput(lastSearchQuery ?? "");
+  }
 
   // First-visit typing effect + glow
   useEffect(() => {
