@@ -73,7 +73,7 @@ export function AppShell() {
           {!detailPaneCollapsed && (
             <div style={{ animation: "columnReveal 250ms ease-out" }}>
               {selectedCompanyDomain ? (
-                <DossierErrorBoundary>
+                <DossierErrorBoundary key={selectedCompanyDomain}>
                   <SlideOverPane />
                 </DossierErrorBoundary>
               ) : (

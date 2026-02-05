@@ -30,8 +30,8 @@ export function CompanyStatusBadge({ domain, currentStatus, size = "md" }: Compa
         setOpen(false);
       }
     }
-    if (open) document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    if (open) document.addEventListener("click", handleClickOutside, true);
+    return () => document.removeEventListener("click", handleClickOutside, true);
   }, [open]);
 
   const handleSelect = (stageId: string) => {

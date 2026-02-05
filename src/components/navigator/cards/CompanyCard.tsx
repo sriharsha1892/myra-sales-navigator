@@ -195,9 +195,9 @@ export function CompanyCard({
           </div>
 
           {/* CRM status badges — prominent color-coded */}
-          {(company.freshsalesStatus !== "none" || (company.hubspotStatus !== "none" && company.hubspotStatus)) && (
+          {((company.freshsalesStatus && company.freshsalesStatus !== "none") || (company.hubspotStatus !== "none" && company.hubspotStatus)) && (
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              {company.freshsalesStatus !== "none" && (() => {
+              {company.freshsalesStatus && company.freshsalesStatus !== "none" && (() => {
                 const colors = crmStatusColors[company.freshsalesStatus] ?? { bg: "rgba(107, 114, 128, 0.12)", text: "#6b7280" };
                 const deal = company.freshsalesIntel?.deals?.[0];
                 const label = deal
@@ -223,12 +223,12 @@ export function CompanyCard({
                   </span>
                 );
               })()}
-              {company.freshsalesIntel?.account?.owner && (
+              {company.freshsalesStatus && company.freshsalesStatus !== "none" && company.freshsalesIntel?.account?.owner && (
                 <span className="ml-1 text-[10px] text-text-tertiary">
                   &middot; {company.freshsalesIntel.account.owner.name}
                 </span>
               )}
-              {company.freshsalesStatus === "none" && (company.hubspotStatus === "none" || !company.hubspotStatus) && (
+              {(!company.freshsalesStatus || company.freshsalesStatus === "none") && (company.hubspotStatus === "none" || !company.hubspotStatus) && (
                 <span className="rounded-pill bg-surface-2 px-1.5 py-0.5 text-xs text-text-tertiary">
                   Net new
                 </span>
