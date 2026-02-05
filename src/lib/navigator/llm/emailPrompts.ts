@@ -101,7 +101,7 @@ Return JSON: { "subject": "...", "body": "..." }
 The body should use plain text with line breaks (\\n). No HTML. No markdown formatting.${suffix}
 
 INSTRUCTIONS:
-1. First, identify the single most relevant signal or insight about this prospect. Build the email around that specific hook.
+1. Use the prospect's industry and role to frame relevance. Signals are background context to shape your angle — do NOT explicitly reference them or make the email feel like surveillance.
 2. Write a concise, human-sounding outreach email. Keep it under ${wordLimit} words.
 3. The subject line must be specific to the prospect — no generic subjects.
 

@@ -345,17 +345,17 @@ export const defaultUiPreferences: AdminUiPreferences = {
 };
 
 export const defaultEmailPrompts: EmailPromptsConfig = {
-  companyDescription: "a technology company",
-  valueProposition: "",
+  companyDescription: "myRA AI — an AI-powered research platform by ProdGain that combines autonomous multi-agent research with expert validation to deliver decision-grade intelligence. myRA provides market sizing (TAM/SAM/SOM), competitive intelligence, market entry strategy, supplier intelligence, and trend analysis. It accesses 30,000+ vetted databases (World Bank, IMF, WHO, Eurostat, Comtrade) and uses a validator agent that challenges findings before delivery. Clients include enterprise strategy teams, innovation committees, and product development groups.",
+  valueProposition: "Replace weeks of manual research with AI-powered intelligence validated by domain experts. Every insight includes source citations, confidence scores, and expert review — so teams get speed without sacrificing trust.",
   toneInstructions: {
     formal: "Use professional language. Address by Mr./Ms. + last name. Structured paragraphs.",
     casual: "Conversational and warm. First name basis. Short sentences. Friendly but not unprofessional.",
     direct: "Ultra-concise. Get to value prop in the first sentence. No small talk. Under 100 words.",
   },
   templateInstructions: {
-    intro: "This is a first-touch cold email. The prospect has never heard from us. Lead with a relevant insight about their company, connect it to how we can help, and end with a soft CTA (e.g., 'Worth a quick chat?').",
-    follow_up: "This is a follow-up to a previous outreach that got no response. Reference the previous attempt briefly, add new value (a new insight or resource), and make the CTA even softer.",
-    re_engagement: "This is a re-engagement email to someone we've spoken with before but the conversation went cold. Reference the previous interaction, share something new and relevant, and suggest reconnecting.",
+    intro: "First-touch cold email. The prospect has never heard from myRA AI. Lead with a pain point relevant to their role (e.g., slow research cycles, unreliable market data, manual competitive intelligence). Connect it to how myRA solves that, and end with a soft CTA (e.g., 'Worth a quick look?'). Do NOT list features — focus on one outcome they'd care about.",
+    follow_up: "Follow-up to a previous outreach that got no response. Reference the previous attempt briefly, share a specific capability relevant to their industry (market sizing, competitor tracking, supplier vetting), and make the CTA even softer.",
+    re_engagement: "Re-engagement to someone we've spoken with before but the conversation went cold. Reference the previous interaction, share something new about myRA (new data sources, validation improvements, recent client wins in their vertical), and suggest reconnecting.",
   },
   systemPromptSuffix: "",
   defaultTone: "direct",

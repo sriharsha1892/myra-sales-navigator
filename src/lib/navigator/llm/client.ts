@@ -66,7 +66,7 @@ class GeminiProvider implements LLMProvider {
   async complete(prompt: string, options?: LLMOptions): Promise<string> {
     const ai = this.getAI();
     const model = ai.getGenerativeModel({
-      model: "gemini-2.0-flash-lite",
+      model: "gemini-2.0-flash",
       generationConfig: {
         maxOutputTokens: options?.maxTokens ?? 1024,
         temperature: options?.temperature ?? 0.7,

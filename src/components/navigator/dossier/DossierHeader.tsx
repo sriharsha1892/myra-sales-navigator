@@ -88,6 +88,7 @@ export function DossierHeader({ company, onRefresh, isRefreshing }: DossierHeade
             : `In Freshsales as ${company.freshsalesStatus.replace("_", " ")}`;
         const owner = company.freshsalesIntel?.account?.owner;
         const lastAct = company.freshsalesIntel?.recentActivity?.[0];
+        // eslint-disable-next-line react-hooks/purity
         const actDaysAgo = lastAct?.date
           ? Math.floor((Date.now() - new Date(lastAct.date).getTime()) / (1000 * 60 * 60 * 24))
           : null;

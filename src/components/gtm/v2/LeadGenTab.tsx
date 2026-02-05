@@ -48,6 +48,16 @@ export function LeadGenTab({ values, onChange, previous }: LeadGenTabProps) {
             onChange={(v) => onChange("inboundJunk", v)}
           />
         </div>
+        {values.inboundJunk > values.inboundTotal && values.inboundTotal > 0 && (
+          <p className="text-[11px] text-amber-600 mt-1">
+            Junk ({values.inboundJunk}) exceeds total ({values.inboundTotal})
+          </p>
+        )}
+        {values.inboundJunk <= values.inboundTotal && (values.inboundActive + values.inboundJunk) > values.inboundTotal && values.inboundTotal > 0 && (
+          <p className="text-[11px] text-amber-600 mt-1">
+            Active + Junk ({values.inboundActive + values.inboundJunk}) exceeds total ({values.inboundTotal})
+          </p>
+        )}
       </div>
 
       {/* Outbound */}

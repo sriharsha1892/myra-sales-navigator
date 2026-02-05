@@ -18,6 +18,7 @@ export function CostsTab({
   onCostPeriodChange,
 }: CostsTabProps) {
   const tableRef = useRef<HTMLDivElement>(null);
+  const nameRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [pasteBanner, setPasteBanner] = useState<string | null>(null);
 
   const updateItem = useCallback(
@@ -109,7 +110,8 @@ export function CostsTab({
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-3">Cost Economics</h3>
         <p className="text-xs text-gray-500 mb-4">
-          Enter cost items directly. You can paste TSV or CSV rows (name, cost, users) into any name field.
+          Enter cost items directly, or paste rows from a spreadsheet.
+          Format: <code className="text-[11px] bg-gray-100 px-1 py-0.5 rounded font-mono">Name → Cost → Users → Conversations</code> (tab or comma separated)
         </p>
       </div>
 
@@ -166,9 +168,18 @@ export function CostsTab({
           >
             <div className="px-2 py-1">
               <input
+                ref={(el) => { nameRefs.current[i] = el; }}
                 value={item.name}
                 onChange={(e) => updateItem(i, "name", e.target.value)}
                 onPaste={(e) => handleRowPaste(e, i)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    const row = (e.target as HTMLElement).closest(".grid");
+                    const inputs = row?.querySelectorAll("input");
+                    (inputs?.[1] as HTMLInputElement)?.focus();
+                  }
+                }}
                 placeholder="Organization name"
                 className="w-full px-2 py-1.5 text-sm border border-transparent rounded focus:outline-none focus:border-gray-300 focus:ring-2 focus:ring-blue-500/20 bg-transparent"
               />
@@ -207,6 +218,17 @@ export function CostsTab({
                 onChange={(e) => {
                   const n = Number(e.target.value);
                   updateItem(i, "conversations", Number.isFinite(n) ? Math.round(n) : 0);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Tab" && !e.shiftKey) {
+                    e.preventDefault();
+                    if (i === costItems.length - 1) {
+                      addItem();
+                      requestAnimationFrame(() => nameRefs.current[i + 1]?.focus());
+                    } else {
+                      nameRefs.current[i + 1]?.focus();
+                    }
+                  }
                 }}
                 min={0}
                 className="w-full px-2 py-1.5 text-sm font-mono text-right border border-transparent rounded focus:outline-none focus:border-gray-300 focus:ring-2 focus:ring-blue-500/20 bg-transparent tabular-nums"

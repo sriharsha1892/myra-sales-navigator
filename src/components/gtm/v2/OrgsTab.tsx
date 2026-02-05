@@ -286,6 +286,7 @@ export function OrgsTab({ snapshot, onSnapshotChange }: OrgsTabProps) {
     }
     return set;
   });
+  const [globalSearch, setGlobalSearch] = useState("");
 
   const hasSelection = selected.size > 0;
 
@@ -444,14 +445,53 @@ export function OrgsTab({ snapshot, onSnapshotChange }: OrgsTabProps) {
     0
   );
 
+  const filteredSnapshot = useMemo(() => {
+    if (!globalSearch) return null;
+    const lower = globalSearch.toLowerCase();
+    const result = {} as Record<GtmV2Segment, string[]>;
+    let totalMatches = 0;
+    for (const seg of ALL_V2_SEGMENTS) {
+      result[seg] = (snapshot.names[seg] ?? []).filter((n) =>
+        n.toLowerCase().includes(lower)
+      );
+      totalMatches += result[seg].length;
+    }
+    return { names: result, totalMatches };
+  }, [globalSearch, snapshot.names]);
+
+  const effectiveCollapsed = useMemo(() => {
+    if (!filteredSnapshot) return collapsed;
+    const set = new Set<GtmV2Segment>();
+    for (const seg of ALL_V2_SEGMENTS) {
+      if (filteredSnapshot.names[seg].length === 0) set.add(seg);
+    }
+    return set;
+  }, [filteredSnapshot, collapsed]);
+
   return (
     <div className="space-y-3">
       {/* Toolbar */}
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-sm font-medium text-gray-700 flex-1">
+        <span className="text-sm font-medium text-gray-700">
           {totalOrgs} organization{totalOrgs !== 1 ? "s" : ""} across{" "}
           {ALL_V2_SEGMENTS.filter((s) => (snapshot.names[s]?.length ?? 0) > 0).length} segments
         </span>
+        <div className="relative flex-1 max-w-sm">
+          <input
+            value={globalSearch}
+            onChange={(e) => setGlobalSearch(e.target.value)}
+            placeholder="Search orgs or type to add..."
+            className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/10 pr-7"
+          />
+          {globalSearch && (
+            <button
+              onClick={() => setGlobalSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm leading-none"
+            >
+              &times;
+            </button>
+          )}
+        </div>
         <button
           onClick={() => setShowPaste((v) => !v)}
           className={cn(
@@ -464,6 +504,28 @@ export function OrgsTab({ snapshot, onSnapshotChange }: OrgsTabProps) {
           Paste Table
         </button>
       </div>
+
+      {/* Quick-add when search has no matches */}
+      {filteredSnapshot && filteredSnapshot.totalMatches === 0 && globalSearch.trim() && (
+        <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
+          <span>No matches. Add &ldquo;{globalSearch.trim()}&rdquo; to:</span>
+          {ALL_V2_SEGMENTS.map((seg) => (
+            <button
+              key={seg}
+              onClick={() => {
+                addOrgs(seg, globalSearch.trim());
+                setGlobalSearch("");
+              }}
+              className={cn(
+                "text-[10px] font-medium px-1.5 py-0.5 rounded hover:opacity-80 transition-opacity cursor-pointer",
+                SEGMENT_COLORS[seg]
+              )}
+            >
+              {SEGMENT_LABELS[seg]}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Batch action bar */}
       {hasSelection && (
@@ -534,9 +596,10 @@ export function OrgsTab({ snapshot, onSnapshotChange }: OrgsTabProps) {
       {/* Segment sections */}
       <div className="border border-gray-200 rounded-lg overflow-hidden bg-white divide-y divide-gray-100">
         {ALL_V2_SEGMENTS.map((seg) => {
-          const names = snapshot.names[seg] ?? [];
-          const isCollapsed = collapsed.has(seg);
-          const count = names.length;
+          const allNames = snapshot.names[seg] ?? [];
+          const names = filteredSnapshot ? filteredSnapshot.names[seg] : allNames;
+          const isCollapsed = effectiveCollapsed.has(seg);
+          const count = allNames.length;
 
           return (
             <div key={seg}>

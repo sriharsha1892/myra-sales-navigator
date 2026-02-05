@@ -134,7 +134,7 @@ PLATFORM: ${constraints.platformGuidance}
 ${limitInstructions}
 
 INSTRUCTIONS:
-1. Identify the single most relevant signal or insight about this prospect. Build the message around that specific hook.
+1. Use the prospect's industry and role to frame relevance. Signals are background context to shape your angle — do NOT explicitly reference them or make the message feel like surveillance.
 2. Write a concise, human-sounding message.
 3. ${constraints.hasSubject ? "The subject line must be specific to the prospect." : "No subject line needed."}
 

@@ -13,7 +13,7 @@ import { AgendaTab } from "@/components/gtm/v2/AgendaTab";
 import { GtmToastProvider, useGtmToast } from "@/components/gtm/v2/Toast";
 import type { OrgSnapshot, GtmV2Segment, CostItem } from "@/lib/gtm/v2-types";
 import { ALL_V2_SEGMENTS } from "@/lib/gtm/v2-types";
-import { buildSnapshotFromEdits } from "@/lib/gtm/v2-utils";
+import { buildSnapshotFromEdits, formatEntryDate } from "@/lib/gtm/v2-utils";
 
 type Tab = "orgs" | "leadgen" | "costs" | "demos" | "agenda";
 
@@ -51,6 +51,12 @@ function EntryPageContent() {
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const { addToast } = useGtmToast();
+
+  // UX: dirty state, per-tab indicators, last-saved timestamp, date-switch guard
+  const [dirty, setDirty] = useState(false);
+  const [dirtyTabs, setDirtyTabs] = useState<Set<Tab>>(new Set());
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [pendingDate, setPendingDate] = useState<string | null>(null);
 
   const { data: entriesData, isLoading: entriesLoading } = useV2Entries(authed);
   const { data: dateEntry, isLoading: dateEntryLoading } = useV2EntryByDate(entryDate);
@@ -116,6 +122,9 @@ function EntryPageContent() {
     });
 
     isDirty.current = false;
+    setDirty(false);
+    setDirtyTabs(new Set());
+    setLastSavedAt(null);
   }, [dateEntry, latest, entryDate]);
 
   // Reset sync key when date changes so we re-sync
@@ -134,37 +143,47 @@ function EntryPageContent() {
     return () => window.removeEventListener("beforeunload", handler);
   }, []);
 
+  const markTabDirty = useCallback((t: Tab) => {
+    setDirty(true);
+    setDirtyTabs((prev) => new Set(prev).add(t));
+  }, []);
+
   const handleSnapshotChange = useCallback((newSnapshot: OrgSnapshot) => {
     isDirty.current = true;
+    markTabDirty("orgs");
     setSnapshot(newSnapshot);
-  }, []);
+  }, [markTabDirty]);
 
   const handleCostItemsChange = useCallback(
     (items: CostItem[]) => {
       isDirty.current = true;
+      markTabDirty("costs");
       // Rebuild snapshot with new cost items
       setSnapshot((prev) => buildSnapshotFromEdits(prev.names, items));
     },
-    []
+    [markTabDirty]
   );
 
   const handleCostPeriodChange = useCallback((period: string) => {
     isDirty.current = true;
+    markTabDirty("costs");
     setCostPeriod(period);
-  }, []);
+  }, [markTabDirty]);
 
   const handleLeadGenChange = useCallback(
     (field: string, value: number | string) => {
       isDirty.current = true;
+      markTabDirty("leadgen");
       setLeadGen((prev) => ({ ...prev, [field]: value }));
     },
-    []
+    [markTabDirty]
   );
 
   const handleDemosChange = useCallback((v: Record<string, number>) => {
     isDirty.current = true;
+    markTabDirty("demos");
     setAmDemos(v);
-  }, []);
+  }, [markTabDirty]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -184,6 +203,9 @@ function EntryPageContent() {
         orgSnapshot: finalSnapshot,
       });
       isDirty.current = false;
+      setDirty(false);
+      setDirtyTabs(new Set());
+      setLastSavedAt(new Date());
       setSaveSuccess(true);
       addToast("Entry saved", "success");
       setTimeout(() => setSaveSuccess(false), 1500);
@@ -227,7 +249,13 @@ function EntryPageContent() {
                 type="date"
                 value={entryDate}
                 max={todayDate()}
-                onChange={(e) => setEntryDate(e.target.value)}
+                onChange={(e) => {
+                  if (dirty) {
+                    setPendingDate(e.target.value);
+                  } else {
+                    setEntryDate(e.target.value);
+                  }
+                }}
                 className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/10"
               />
               {entryDate !== todayDate() && (
@@ -247,11 +275,18 @@ function EntryPageContent() {
                   "px-5 py-2 text-sm font-medium rounded-lg transition-colors",
                   saveSuccess
                     ? "bg-emerald-600 text-white"
-                    : "bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-40"
+                    : dirty
+                      ? "bg-gray-900 text-white hover:bg-gray-800 ring-2 ring-amber-400/50 disabled:opacity-40"
+                      : "bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-40"
                 )}
               >
-                {saving ? "Saving..." : saveSuccess ? "\u2713 Saved" : "Save Entry"}
+                {saving ? "Saving..." : saveSuccess ? "\u2713 Saved" : dirty ? "Save *" : "Save Entry"}
               </button>
+              {lastSavedAt && !dirty && (
+                <span className="text-[10px] text-gray-400">
+                  Saved {lastSavedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                </span>
+              )}
             </div>
           </div>
 
@@ -262,13 +297,16 @@ function EntryPageContent() {
                 key={key}
                 onClick={() => setTab(key)}
                 className={cn(
-                  "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors",
+                  "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-1",
                   tab === key
                     ? "bg-white text-gray-900 shadow-sm"
                     : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
                 )}
               >
                 {label}
+                {dirtyTabs.has(key) && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                )}
               </button>
             ))}
           </div>
@@ -291,6 +329,11 @@ function EntryPageContent() {
               <p className="text-xs text-gray-400 text-center">Loading...</p>
             </div>
           ) : (<>
+          {!dateEntry && latest && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700 mb-4">
+              Pre-filled from {formatEntryDate(latest.entryDate)} — save to create entry for {formatEntryDate(entryDate)}
+            </div>
+          )}
           {tab === "orgs" && (
             <OrgsTab
               snapshot={snapshot}
@@ -325,6 +368,43 @@ function EntryPageContent() {
           </>)}
         </div>
       </div>
+
+      {/* Pending date switch bar */}
+      {pendingDate && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-white border border-amber-300 rounded-xl shadow-lg px-5 py-3 flex items-center gap-3">
+          <span className="text-sm text-gray-700">
+            Unsaved changes — switch to {formatEntryDate(pendingDate)}?
+          </span>
+          <button
+            onClick={async () => {
+              await handleSave();
+              setEntryDate(pendingDate);
+              setPendingDate(null);
+            }}
+            className="px-3 py-1.5 text-xs font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+          >
+            Save &amp; switch
+          </button>
+          <button
+            onClick={() => {
+              isDirty.current = false;
+              setDirty(false);
+              setDirtyTabs(new Set());
+              setEntryDate(pendingDate);
+              setPendingDate(null);
+            }}
+            className="px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Discard
+          </button>
+          <button
+            onClick={() => setPendingDate(null)}
+            className="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
     </div>
   );
 }

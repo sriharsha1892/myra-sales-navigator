@@ -24,6 +24,7 @@ export function AgendaTab({ entryDate, currentEntry, previousEntry }: AgendaTabP
   const { data: unresolvedItems = [], isLoading: unresolvedLoading } = useUnresolvedAgenda();
   const createItem = useCreateAgendaItem();
   const updateItem = useUpdateAgendaItem();
+  const [copying, setCopying] = useState(false);
 
   const deltaSummary =
     currentEntry && previousEntry
@@ -63,19 +64,27 @@ export function AgendaTab({ entryDate, currentEntry, previousEntry }: AgendaTabP
               Unresolved from {prevDate} ({carriedForward.length})
             </p>
             <button
-              onClick={() => {
-                for (const item of carriedForward) {
-                  createItem.mutate({
-                    entryDate,
-                    section: item.section,
-                    content: item.content,
-                    sortOrder: items.filter((i) => i.section === item.section).length,
-                  });
+              disabled={copying}
+              onClick={async () => {
+                setCopying(true);
+                try {
+                  await Promise.all(
+                    carriedForward.map((item) =>
+                      createItem.mutateAsync({
+                        entryDate,
+                        section: item.section,
+                        content: item.content,
+                        sortOrder: items.filter((i) => i.section === item.section).length,
+                      })
+                    )
+                  );
+                } finally {
+                  setCopying(false);
                 }
               }}
-              className="text-[10px] font-medium text-amber-700 hover:text-amber-900 bg-amber-100 hover:bg-amber-200 px-2 py-0.5 rounded transition-colors"
+              className="text-[10px] font-medium text-amber-700 hover:text-amber-900 bg-amber-100 hover:bg-amber-200 px-2 py-0.5 rounded transition-colors disabled:opacity-50"
             >
-              Copy all to this entry
+              {copying ? "Copying..." : "Copy all to this entry"}
             </button>
           </div>
           <div className="space-y-1">
