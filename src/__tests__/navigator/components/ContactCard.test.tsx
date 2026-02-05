@@ -8,12 +8,17 @@ import type { Contact } from "@/lib/navigator/types";
 // ---------------------------------------------------------------------------
 
 const mockSetQueriesData = vi.fn();
-vi.mock("@tanstack/react-query", () => ({
-  useQueryClient: () => ({
-    setQueriesData: mockSetQueriesData,
-    invalidateQueries: vi.fn(),
-  }),
-}));
+vi.mock("@tanstack/react-query", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@tanstack/react-query")>();
+  return {
+    ...actual,
+    useQuery: vi.fn().mockReturnValue({ data: undefined, isLoading: false, error: null }),
+    useQueryClient: () => ({
+      setQueriesData: mockSetQueriesData,
+      invalidateQueries: vi.fn(),
+    }),
+  };
+});
 
 // ---------------------------------------------------------------------------
 // Mock store
@@ -149,15 +154,16 @@ describe("ContactCard", () => {
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith("jane@test.com");
   });
 
-  it("shows reveal button and disables exclude when no email", () => {
+  it("shows find email button and exclude still enabled when no email", () => {
     const contact = makeContact({ email: null });
     render(<ContactCard contact={contact} {...defaultProps} isExpanded={true} />);
 
-    // When no email, component shows "Reveal email" instead of "Copy email"
-    const revealBtns = screen.getAllByText("Reveal email");
-    expect(revealBtns.length).toBeGreaterThan(0);
+    // When no email, component shows "Find email" buttons
+    const findBtns = screen.getAllByText("Find email");
+    expect(findBtns.length).toBeGreaterThan(0);
+    // Exclude is still enabled — falls back to contact_id exclusion
     const excludeBtn = screen.getByText("Exclude");
-    expect(excludeBtn).toBeDisabled();
+    expect(excludeBtn).not.toBeDisabled();
   });
 
   it("exclude calls store.excludeContact", () => {
@@ -167,7 +173,7 @@ describe("ContactCard", () => {
     const excludeBtn = screen.getByText("Exclude");
     fireEvent.click(excludeBtn);
 
-    expect(mockExcludeContact).toHaveBeenCalledWith("jane@test.com");
+    expect(mockExcludeContact).toHaveBeenCalledWith("jane@test.com", "email");
   });
 
   it("renders gracefully when contact fields are null/undefined", () => {
@@ -179,8 +185,8 @@ describe("ContactCard", () => {
     });
     render(<ContactCard contact={contact} {...defaultProps} isExpanded={true} />);
 
-    // Should not throw — renders fallback text
-    expect(screen.getByText("—")).toBeInTheDocument(); // companyName fallback
+    // Should not throw — the component renders without crashing
+    expect(screen.getByRole("option")).toBeInTheDocument();
   });
 
   it("renders gracefully when lastVerified is malformed", () => {

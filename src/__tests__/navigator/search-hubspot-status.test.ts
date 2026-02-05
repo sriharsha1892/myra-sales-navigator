@@ -106,11 +106,15 @@ vi.mock("@/lib/navigator/scoring", () => ({
   calculateIcpScore: vi.fn().mockReturnValue({ score: 50, breakdown: [] }),
 }));
 
-vi.mock("@/lib/cache", () => ({
-  getCached: vi.fn().mockResolvedValue(null),
-  setCached: vi.fn().mockResolvedValue(undefined),
-  clearCache: vi.fn().mockResolvedValue(undefined),
-}));
+vi.mock("@/lib/cache", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/cache")>();
+  return {
+    ...actual,
+    getCached: vi.fn().mockResolvedValue(null),
+    setCached: vi.fn().mockResolvedValue(undefined),
+    clearCache: vi.fn().mockResolvedValue(undefined),
+  };
+});
 
 // ---------------------------------------------------------------------------
 // Mock HubSpot provider

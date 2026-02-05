@@ -11,12 +11,17 @@ beforeAll(() => {
 // Mock @tanstack/react-query (ContactCard uses useQueryClient)
 // ---------------------------------------------------------------------------
 
-vi.mock("@tanstack/react-query", () => ({
-  useQueryClient: () => ({
-    setQueriesData: vi.fn(),
-    invalidateQueries: vi.fn(),
-  }),
-}));
+vi.mock("@tanstack/react-query", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@tanstack/react-query")>();
+  return {
+    ...actual,
+    useQuery: vi.fn().mockReturnValue({ data: undefined, isLoading: false, error: null }),
+    useQueryClient: () => ({
+      setQueriesData: vi.fn(),
+      invalidateQueries: vi.fn(),
+    }),
+  };
+});
 
 // ---------------------------------------------------------------------------
 // Mock hooks
@@ -337,7 +342,7 @@ describe("ContactsView render branches", () => {
     render(<ResultsList />);
 
     expect(screen.getByText("2 companies failed to load contacts")).toBeInTheDocument();
-    expect(screen.getByText("Retry")).toBeInTheDocument();
+    expect(screen.getByText("Retry all")).toBeInTheDocument();
   });
 
   it("collapsed groups hide their contact cards", async () => {

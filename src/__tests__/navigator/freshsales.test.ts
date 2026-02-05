@@ -347,7 +347,7 @@ describe("getFreshsalesIntel — HTTP errors", () => {
       .mockResolvedValueOnce(makeErrorResponse(500));
     await getFreshsalesIntel("acme.com");
     expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("[Freshsales] Account search failed")
+      expect.stringContaining("[Freshsales] sales_account search failed")
     );
     warnSpy.mockRestore();
   });

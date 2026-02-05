@@ -20,24 +20,15 @@ vi.mock("@/lib/navigator/providers/freshsales", () => ({
   isFreshsalesAvailable: vi.fn().mockReturnValue(false),
 }));
 
-vi.mock("@/lib/cache", () => ({
-  normalizeDomain: (d: string) => d.toLowerCase().replace(/^www\./, "").trim(),
-  getCached: vi.fn().mockResolvedValue(null),
-  setCached: vi.fn().mockResolvedValue(undefined),
-  deleteCached: vi.fn().mockResolvedValue(undefined),
-  CacheKeys: {
-    enrichedContacts: (d: string) => `enriched-contacts:${d}`,
-    apolloContacts: (d: string) => `apollo-contacts:${d}`,
-    hubspotContacts: (d: string) => `hubspot-contacts:${d}`,
-    freshsalesContacts: (d: string) => `freshsales-contacts:${d}`,
-  },
-  CacheTTL: {
-    enrichedContacts: 86400,
-    apollo: 86400,
-    hubspot: 3600,
-    freshsales: 3600,
-  },
-}));
+vi.mock("@/lib/cache", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/cache")>();
+  return {
+    ...actual,
+    getCached: vi.fn().mockResolvedValue(null),
+    setCached: vi.fn().mockResolvedValue(undefined),
+    deleteCached: vi.fn().mockResolvedValue(undefined),
+  };
+});
 
 import { GET } from "@/app/api/company/[domain]/contacts/route";
 import { findContacts, isApolloAvailable } from "@/lib/navigator/providers/apollo";
