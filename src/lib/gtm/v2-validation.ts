@@ -98,3 +98,29 @@ export const v2AgendaUpdateSchema = z.object({
   sortOrder: z.number().int().min(0).optional(),
   content: z.string().min(1).optional(),
 });
+
+// --- AM Performance ---
+
+const amChannelSchema = z.object({
+  email: z.number().int().min(0),
+  calls: z.number().int().min(0),
+  linkedin: z.number().int().min(0),
+  waOther: z.number().int().min(0),
+});
+
+const amRowSchema = z.object({
+  name: z.string().min(1, { message: "AM name is required" }),
+  outreach: z.number().int().min(0),
+  demos: z.number().int().min(0),
+  sales: z.number().int().min(0),
+  demoChannels: amChannelSchema.nullable(),
+  outreachChannels: amChannelSchema.nullable(),
+  note: z.string(),
+  status: z.enum(["active", "inactive"]),
+});
+
+export const v2AmPerformanceSchema = z.object({
+  periodStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: "Date must be YYYY-MM-DD" }),
+  periodEnd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: "Date must be YYYY-MM-DD" }),
+  amData: z.array(amRowSchema).min(1, { message: "At least one AM required" }),
+});

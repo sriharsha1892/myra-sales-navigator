@@ -6,6 +6,8 @@ import type {
   GtmAgendaItem,
   GtmV2Segment,
   OrgSnapshot,
+  AmPerformanceReport,
+  AmPerformanceRow,
 } from "./v2-types";
 import { buildOrgSnapshot } from "./v2-utils";
 
@@ -365,4 +367,106 @@ export async function updateAgendaItem(
     .single();
   if (error) throw error;
   return mapAgendaItem(data);
+}
+
+// --- Entries (multi-date) ---
+
+/** Fetch multiple entries by specific dates */
+export async function getEntriesByDates(
+  dates: string[]
+): Promise<GtmEntry[]> {
+  if (dates.length === 0) return [];
+  const sb = createServerClient();
+  const { data, error } = await sb
+    .from("gtm_entries")
+    .select("*")
+    .in("entry_date", dates)
+    .order("entry_date", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(mapEntry);
+}
+
+// --- AM Performance ---
+
+function mapAmPerformance(row: SupabaseRow): AmPerformanceReport {
+  return {
+    id: row.id,
+    periodStart: row.period_start,
+    periodEnd: row.period_end,
+    amData: (row.am_data as AmPerformanceRow[]) ?? [],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function getAmPerformanceReports(): Promise<AmPerformanceReport[]> {
+  const sb = createServerClient();
+  const { data, error } = await sb
+    .from("gtm_am_performance")
+    .select("*")
+    .order("period_end", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapAmPerformance);
+}
+
+export async function getAmPerformanceById(
+  id: string
+): Promise<AmPerformanceReport | null> {
+  const sb = createServerClient();
+  const { data, error } = await sb
+    .from("gtm_am_performance")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? mapAmPerformance(data) : null;
+}
+
+/** Get the latest AM performance report */
+export async function getLatestAmPerformance(): Promise<AmPerformanceReport | null> {
+  const sb = createServerClient();
+  const { data, error } = await sb
+    .from("gtm_am_performance")
+    .select("*")
+    .order("period_end", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? mapAmPerformance(data) : null;
+}
+
+export async function upsertAmPerformance(
+  report: {
+    id?: string;
+    periodStart: string;
+    periodEnd: string;
+    amData: AmPerformanceRow[];
+  }
+): Promise<AmPerformanceReport> {
+  const sb = createServerClient();
+  const row = {
+    period_start: report.periodStart,
+    period_end: report.periodEnd,
+    am_data: report.amData,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (report.id) {
+    const { data, error } = await sb
+      .from("gtm_am_performance")
+      .update(row)
+      .eq("id", report.id)
+      .select()
+      .single();
+    if (error) throw error;
+    return mapAmPerformance(data);
+  }
+
+  const { data, error } = await sb
+    .from("gtm_am_performance")
+    .insert(row)
+    .select()
+    .single();
+  if (error) throw error;
+  return mapAmPerformance(data);
 }
