@@ -15,6 +15,7 @@ import { CompanyNotes } from "@/components/navigator/notes/CompanyNotes";
 import { ContactsPanel } from "@/components/navigator/contacts/ContactsPanel";
 import { useCompanyDossier } from "@/hooks/navigator/useCompanyDossier";
 import { useExport } from "@/hooks/navigator/useExport";
+import { useBrowserNotifications } from "@/hooks/navigator/useBrowserNotifications";
 
 export function SlideOverPane() {
   const selectedCompany = useStore((s) => s.selectedCompany);
@@ -29,10 +30,12 @@ export function SlideOverPane() {
   const dossierScrollToTop = useStore((s) => s.dossierScrollToTop);
   const dossier = useCompanyDossier(selectedCompanyDomain);
   const { executeExport } = useExport();
+  const { notify } = useBrowserNotifications();
   const storeCompany = selectedCompany();
   const company = dossier.company ?? storeCompany;
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [highlightFlash, setHighlightFlash] = useState(false);
+  const prevDossierLoading = useRef(dossier.isLoading);
 
   // Auto-retry Apollo enrichment for exa-only companies.
   // Only triggers refetch() through React Query — no raw fetch() to avoid
@@ -50,6 +53,14 @@ export function SlideOverPane() {
       dossier.refetch();
     }
   }, [dossier, storeCompany]);
+
+  // Notify when dossier refresh completes (loading transitions true→false)
+  useEffect(() => {
+    if (prevDossierLoading.current && !dossier.isLoading && company) {
+      notify("Dossier refreshed", `${company.name} data updated`);
+    }
+    prevDossierLoading.current = dossier.isLoading;
+  }, [dossier.isLoading, company, notify]);
 
   // Scroll to top + flash highlight when dossierScrollToTop changes
   useEffect(() => {

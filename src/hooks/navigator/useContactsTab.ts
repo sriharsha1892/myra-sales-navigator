@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useStore } from "@/lib/navigator/store";
 import { pLimit } from "@/lib/utils";
+import { useBrowserNotifications } from "@/hooks/navigator/useBrowserNotifications";
 import type { Contact } from "@/lib/navigator/types";
 
 export type PersonaType = "decision_makers" | "influencers" | "operations";
@@ -90,6 +91,7 @@ export function useContactsTab(): ContactsTabState {
   const contactFilters = useStore((s) => s.contactFilters);
   const filteredCompanies = useStore((s) => s.filteredCompanies);
   const exclusions = useStore((s) => s.exclusions);
+  const { notify } = useBrowserNotifications();
 
   const [fetchedCount, setFetchedCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
@@ -178,7 +180,10 @@ export function useContactsTab(): ContactsTabState {
     );
 
     Promise.all(promises).then(() => {
-      if (!controller.signal.aborted) setIsLoading(false);
+      if (!controller.signal.aborted) {
+        setIsLoading(false);
+        notify("Contacts loaded", `Loaded contacts for ${toFetch.length} companies`);
+      }
     });
 
     return () => {

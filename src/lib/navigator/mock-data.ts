@@ -386,6 +386,20 @@ export const defaultFreshsalesSettings: FreshsalesSettings = {
     freshsalesCustomer: -40,
     freshsalesRecentContact: 15,
   },
+  showOwner: true,
+  showTags: true,
+  showDealVelocity: true,
+  stalledDealThresholdDays: 30,
+  tagScoringRules: {
+    boostTags: ["decision maker", "champion", "key contact"],
+    boostPoints: 15,
+    penaltyTags: ["churned", "bad fit", "competitor"],
+    penaltyPoints: -20,
+    excludeTags: ["dnc", "do not contact", "unsubscribed"],
+  },
+  enablePushContact: true,
+  enableTaskCreation: true,
+  defaultTaskDueDays: 3,
 };
 
 export const defaultAdminConfig: AdminConfig = {
@@ -393,6 +407,7 @@ export const defaultAdminConfig: AdminConfig = {
     verticalMatch: 25, sizeMatch: 20, regionMatch: 15, buyingSignals: 15,
     negativeSignals: -10, exaRelevance: 10, hubspotLead: 10, hubspotCustomer: 5,
     freshsalesLead: 10, freshsalesCustomer: -40, freshsalesRecentContact: 15,
+    freshsalesTagBoost: 15, freshsalesTagPenalty: -20, freshsalesDealStalled: -10,
   },
   verticals: ["Food Ingredients", "Chemicals", "Pharma", "Packaging", "Flavors & Fragrances", "Specialty Chemicals", "Biopharmaceuticals"],
   sizeSweetSpot: { min: 200, max: 50000 },

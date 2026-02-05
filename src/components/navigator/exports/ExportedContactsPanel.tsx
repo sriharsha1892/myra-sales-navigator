@@ -124,12 +124,21 @@ export function ExportedContactsPanel() {
         </div>
       )}
 
-      {/* Empty */}
+      {/* Empty (I2: explain tab purpose) */}
       {!isLoading && exports.length === 0 && (
         <div className="flex flex-col items-center py-12 text-center">
-          <p className="text-sm text-text-secondary">No exports found</p>
-          <p className="mt-1 text-xs text-text-tertiary">
-            Export contacts from a company dossier to see them here.
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mb-3 text-text-tertiary">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          <p className="text-sm font-medium text-text-secondary">No exports yet</p>
+          <p className="mt-1 max-w-xs text-xs text-text-tertiary">
+            This tab tracks every contact you export — clipboard, CSV, or Excel.
+            Select companies, then use Copy/CSV/Excel from the bulk action bar.
+          </p>
+          <p className="mt-2 text-[10px] text-text-tertiary">
+            Follow-up status (Fresh / Follow up / Stale) auto-updates based on export age.
           </p>
         </div>
       )}

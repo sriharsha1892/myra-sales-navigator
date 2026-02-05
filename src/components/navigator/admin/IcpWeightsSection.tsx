@@ -62,6 +62,7 @@ export function IcpWeightsSection() {
               buyingSignals: 15, negativeSignals: -10, exaRelevance: 10,
               hubspotLead: 10, hubspotCustomer: 5,
               freshsalesLead: 10, freshsalesCustomer: -40, freshsalesRecentContact: 15,
+              freshsalesTagBoost: 15, freshsalesTagPenalty: -20, freshsalesDealStalled: -10,
             },
           })
         }

@@ -29,6 +29,21 @@ const copyBank: Record<string, string[]> = {
     "Pulling from Exa, Apollo, and more...",
     "Crunching data across providers...",
   ],
+  search_loading_exa: [
+    "Querying Exa for semantic matches...",
+    "Searching Exa's neural index...",
+  ],
+  search_loading_apollo: [
+    "Fetching Apollo contacts...",
+    "Pulling structured data from Apollo...",
+  ],
+  search_loading_hubspot: [
+    "Checking HubSpot for CRM history...",
+    "Pulling HubSpot relationship data...",
+  ],
+  search_loading_freshsales: [
+    "Checking Freshsales for deal status...",
+  ],
   dossier_loading: [
     "Building the full picture...",
     "Assembling dossier from all sources...",
@@ -107,6 +122,26 @@ const copyBank: Record<string, string[]> = {
   ],
   bulk_action_failed: [
     "Bulk action failed. The myRA team is reviewing what went wrong.",
+  ],
+  empty_contacts_tab: [
+    "Select companies first, then switch to Contacts to see their people.",
+    "No companies selected yet. Search and select companies to populate contacts.",
+  ],
+  exported_tab_empty: [
+    "This tab shows contacts you've already exported — clipboard, CSV, or Excel.",
+    "No exports yet. Export contacts from a company dossier and they'll show up here.",
+  ],
+  error_timeout: [
+    "Request timed out. The API took too long to respond — try again.",
+  ],
+  error_rate_limited: [
+    "Rate limited — too many requests. Wait a moment and try again.",
+  ],
+  error_generic: [
+    "Something went wrong. The myRA team is looking into it.",
+  ],
+  export_fallback: [
+    "Server export failed — used client-side fallback. Data may differ slightly.",
   ],
 };
 

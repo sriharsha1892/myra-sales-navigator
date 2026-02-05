@@ -96,6 +96,9 @@ vi.mock("@/lib/navigator/store", async () => {
     slideOverMode: "dossier",
     recentDomains: [] as string[],
     triggerDossierScrollToTop: vi.fn(),
+    adminConfig: { freshsalesSettings: {} },
+    addToast: vi.fn(),
+    excludeContact: vi.fn(),
 
     // Actions
     toggleContactSelection: vi.fn(),

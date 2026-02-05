@@ -75,13 +75,15 @@ export function CompanyCard({
   const openContacts = useStore((s) => s.openContacts);
   const lastSearchQuery = useStore((s) => s.lastSearchQuery);
   const [logoError, setLogoError] = useState(false);
+  const [isPrefetching, setIsPrefetching] = useState(false);
   const queryClient = useQueryClient();
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleMouseEnter = useCallback(() => {
     hoverTimerRef.current = setTimeout(() => {
+      setIsPrefetching(true);
       // Prefetch company dossier (includes Freshsales status)
-      queryClient.prefetchQuery({
+      const p1 = queryClient.prefetchQuery({
         queryKey: ["company", company.domain],
         queryFn: async () => {
           const res = await fetch(`/api/company/${encodeURIComponent(company.domain)}`);
@@ -91,7 +93,7 @@ export function CompanyCard({
         staleTime: 5 * 60 * 1000,
       });
       // Prefetch contacts
-      queryClient.prefetchQuery({
+      const p2 = queryClient.prefetchQuery({
         queryKey: ["company-contacts", company.domain],
         queryFn: async () => {
           const res = await fetch(`/api/company/${encodeURIComponent(company.domain)}/contacts`);
@@ -101,6 +103,7 @@ export function CompanyCard({
         },
         staleTime: 5 * 60 * 1000,
       });
+      Promise.all([p1, p2]).finally(() => setIsPrefetching(false));
     }, 500);
   }, [company.domain, queryClient]);
 
@@ -132,7 +135,8 @@ export function CompanyCard({
           ? "border-accent-primary bg-accent-primary-light shadow-sm"
           : "bg-surface-1 border-surface-3 shadow-sm",
         hasIntel && !isSelected && "border-intel/20 shadow-md",
-        isChecked && "ring-1 ring-accent-highlight/30"
+        isChecked && "ring-1 ring-accent-highlight/30",
+        isPrefetching && "ring-1 ring-accent-secondary/20 animate-pulse"
       )}
     >
       {/* Top row: checkbox + logo + name + signal bar */}
@@ -186,7 +190,7 @@ export function CompanyCard({
             </h3>
             <div className="flex items-center gap-1.5">
               <IcpScoreBadge score={company.icpScore} breakdown={company.icpBreakdown} showBreakdown />
-              <SignalStrengthBar signalCount={company.signals.length} />
+              <SignalStrengthBar signalCount={company.signals.length} signalTypes={[...new Set(company.signals.map((s) => s.type))]} />
             </div>
           </div>
 
@@ -219,6 +223,11 @@ export function CompanyCard({
                   </span>
                 );
               })()}
+              {company.freshsalesIntel?.account?.owner && (
+                <span className="ml-1 text-[10px] text-text-tertiary">
+                  &middot; {company.freshsalesIntel.account.owner.name}
+                </span>
+              )}
               {company.freshsalesStatus === "none" && (company.hubspotStatus === "none" || !company.hubspotStatus) && (
                 <span className="rounded-pill bg-surface-2 px-1.5 py-0.5 text-xs text-text-tertiary">
                   Net new

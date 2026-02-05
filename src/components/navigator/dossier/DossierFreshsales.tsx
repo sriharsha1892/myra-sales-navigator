@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
+import { cn } from "@/lib/cn";
 import type { CompanyEnriched, FreshsalesIntel, FreshsalesStatus } from "@/lib/navigator/types";
 import { useStore } from "@/lib/navigator/store";
 import { defaultFreshsalesSettings } from "@/lib/navigator/mock-data";
 import { MissingData } from "@/components/navigator/shared/MissingData";
+import { CreateTaskInline } from "@/components/navigator/freshsales/CreateTaskInline";
 
 interface DossierFreshsalesProps {
   company: CompanyEnriched;
@@ -55,6 +58,7 @@ export function DossierFreshsales({ company }: DossierFreshsalesProps) {
   const colors = statusColors[status] ?? statusColors.none;
   const statusLabel = settings.statusLabels[status] ?? status;
   const freshsalesAvailable = company.freshsalesAvailable ?? true;
+  const [showCreateTask, setShowCreateTask] = useState(false);
 
   if (!settings.enabled) return null;
 
@@ -117,6 +121,12 @@ export function DossierFreshsales({ company }: DossierFreshsalesProps) {
                     : ""}
                 </span>
               )}
+              {settings.showOwner && intel.account.owner && (
+                <div className="mt-1 flex items-center gap-1.5">
+                  <span className="text-[10px] text-text-tertiary">CRM Owner:</span>
+                  <span className="text-xs font-medium text-accent-secondary">{intel.account.owner.name}</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -138,10 +148,25 @@ export function DossierFreshsales({ company }: DossierFreshsalesProps) {
                       </span>
                       <span className="text-[10px] text-text-tertiary">
                         {deal.stage}
+                        {settings.showDealVelocity !== false && deal.daysInStage != null && (
+                          <span className={cn(
+                            "ml-1 font-mono",
+                            deal.daysInStage > (settings.stalledDealThresholdDays ?? 30) ? "text-danger" :
+                            deal.daysInStage > 14 ? "text-warning" :
+                            "text-success"
+                          )}>
+                            {deal.daysInStage}d
+                          </span>
+                        )}
                         {deal.expectedClose
                           ? ` \u00b7 Close ${formatDate(deal.expectedClose)}`
                           : ""}
                       </span>
+                      {deal.lostReason && (
+                        <span className="block text-[9px] text-danger/60">
+                          Lost reason: {deal.lostReason}
+                        </span>
+                      )}
                     </div>
                     <span className="ml-2 flex-shrink-0 text-xs font-mono text-text-secondary">
                       {formatCurrency(deal.amount)}
@@ -171,6 +196,32 @@ export function DossierFreshsales({ company }: DossierFreshsalesProps) {
                       <span className="text-[10px] text-text-tertiary">
                         {c.title}{c.email ? ` \u00b7 ${c.email}` : ""}
                       </span>
+                      {settings.showTags && c.tags && c.tags.length > 0 && (
+                        <div className="mt-0.5 flex flex-wrap gap-1">
+                          {c.tags.slice(0, 3).map((tag) => {
+                            const isBoost = (settings.tagScoringRules?.boostTags || [])
+                              .some((bt) => bt.toLowerCase() === tag.toLowerCase());
+                            const isPenalty = (settings.tagScoringRules?.penaltyTags || [])
+                              .some((pt) => pt.toLowerCase() === tag.toLowerCase());
+                            return (
+                              <span
+                                key={tag}
+                                className={cn(
+                                  "rounded-pill px-1.5 py-0.5 text-[9px] font-medium",
+                                  isBoost ? "bg-success-light text-success" :
+                                  isPenalty ? "bg-danger/10 text-danger/70" :
+                                  "bg-surface-2 text-text-tertiary"
+                                )}
+                              >
+                                {tag}
+                              </span>
+                            );
+                          })}
+                          {c.tags.length > 3 && (
+                            <span className="text-[9px] text-text-tertiary">+{c.tags.length - 3}</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -179,21 +230,43 @@ export function DossierFreshsales({ company }: DossierFreshsalesProps) {
           )}
 
           {/* Recent Activity */}
-          {settings.showActivity !== false && recentActivity.length > 0 && (
+          {settings.showActivity !== false && (
             <div>
               <span className="block text-[10px] text-text-tertiary mb-1">
                 Recent Activity
               </span>
-              <div className="space-y-1">
-                {recentActivity.slice(0, 5).map((act, i) => (
-                  <div key={i} className="flex items-start gap-2 text-[11px]">
-                    <span className="flex-shrink-0 text-text-tertiary">
-                      {formatDate(act.date)}
-                    </span>
-                    <span className="text-text-secondary">{act.title}</span>
-                  </div>
-                ))}
-              </div>
+              {recentActivity.length > 0 ? (
+                <div className="space-y-1.5">
+                  {recentActivity.slice(0, 5).map((act, i) => (
+                    <div key={i} className="flex items-start gap-2 py-1">
+                      <span className={cn(
+                        "mt-0.5 flex-shrink-0 rounded-pill px-1.5 py-0.5 text-[9px] font-medium",
+                        act.type === "email" ? "bg-info-light text-accent-primary" :
+                        act.type === "call" ? "bg-success-light text-success" :
+                        act.type === "meeting" ? "bg-warning-light text-warning" :
+                        "bg-surface-2 text-text-tertiary"
+                      )}>
+                        {act.type}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 text-[11px]">
+                          <span className="font-medium text-text-primary">{act.actor}</span>
+                          <span className="text-text-tertiary">&middot;</span>
+                          <span className="text-text-tertiary">
+                            {daysAgo(act.date) === 0 ? "today" : `${daysAgo(act.date)}d ago`}
+                          </span>
+                        </div>
+                        <p className="truncate text-[10px] text-text-secondary">{act.title}</p>
+                        {act.outcome && (
+                          <span className="text-[9px] text-text-tertiary">Outcome: {act.outcome}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[10px] italic text-text-tertiary">No recent activity logged in CRM</p>
+              )}
             </div>
           )}
 
@@ -204,6 +277,29 @@ export function DossierFreshsales({ company }: DossierFreshsalesProps) {
               <span className="text-xs text-text-secondary">
                 {formatDate(intel.lastContactDate)}
               </span>
+            </div>
+          )}
+
+          {/* Create Task */}
+          {settings.enableTaskCreation && freshsalesAvailable && intel?.account && (
+            <div className="mt-3 border-t border-surface-3 pt-2">
+              {showCreateTask ? (
+                <CreateTaskInline
+                  companyName={intel.account.name}
+                  accountId={intel.account.id}
+                  contacts={contacts}
+                  defaultDueDays={settings.defaultTaskDueDays ?? 3}
+                  onCreated={() => setShowCreateTask(false)}
+                  onCancel={() => setShowCreateTask(false)}
+                />
+              ) : (
+                <button
+                  onClick={() => setShowCreateTask(true)}
+                  className="w-full rounded-input border border-dashed border-surface-3 py-2 text-[10px] font-medium text-text-tertiary transition-colors hover:border-accent-primary hover:text-accent-primary"
+                >
+                  + Create follow-up task
+                </button>
+              )}
             </div>
           )}
         </div>

@@ -90,6 +90,7 @@ export function ResultsList() {
   const [trending, setTrending] = useState<TrendingCompany[]>([]);
   const [expandedContactId, setExpandedContactId] = useState<string | null>(null);
   const [relatedCollapsed, setRelatedCollapsed] = useState(true);
+  const [previousResultCount, setPreviousResultCount] = useState(6);
 
   // Build a lookup map for companies by domain
   const companies = filteredCompanies();
@@ -139,6 +140,9 @@ export function ResultsList() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     setRelatedCollapsed(true); // Reset collapsed state on new search
+    if (searchResults && searchResults.length > 0) {
+      setPreviousResultCount(Math.min(searchResults.length, 10));
+    }
   }, [searchResults]);
 
   const dismissOnboarding = () => {
@@ -221,10 +225,10 @@ export function ResultsList() {
         />
         {viewMode === "companies" && companies.length > 0 && (() => {
           const avg = Math.round(companies.reduce((s, c) => s + c.icpScore, 0) / companies.length);
-          const color = avg >= 70 ? "text-success" : avg >= 50 ? "text-warning" : "text-text-tertiary";
+          const color = avg >= 70 ? "bg-success/15 text-success border-success/30" : avg >= 50 ? "bg-warning/15 text-warning border-warning/30" : "bg-surface-2 text-text-tertiary border-surface-3";
           return (
-            <span className={`rounded-pill border border-surface-3 px-2 py-0.5 font-mono text-[10px] ${color}`}>
-              Avg match: {avg}
+            <span className={`rounded-pill border px-2.5 py-1 font-mono text-xs font-semibold ${color}`}>
+              Avg: {avg}
             </span>
           );
         })()}
@@ -243,6 +247,7 @@ export function ResultsList() {
                 <div className="flex items-center">
                   {(["icp_score", "name", "employee_count"] as SortField[]).map((field, i) => {
                     const labels: Record<SortField, string> = { icp_score: "Score", name: "Name", employee_count: "Size", relevance: "Relevance" };
+                    const sortIcons: Record<SortField, string> = { icp_score: "\u2605", name: "Az", employee_count: "\u2195", relevance: "\u2261" };
                     const isActive = sortField === field;
                     return (
                       <span key={field} className="flex items-center">
@@ -255,7 +260,7 @@ export function ResultsList() {
                               : "text-text-secondary hover:text-text-primary"
                           }`}
                         >
-                          {labels[field]}
+                          <span className="mr-0.5 opacity-60">{sortIcons[field]}</span>{labels[field]}
                         </button>
                       </span>
                     );
@@ -301,7 +306,7 @@ export function ResultsList() {
 
       {/* Persistent search query header — visible during loading and after results */}
       {(hasSearched || searchLoading) && lastSearchQuery && (
-        <div className="flex flex-shrink-0 items-center gap-2 border-b border-surface-3 bg-surface-1/50 px-4 py-1.5">
+        <div className="sticky top-0 z-20 flex flex-shrink-0 items-center gap-2 border-b border-surface-3 bg-surface-1/80 backdrop-blur-sm px-4 py-1.5">
           <span className="text-xs text-text-tertiary">Results for</span>
           <span className="font-mono text-xs text-text-secondary">&ldquo;{lastSearchQuery}&rdquo;</span>
           {!searchLoading && companies.length > 0 && (
@@ -348,8 +353,8 @@ export function ResultsList() {
         {/* Loading skeletons */}
         {searchLoading ? (
           <div className="space-y-1.5">
-            <p className="mb-2 text-xs text-text-tertiary">{pick("search_loading")}</p>
-            {Array.from({ length: 6 }).map((_, i) => (
+            <ContextualLoadingMessage />
+            {Array.from({ length: previousResultCount }).map((_, i) => (
               <SkeletonCard key={i} />
             ))}
           </div>
@@ -360,20 +365,7 @@ export function ResultsList() {
           /* Welcome state — before first search */
           <div className="flex h-full flex-col items-center justify-center">
             {showOnboarding && (
-              <div className="mb-6 w-full max-w-lg animate-fadeInUp rounded-card border border-surface-3 bg-surface-1 px-5 py-3.5">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-sm text-text-secondary">
-                    Welcome to Sales Navigator — search for any company, industry, or description.
-                    Try clicking an example below, or press <kbd className="rounded border border-surface-3 bg-surface-2 px-1 py-0.5 font-mono text-[10px]">&#8984;K</kbd> for a powerful free-text search.
-                  </p>
-                  <button
-                    onClick={dismissOnboarding}
-                    className="flex-shrink-0 rounded-input border border-surface-3 px-2.5 py-1 text-xs text-text-secondary hover:bg-surface-2"
-                  >
-                    Got it
-                  </button>
-                </div>
-              </div>
+              <OnboardingTour onDismiss={dismissOnboarding} />
             )}
             <SessionStarterCard />
             <FollowUpNudges />
@@ -447,19 +439,9 @@ export function ResultsList() {
             )}
           </div>
         ) : viewMode === "companies" ? (
-          companies.length === 0 ? (() => {
-            const filters = useStore.getState().filters;
-            const hasActiveFilters = filters.verticals.length > 0 || filters.regions.length < 5 || filters.sizes.length < 4 || filters.signals.length < 4;
-            const suggestion = hasActiveFilters
-              ? "Try loosening a filter or broadening your search."
-              : undefined;
-            return (
-              <EmptyState
-                title="No matches found"
-                description={suggestion ? pick("empty_results_suggestion") : pick("empty_results")}
-              />
-            );
-          })() : (
+          companies.length === 0 ? (
+            <NoResultsSuggestions />
+          ) : (
             <div
               role="listbox"
               aria-label="Company results"
@@ -499,7 +481,7 @@ export function ResultsList() {
                             <div
                               key={company.domain}
                               className="animate-fadeInUp"
-                              style={{ animationDelay: `${idx * 40}ms` }}
+                              style={{ animationDelay: `${Math.min(idx, 10) * 40}ms` }}
                             >
                               <CompanyCard
                                 company={company}
@@ -535,7 +517,7 @@ export function ResultsList() {
                           {exaCompanies.map((company) => {
                             const idx = globalIdx++;
                             return (
-                              <div key={company.domain} className="animate-fadeInUp" style={{ animationDelay: `${idx * 40}ms` }}>
+                              <div key={company.domain} className="animate-fadeInUp" style={{ animationDelay: `${Math.min(idx, 10) * 40}ms` }}>
                                 <CompanyCard
                                   company={company}
                                   isSelected={selectedCompanyDomain === company.domain}
@@ -563,7 +545,7 @@ export function ResultsList() {
                           {apolloOnly.map((company) => {
                             const idx = globalIdx++;
                             return (
-                              <div key={company.domain} className="animate-fadeInUp" style={{ animationDelay: `${idx * 40}ms` }}>
+                              <div key={company.domain} className="animate-fadeInUp" style={{ animationDelay: `${Math.min(idx, 10) * 40}ms` }}>
                                 <CompanyCard
                                   company={company}
                                   isSelected={selectedCompanyDomain === company.domain}
@@ -620,9 +602,11 @@ export function ResultsList() {
                           <polyline points="6 9 12 15 18 9" />
                         </svg>
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-                          Related companies
+                          {related.length} related compan{related.length === 1 ? "y" : "ies"}
                         </span>
-                        <span className="font-mono text-[10px] text-text-tertiary">({related.length})</span>
+                        {relatedCollapsed && (
+                          <span className="text-[10px] text-accent-secondary">click to expand</span>
+                        )}
                       </button>
                       {!relatedCollapsed && (
                         <div className="mt-1 space-y-1.5">
@@ -630,7 +614,7 @@ export function ResultsList() {
                             <div
                               key={company.domain}
                               className="animate-fadeInUp"
-                              style={{ animationDelay: `${index * 40}ms` }}
+                              style={{ animationDelay: `${Math.min(index, 10) * 40}ms` }}
                             >
                               <CompanyCard
                                 company={company}
@@ -650,7 +634,7 @@ export function ResultsList() {
                     <div
                       key={company.domain}
                       className="animate-fadeInUp"
-                      style={{ animationDelay: `${index * 40}ms` }}
+                      style={{ animationDelay: `${Math.min(index, 10) * 40}ms` }}
                     >
                       <CompanyCard
                         company={company}
@@ -817,10 +801,14 @@ function ContactsView({
         </div>
       );
     }
+    const searchResults = useStore.getState().searchResults;
     return (
       <EmptyState
-        title="No contacts available"
-        description={pick("empty_contacts_list")}
+        icon="contacts"
+        title={searchResults ? "No contacts available" : "Select companies first"}
+        description={searchResults ? pick("empty_contacts_list") : pick("empty_contacts_tab")}
+        actionLabel={!searchResults ? "Switch to Companies" : undefined}
+        onAction={!searchResults ? () => useStore.getState().setViewMode("companies") : undefined}
       />
     );
   }
@@ -853,17 +841,7 @@ function ContactsView({
 
       {/* Failed domains banner */}
       {failedDomains.size > 0 && !contactsLoading && (
-        <div className="rounded-card border border-danger/20 bg-danger-light px-3 py-2 flex items-center justify-between">
-          <span className="text-xs text-danger">
-            {failedDomains.size} {failedDomains.size === 1 ? "company" : "companies"} failed to load contacts
-          </span>
-          <button
-            onClick={() => failedDomains.forEach((d) => retryDomain(d))}
-            className="rounded-input border border-surface-3 px-2.5 py-1 text-[10px] font-medium text-text-secondary hover:bg-surface-2"
-          >
-            Retry
-          </button>
-        </div>
+        <FailedDomainsBanner failedDomains={failedDomains} retryDomain={retryDomain} />
       )}
 
       {/* Persona-grouped contact list */}
@@ -969,6 +947,171 @@ class ContactsErrorBoundary extends React.Component<
     }
     return this.props.children;
   }
+}
+
+// ─────────────────────────────────────────────────────────
+// Onboarding Tour (I3) — 3-step walkthrough
+// ─────────────────────────────────────────────────────────
+function OnboardingTour({ onDismiss }: { onDismiss: () => void }) {
+  const [step, setStep] = useState(0);
+  const steps = [
+    { title: "Search", body: "Type a company name, industry, or description in the search bar above. Or press \u2318K for a powerful free-text search." },
+    { title: "Filter", body: "Use the filter panel on the left to narrow results by vertical, region, company size, and buying signals." },
+    { title: "Export", body: "Select companies with checkboxes, then use Copy/CSV/Excel from the action bar at the bottom. Contacts are verified on export." },
+  ];
+
+  return (
+    <div className="mb-6 w-full max-w-lg animate-fadeInUp rounded-card border border-surface-3 bg-surface-1 px-5 py-3.5">
+      <div className="mb-2 flex items-center gap-2">
+        {steps.map((_, i) => (
+          <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${i <= step ? "bg-accent-primary" : "bg-surface-3"}`} />
+        ))}
+      </div>
+      <p className="text-xs font-semibold uppercase tracking-wider text-accent-primary">{steps[step].title}</p>
+      <p className="mt-1 text-sm text-text-secondary">{steps[step].body}</p>
+      <div className="mt-3 flex items-center justify-between">
+        <span className="text-[10px] text-text-tertiary">{step + 1} of {steps.length}</span>
+        <div className="flex gap-2">
+          <button onClick={onDismiss} className="text-xs text-text-tertiary hover:text-text-secondary">Skip</button>
+          {step < steps.length - 1 ? (
+            <button onClick={() => setStep(step + 1)} className="rounded-input bg-accent-primary px-3 py-1 text-xs font-medium text-text-inverse">Next</button>
+          ) : (
+            <button onClick={onDismiss} className="rounded-input bg-accent-primary px-3 py-1 text-xs font-medium text-text-inverse">Get started</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// Contextual Loading Message (A1) — cycles through source-specific messages
+// ─────────────────────────────────────────────────────────
+function ContextualLoadingMessage() {
+  const [messageIndex, setMessageIndex] = useState(0);
+  const messages = useMemo(() => [
+    pick("search_loading_exa"),
+    pick("search_loading_apollo"),
+    pick("search_loading_hubspot"),
+    pick("search_loading"),
+  ], []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setMessageIndex((i) => (i + 1) % messages.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [messages.length]);
+
+  return (
+    <p className="mb-2 text-xs text-text-tertiary transition-opacity duration-200">
+      {messages[messageIndex]}
+    </p>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// No Results Suggestions (A2) — actionable filter removal buttons
+// ─────────────────────────────────────────────────────────
+function NoResultsSuggestions() {
+  const filters = useStore((s) => s.filters);
+  const setFilters = useStore((s) => s.setFilters);
+  const setPendingFilterSearch = useStore((s) => s.setPendingFilterSearch);
+
+  const suggestions: { label: string; action: () => void }[] = [];
+
+  if (filters.verticals.length > 0) {
+    suggestions.push({
+      label: `Remove ${filters.verticals.length} vertical filter${filters.verticals.length > 1 ? "s" : ""}`,
+      action: () => { setFilters({ verticals: [] }); setPendingFilterSearch(true); },
+    });
+  }
+  if (filters.regions.length < 5 && filters.regions.length > 0) {
+    suggestions.push({
+      label: "Include all regions",
+      action: () => { setFilters({ regions: ["North America", "Europe", "Asia Pacific", "Latin America", "Middle East & Africa"] }); setPendingFilterSearch(true); },
+    });
+  }
+  if (filters.sizes.length < 4 && filters.sizes.length > 0) {
+    suggestions.push({
+      label: "Include all company sizes",
+      action: () => { setFilters({ sizes: ["1-50", "51-200", "201-1000", "1000+"] }); setPendingFilterSearch(true); },
+    });
+  }
+
+  return (
+    <EmptyState
+      icon="search"
+      title="No matches found"
+      description={pick("empty_results")}
+    >
+      {suggestions.length > 0 && (
+        <div className="mt-3 flex flex-wrap justify-center gap-2">
+          {suggestions.map((s, i) => (
+            <button
+              key={i}
+              onClick={s.action}
+              className="rounded-pill border border-surface-3 bg-surface-1 px-3 py-1.5 text-xs text-text-secondary transition-colors hover:border-accent-primary/40 hover:text-text-primary"
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </EmptyState>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// Failed Domains Banner (H2) — expandable per-domain error list
+// ─────────────────────────────────────────────────────────
+function FailedDomainsBanner({ failedDomains, retryDomain }: { failedDomains: Set<string>; retryDomain: (domain: string) => void }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="rounded-card border border-danger/20 bg-danger-light px-3 py-2">
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-1.5 text-xs text-danger"
+        >
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            className={`transition-transform duration-[180ms] ${expanded ? "" : "-rotate-90"}`}
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+          {failedDomains.size} {failedDomains.size === 1 ? "company" : "companies"} failed to load contacts
+        </button>
+        <button
+          onClick={() => failedDomains.forEach((d) => retryDomain(d))}
+          className="rounded-input border border-surface-3 px-2.5 py-1 text-[10px] font-medium text-text-secondary hover:bg-surface-2"
+        >
+          Retry all
+        </button>
+      </div>
+      {expanded && (
+        <div className="mt-2 space-y-1 border-t border-danger/10 pt-2">
+          {Array.from(failedDomains).map((domain) => (
+            <div key={domain} className="flex items-center justify-between text-xs">
+              <span className="font-mono text-text-secondary">{domain}</span>
+              <button
+                onClick={() => retryDomain(domain)}
+                className="text-accent-secondary hover:underline text-[10px]"
+              >
+                Retry
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function DemoResults({ onDismiss }: { onDismiss: () => void }) {

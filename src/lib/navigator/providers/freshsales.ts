@@ -96,6 +96,38 @@ function checkRateLimit(headers: Headers): void {
 }
 
 // ---------------------------------------------------------------------------
+// Owner resolution cache (module-level, persists across requests within worker)
+// ---------------------------------------------------------------------------
+
+const _ownerCache = new Map<number, { name: string; email: string }>();
+
+async function resolveOwner(
+  baseUrl: string,
+  ownerId: number
+): Promise<{ id: number; name: string; email: string } | null> {
+  if (_ownerCache.has(ownerId)) {
+    const cached = _ownerCache.get(ownerId)!;
+    return { id: ownerId, ...cached };
+  }
+  try {
+    const res = await fetch(`${baseUrl}/users/${ownerId}`, {
+      headers: freshsalesHeaders(),
+    });
+    if (!res.ok) return null;
+    checkRateLimit(res.headers);
+    const data = await res.json();
+    const owner = {
+      name: data.user?.display_name || "Unknown",
+      email: data.user?.email || "",
+    };
+    _ownerCache.set(ownerId, owner);
+    return { id: ownerId, ...owner };
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Paginated filtered_search — Freshsales returns 25 records/page
 // ---------------------------------------------------------------------------
 
@@ -256,11 +288,16 @@ export async function getFreshsalesIntel(
     const account = accounts[0] as Record<string, unknown>;
     const accountId = account.id as number;
 
-    // Step 2: Parallel fetch contacts + deals
-    const [contactsData, dealsData] = await Promise.all([
+    // Step 2: Parallel fetch contacts + deals + activities
+    const [contactsData, dealsData, activitiesData] = await Promise.all([
       fetchFreshsalesContacts(baseUrl, accountId, normalized),
       fetchFreshsalesDeals(baseUrl, accountId),
+      fetchFreshsalesActivities(baseUrl, accountId),
     ]);
+
+    // Resolve account owner
+    const ownerId = account.owner_id as number | undefined;
+    const accountOwner = ownerId ? await resolveOwner(baseUrl, ownerId) : null;
 
     const status = dealsData.length > 0
       ? deriveStatus(dealsData)
@@ -283,9 +320,11 @@ export async function getFreshsalesIntel(
 
     console.log(`[Freshsales] ${normalized}: ${taggedContacts.length} contacts, ${dealsData.length} deals`);
 
-    // Derive last contact date from most recent activity or deal
+    // Derive last contact date — prefer activity date, fall back to contact.lastVerified
     let lastContactDate: string | null = null;
-    if (taggedContacts.length > 0) {
+    if (activitiesData.length > 0) {
+      lastContactDate = activitiesData[0].date; // already sorted desc
+    } else if (taggedContacts.length > 0) {
       const verified = taggedContacts
         .map((c) => c.lastVerified)
         .filter(Boolean) as string[];
@@ -306,10 +345,11 @@ export async function getFreshsalesIntel(
           || (account.industry_type as string)
           || null,
         employees: (account.number_of_employees as number) || null,
+        owner: accountOwner,
       },
       contacts: taggedContacts,
       deals: dealsData,
-      recentActivity: [], // Activity fetch can be added later if needed
+      recentActivity: activitiesData,
       lastContactDate,
     };
 
@@ -360,6 +400,8 @@ async function fetchFreshsalesContacts(
         sources: ["freshsales"] as Contact["sources"],
         seniority: mapSeniority(raw.job_title as string),
         lastVerified: (raw.updated_at as string) || null,
+        tags: Array.isArray(raw.tags) ? (raw.tags as string[]) : [],
+        freshsalesOwnerId: (raw.owner_id as number) || undefined,
       })
     );
 
@@ -431,19 +473,202 @@ async function fetchFreshsalesDeals(
     ];
     const rawDeals = await paginatedFilteredSearch(baseUrl, "deal", filterRule, 4);
 
-    return rawDeals.map((raw: Record<string, unknown>) => ({
-      id: raw.id as number,
-      name: (raw.name as string) || "Untitled Deal",
-      amount: (raw.amount as number) || null,
-      stage: (raw.deal_stage as Record<string, unknown>)?.name as string
-        || (raw.deal_stage_id as string)
-        || "Unknown",
-      probability: (raw.probability as number) || null,
-      expectedClose: (raw.expected_close as string) || null,
-    }));
+    return rawDeals.map((raw: Record<string, unknown>) => {
+      const updatedAt = (raw.updated_at as string) || null;
+      const daysInStage = updatedAt
+        ? Math.floor((Date.now() - new Date(updatedAt).getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+      return {
+        id: raw.id as number,
+        name: (raw.name as string) || "Untitled Deal",
+        amount: (raw.amount as number) || null,
+        stage: (raw.deal_stage as Record<string, unknown>)?.name as string
+          || (raw.deal_stage_id as string)
+          || "Unknown",
+        probability: (raw.probability as number) || null,
+        expectedClose: (raw.expected_close as string) || null,
+        createdAt: (raw.created_at as string) || null,
+        updatedAt,
+        daysInStage,
+        lostReason: (raw.lost_reason as string) || null,
+      };
+    });
   } catch (err) {
     console.error("[Freshsales] fetchFreshsalesDeals error:", err);
     return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Fetch activities by sales_account_id
+// ---------------------------------------------------------------------------
+
+async function fetchFreshsalesActivities(
+  baseUrl: string,
+  accountId: number,
+  maxPages = 2
+): Promise<FreshsalesActivity[]> {
+  try {
+    const filterRule = [
+      {
+        attribute: "targetable_id",
+        operator: "is_in",
+        value: accountId,
+      },
+    ];
+    const rawActivities = await paginatedFilteredSearch(
+      baseUrl,
+      "sales_activity",
+      filterRule,
+      maxPages
+    );
+
+    const activities: FreshsalesActivity[] = rawActivities
+      .map((raw: Record<string, unknown>) => ({
+        type: (raw.activity_type as string) || (raw.type as string) || "note",
+        title: (raw.notes as string) || (raw.title as string) || "",
+        date: (raw.created_at as string) || "",
+        actor:
+          (raw.owner as Record<string, unknown>)?.display_name as string ||
+          (raw.created_by as string) ||
+          "Unknown",
+        outcome: (raw.outcome as string) || undefined,
+        contactName: (raw.targetable as Record<string, unknown>)?.name as string || undefined,
+      }))
+      .filter((a) => a.date)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 10);
+
+    return activities;
+  } catch (err) {
+    console.error("[Freshsales] fetchFreshsalesActivities error:", err);
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Write operations
+// ---------------------------------------------------------------------------
+
+export async function createFreshsalesContact(
+  contact: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+    title?: string;
+    linkedinUrl?: string;
+  },
+  accountId: number
+): Promise<{ id: number } | null> {
+  const settings = await getFreshsalesConfig();
+  const baseUrl = getBaseUrl(settings);
+  try {
+    const res = await fetch(`${baseUrl}/contacts`, {
+      method: "POST",
+      headers: freshsalesHeaders(),
+      body: JSON.stringify({
+        contact: {
+          first_name: contact.firstName,
+          last_name: contact.lastName,
+          email: contact.email,
+          mobile_number: contact.phone,
+          job_title: contact.title,
+          linkedin: contact.linkedinUrl,
+          sales_account_id: accountId,
+        },
+      }),
+    });
+    if (!res.ok) {
+      console.error("[Freshsales] createContact failed:", res.status);
+      return null;
+    }
+    checkRateLimit(res.headers);
+    const data = await res.json();
+    return { id: data.contact?.id };
+  } catch (err) {
+    console.error("[Freshsales] createContact error:", err);
+    return null;
+  }
+}
+
+export async function findOrCreateAccount(
+  domain: string,
+  companyName: string
+): Promise<{ id: number; created: boolean } | null> {
+  const settings = await getFreshsalesConfig();
+  const baseUrl = getBaseUrl(settings);
+  try {
+    // 1. Search existing by domain
+    const filterRule = [
+      { attribute: "website", operator: "contains", value: domain },
+    ];
+    const accounts = await paginatedFilteredSearch(baseUrl, "sales_account", filterRule, 1);
+    if (accounts.length > 0) {
+      return { id: accounts[0].id as number, created: false };
+    }
+
+    // 2. Create new account
+    const res = await fetch(`${baseUrl}/sales_accounts`, {
+      method: "POST",
+      headers: freshsalesHeaders(),
+      body: JSON.stringify({
+        sales_account: {
+          name: companyName,
+          website: `https://${domain}`,
+        },
+      }),
+    });
+    if (!res.ok) {
+      console.error("[Freshsales] createAccount failed:", res.status);
+      return null;
+    }
+    checkRateLimit(res.headers);
+    const data = await res.json();
+    return { id: data.sales_account?.id, created: true };
+  } catch (err) {
+    console.error("[Freshsales] findOrCreateAccount error:", err);
+    return null;
+  }
+}
+
+export async function createFreshsalesTask(
+  task: {
+    title: string;
+    description?: string;
+    dueDate: string;
+    targetableType: "Contact" | "SalesAccount";
+    targetableId: number;
+    ownerId?: number;
+  }
+): Promise<{ id: number } | null> {
+  const settings = await getFreshsalesConfig();
+  const baseUrl = getBaseUrl(settings);
+  try {
+    const res = await fetch(`${baseUrl}/tasks`, {
+      method: "POST",
+      headers: freshsalesHeaders(),
+      body: JSON.stringify({
+        task: {
+          title: task.title,
+          description: task.description || "",
+          due_date: task.dueDate,
+          owner_id: task.ownerId,
+          targetable_type: task.targetableType,
+          targetable_id: task.targetableId,
+        },
+      }),
+    });
+    if (!res.ok) {
+      console.error("[Freshsales] createTask failed:", res.status);
+      return null;
+    }
+    checkRateLimit(res.headers);
+    const data = await res.json();
+    return { id: data.task?.id };
+  } catch (err) {
+    console.error("[Freshsales] createTask error:", err);
+    return null;
   }
 }
 

@@ -42,6 +42,7 @@ vi.mock("@/lib/navigator/store", async () => {
       triggerDossierScrollToTop: mockTriggerDossierScrollToTop,
       excludeContact: mockExcludeContact,
       addToast: mockAddToast,
+      adminConfig: { freshsalesSettings: {} },
     };
     return selector(mockState);
   };

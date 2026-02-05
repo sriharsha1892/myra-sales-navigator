@@ -5,16 +5,37 @@ import { IcpScoreBadge, SourceBadge } from "@/components/navigator/badges";
 import { StalenessIndicator } from "@/components/navigator/shared/StalenessIndicator";
 import { CompanyStatusBadge } from "./CompanyStatusBadge";
 import { RecommendedActionBar } from "./RecommendedActionBar";
+import { Tooltip } from "@/components/navigator/shared/Tooltip";
 import { useStore } from "@/lib/navigator/store";
 
 interface DossierHeaderProps {
   company: CompanyEnriched;
   onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
-export function DossierHeader({ company, onRefresh }: DossierHeaderProps) {
+const completenessFields: { key: keyof CompanyEnriched; label: string }[] = [
+  { key: "industry", label: "Industry" },
+  { key: "employeeCount", label: "Size" },
+  { key: "revenue", label: "Revenue" },
+  { key: "website", label: "Website" },
+  { key: "description", label: "Description" },
+  { key: "location", label: "Location" },
+];
+
+export function DossierHeader({ company, onRefresh, isRefreshing }: DossierHeaderProps) {
   const searchSimilar = useStore((s) => s.searchSimilar);
   const contacts = useStore((s) => s.contactsByDomain[company.domain] ?? []);
+
+  const filled = completenessFields.filter((f) => {
+    const v = company[f.key];
+    return v !== undefined && v !== null && v !== "" && v !== 0;
+  });
+  const filledCount = filled.length;
+  const totalFields = completenessFields.length;
+  const missingLabels = completenessFields
+    .filter((f) => !filled.includes(f))
+    .map((f) => f.label);
 
   return (
     <div className="border-b border-surface-3 px-4 py-3">
@@ -30,6 +51,27 @@ export function DossierHeader({ company, onRefresh }: DossierHeaderProps) {
         </div>
         <IcpScoreBadge score={company.icpScore} breakdown={company.icpBreakdown} />
       </div>
+
+      {/* Data completeness bar (C2) */}
+      <Tooltip text={missingLabels.length > 0 ? `Missing: ${missingLabels.join(", ")}` : "All key fields populated"}>
+        <div className="mt-2 flex items-center gap-2">
+          <div className="flex h-1.5 flex-1 gap-0.5">
+            {completenessFields.map((f, i) => {
+              const isFilled = filled.includes(f);
+              return (
+                <div
+                  key={i}
+                  className={`flex-1 rounded-full transition-colors ${
+                    isFilled ? "bg-success/60" : "bg-surface-3"
+                  }`}
+                />
+              );
+            })}
+          </div>
+          <span className="font-mono text-[10px] text-text-tertiary">{filledCount}/{totalFields}</span>
+        </div>
+      </Tooltip>
+
       {company.description && (
         <div className="mt-2">
           <p className="text-xs leading-relaxed text-text-secondary whitespace-pre-line">
@@ -38,34 +80,52 @@ export function DossierHeader({ company, onRefresh }: DossierHeaderProps) {
         </div>
       )}
       <RecommendedActionBar company={company} contacts={contacts} />
-      {company.freshsalesStatus && company.freshsalesStatus !== "none" && (
-        <div
-          className={`mt-2 rounded-input px-3 py-1.5 text-[11px] font-medium ${
-            company.freshsalesStatus === "won" || company.freshsalesStatus === "customer"
-              ? "bg-emerald-500/10 text-emerald-400"
-              : company.freshsalesStatus === "lost"
-                ? "bg-red-500/10 text-red-400"
-                : "bg-amber-500/10 text-amber-400"
-          }`}
-        >
-          {company.freshsalesStatus === "won" || company.freshsalesStatus === "customer"
-            ? "Existing customer in Freshsales."
-            : company.freshsalesStatus === "lost"
-              ? "Previously lost in Freshsales."
-              : `This company is in Freshsales as ${company.freshsalesStatus.replace("_", " ")}. Check CRM section below.`}
-        </div>
-      )}
+      {company.freshsalesStatus && company.freshsalesStatus !== "none" && (() => {
+        const statusText = company.freshsalesStatus === "won" || company.freshsalesStatus === "customer"
+          ? "Existing customer in Freshsales"
+          : company.freshsalesStatus === "lost"
+            ? "Previously lost in Freshsales"
+            : `In Freshsales as ${company.freshsalesStatus.replace("_", " ")}`;
+        const owner = company.freshsalesIntel?.account?.owner;
+        const lastAct = company.freshsalesIntel?.recentActivity?.[0];
+        const actDaysAgo = lastAct?.date
+          ? Math.floor((Date.now() - new Date(lastAct.date).getTime()) / (1000 * 60 * 60 * 24))
+          : null;
+        return (
+          <div
+            className={`mt-2 rounded-input px-3 py-1.5 text-[11px] font-medium ${
+              company.freshsalesStatus === "won" || company.freshsalesStatus === "customer"
+                ? "bg-emerald-500/10 text-emerald-400"
+                : company.freshsalesStatus === "lost"
+                  ? "bg-red-500/10 text-red-400"
+                  : "bg-amber-500/10 text-amber-400"
+            }`}
+          >
+            {statusText}
+            {owner && (
+              <> &middot; Owned by <span className="text-accent-secondary">{owner.name}</span></>
+            )}
+            {lastAct && actDaysAgo != null && (
+              <> &middot; Last touched {actDaysAgo === 0 ? "today" : `${actDaysAgo}d ago`} ({lastAct.type})</>
+            )}
+          </div>
+        );
+      })()}
       <div className="mt-2 flex items-center gap-2">
-        <div className="flex gap-0.5">
-          {(Array.isArray(company.sources) ? company.sources : []).map((src) => (
-            <SourceBadge key={src} source={src} />
-          ))}
-        </div>
+        {/* Source badges with legend tooltip (C3) */}
+        <Tooltip text="E = Exa (web intel) · A = Apollo (contacts) · H = HubSpot (CRM) · F = Freshsales (CRM)">
+          <div className="flex gap-0.5">
+            {(Array.isArray(company.sources) ? company.sources : []).map((src) => (
+              <SourceBadge key={src} source={src} />
+            ))}
+          </div>
+        </Tooltip>
       </div>
       <div className="mt-2 flex items-center gap-2">
         <StalenessIndicator
           lastRefreshed={company.lastRefreshed}
           onRefresh={onRefresh ?? (() => {})}
+          isRefreshing={isRefreshing}
         />
         <button
           onClick={() => searchSimilar(company)}

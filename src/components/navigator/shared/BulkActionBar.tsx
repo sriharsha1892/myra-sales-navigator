@@ -10,6 +10,7 @@ import { BulkStatusDropdown } from "./BulkStatusDropdown";
 import { BulkNoteInput } from "./BulkNoteInput";
 import { cn } from "@/lib/cn";
 import { AnimatedNumber } from "./AnimatedNumber";
+import { Tooltip } from "@/components/navigator/shared/Tooltip";
 import { pick } from "@/lib/navigator/ui-copy";
 
 export function BulkActionBar() {
@@ -29,10 +30,17 @@ export function BulkActionBar() {
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [showExcludeConfirm, setShowExcludeConfirm] = useState(false);
 
+  const filteredCompanies = useStore((s) => s.filteredCompanies);
+  const contactsByDomain = useStore((s) => s.contactsByDomain);
+
   const selectedIds = viewMode === "contacts" ? selectedContactIds : selectedCompanyDomains;
   const clearSelection = viewMode === "contacts" ? deselectAllContacts : deselectAllCompanies;
   const count = selectedIds.size;
   const domains = Array.from(selectedCompanyDomains);
+
+  const totalCount = viewMode === "contacts"
+    ? Object.values(contactsByDomain).flat().length
+    : filteredCompanies().length;
 
   const handleBulkExclude = useCallback(async () => {
     setShowExcludeConfirm(false);
@@ -55,13 +63,25 @@ export function BulkActionBar() {
     clearSelection();
   }, [domains, userName, excludeCompany, addToast, clearSelection]);
 
+  const addUndoToast = useStore((s) => s.addUndoToast);
+  const undoExclude = useStore((s) => s.undoExclude);
+
   const requestBulkExclude = useCallback(() => {
-    if (domains.length > 3) {
+    if (domains.length > 10) {
+      // High-risk: red modal
+      setShowExcludeConfirm(true);
+    } else if (domains.length > 3) {
+      // Medium: standard modal
       setShowExcludeConfirm(true);
     } else {
+      // Low (1-3): execute immediately with undo toast
       handleBulkExclude();
+      addUndoToast(
+        `Excluded ${domains.length} compan${domains.length === 1 ? "y" : "ies"}`,
+        () => { domains.forEach((d) => undoExclude(d)); }
+      );
     }
-  }, [domains.length, handleBulkExclude]);
+  }, [domains, handleBulkExclude, addUndoToast, undoExclude]);
 
   const handleBulkStatus = async (status: string) => {
     if (!userName) return;
@@ -111,7 +131,10 @@ export function BulkActionBar() {
             <span className="text-sm font-semibold text-accent-primary">
               <span key={count} className="inline-block" style={{ animation: "countBounce 200ms ease-out" }}>
                 <AnimatedNumber value={count} />
-              </span>{" "}selected
+              </span>
+              {totalCount > 0 && (
+                <span className="font-normal text-text-tertiary"> of {totalCount}</span>
+              )}{" "}selected
             </span>
 
             {showStatusDropdown ? (
@@ -136,7 +159,9 @@ export function BulkActionBar() {
                     <BulkButton onClick={() => setShowNoteInput(true)} label="Add Note" />
                   </>
                 )}
-                <BulkButton onClick={clearSelection} label="Clear" variant="ghost" />
+                <Tooltip text="Clear selection (Esc)">
+                  <BulkButton onClick={clearSelection} label="Clear" variant="ghost" />
+                </Tooltip>
               </div>
             )}
           </div>
@@ -158,8 +183,12 @@ export function BulkActionBar() {
 
       <ConfirmDialog
         open={showExcludeConfirm}
-        title="Exclude companies?"
-        message={`You're about to exclude ${domains.length} companies. They will be hidden from future search results.`}
+        title={domains.length > 10 ? "Exclude many companies?" : "Exclude companies?"}
+        message={
+          domains.length > 10
+            ? `You're about to exclude ${domains.length} companies — this is a large batch. They will be hidden from all future search results.`
+            : `You're about to exclude ${domains.length} companies. They will be hidden from future search results.`
+        }
         confirmLabel={`Exclude ${domains.length}`}
         onConfirm={handleBulkExclude}
         onCancel={() => setShowExcludeConfirm(false)}

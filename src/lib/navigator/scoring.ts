@@ -30,6 +30,9 @@ const DEFAULT_WEIGHTS: IcpWeights = {
   freshsalesLead: 10,
   freshsalesCustomer: -40,
   freshsalesRecentContact: 5,
+  freshsalesTagBoost: 15,
+  freshsalesTagPenalty: -20,
+  freshsalesDealStalled: -10,
 };
 
 function sizeMatchesBucket(employeeCount: number, bucket: string): boolean {
@@ -161,6 +164,48 @@ export function calculateIcpScore(
       breakdown.push({
         factor: "Freshsales: active lead",
         points: w.freshsalesLead,
+        matched: true,
+      });
+    }
+  }
+
+  // 8b. Freshsales contact tags
+  if (company.freshsalesIntel?.contacts?.length) {
+    const allTags = company.freshsalesIntel.contacts.flatMap((c) => c.tags || []);
+    const hasBoostTag = allTags.some((t) =>
+      ["decision maker", "champion", "key contact"].includes(t.toLowerCase())
+    );
+    const hasPenaltyTag = allTags.some((t) =>
+      ["churned", "bad fit", "competitor"].includes(t.toLowerCase())
+    );
+    if (hasBoostTag) {
+      breakdown.push({
+        factor: "Freshsales: positive contact tag",
+        points: w.freshsalesTagBoost,
+        matched: true,
+      });
+    }
+    if (hasPenaltyTag) {
+      breakdown.push({
+        factor: "Freshsales: negative contact tag",
+        points: w.freshsalesTagPenalty,
+        matched: true,
+      });
+    }
+  }
+
+  // 8c. Freshsales deal velocity (stalled deal penalty)
+  if (company.freshsalesIntel?.deals?.length) {
+    const stalledDeal = company.freshsalesIntel.deals.find(
+      (d) =>
+        d.daysInStage != null &&
+        d.daysInStage > 30 &&
+        !["won", "lost", "closed won", "closed lost"].includes(d.stage.toLowerCase())
+    );
+    if (stalledDeal) {
+      breakdown.push({
+        factor: `Freshsales: deal stalled ${stalledDeal.daysInStage}d`,
+        points: w.freshsalesDealStalled,
         matched: true,
       });
     }

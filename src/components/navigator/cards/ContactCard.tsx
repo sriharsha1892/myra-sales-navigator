@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, lazy, Suspense } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/cn";
 import type { Contact, CompanyEnriched } from "@/lib/navigator/types";
 import { SourceBadge, ConfidenceBadge, IcpScoreBadge, VerificationBadge } from "@/components/navigator/badges";
 import { MissingData } from "@/components/navigator/shared/MissingData";
+import { ConfirmDialog } from "@/components/navigator/shared/ConfirmDialog";
 import { useInlineFeedback } from "@/hooks/navigator/useInlineFeedback";
 import { useStore } from "@/lib/navigator/store";
 import { Tooltip } from "@/components/navigator/shared/Tooltip";
+import { defaultFreshsalesSettings } from "@/lib/navigator/mock-data";
 
 import { useOutreachSuggestion } from "@/lib/navigator/outreach/useOutreachSuggestion";
 
@@ -53,15 +55,16 @@ export function ContactCard({
   const [revealFailed, setRevealFailed] = useState(false);
   const [revealConfirm, setRevealConfirm] = useState(false);
   const [draftModalOpen, setDraftModalOpen] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+  const [showAddToCrm, setShowAddToCrm] = useState(false);
+  const [addToCrmLoading, setAddToCrmLoading] = useState(false);
+  const [addedToCrm, setAddedToCrm] = useState(false);
+  const rawFreshsalesSettings = useStore((s) => s.adminConfig?.freshsalesSettings);
+  const freshsalesSettings = useMemo(
+    () => ({ ...defaultFreshsalesSettings, ...rawFreshsalesSettings }),
+    [rawFreshsalesSettings]
+  );
   const suggestion = useOutreachSuggestion(company, contact, draftModalOpen);
-
-  const handleRevealClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (revealLoading || revealedEmail || revealFailed) return;
-    setRevealConfirm(true);
-    // Auto-dismiss confirm after 4s
-    setTimeout(() => setRevealConfirm(false), 4000);
-  }, [revealLoading, revealedEmail, revealFailed]);
 
   const handleRevealEmail = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -134,6 +137,19 @@ export function ContactCard({
     }
   }, [contact, revealLoading, revealedEmail, trigger, queryClient]);
 
+  const handleRevealClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (revealLoading || revealedEmail || revealFailed) return;
+    // D3: Skip confirm if user preference is set
+    if (typeof window !== "undefined" && localStorage.getItem("nav_skip_reveal_confirm") === "1") {
+      handleRevealEmail(e);
+      return;
+    }
+    setRevealConfirm(true);
+    // Auto-dismiss confirm after 4s
+    setTimeout(() => setRevealConfirm(false), 4000);
+  }, [revealLoading, revealedEmail, revealFailed, handleRevealEmail]);
+
   // Use revealed email if available
   const displayEmail = revealedEmail || contact.email;
 
@@ -152,6 +168,8 @@ export function ContactCard({
     if (!emailToCopy) return;
     navigator.clipboard.writeText(emailToCopy).then(() => {
       trigger("Copied");
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 1500);
     }).catch(() => {
       trigger("Copy failed", "error");
     });
@@ -226,13 +244,17 @@ export function ContactCard({
     >
       {/* Collapsed row */}
       <div className="flex items-center gap-2.5 px-3 py-2.5">
-        <input
-          type="checkbox"
-          checked={isChecked}
-          onChange={(e) => { e.stopPropagation(); onToggleCheck(); }}
+        <label
+          className="flex h-7 w-7 flex-shrink-0 cursor-pointer items-center justify-center"
           onClick={(e) => e.stopPropagation()}
-          className="h-3.5 w-3.5 flex-shrink-0 rounded accent-accent-primary"
-        />
+        >
+          <input
+            type="checkbox"
+            checked={isChecked}
+            onChange={(e) => { e.stopPropagation(); onToggleCheck(); }}
+            className="h-3.5 w-3.5 rounded accent-accent-primary"
+          />
+        </label>
 
         {/* Avatar */}
         <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-accent-primary-light text-[10px] font-semibold text-accent-primary">
@@ -288,15 +310,27 @@ export function ContactCard({
                     Uses 1 credit — Confirm
                   </button>
                 ) : (
-                  <button
-                    onClick={handleRevealClick}
-                    disabled={revealLoading || revealFailed}
-                    className="flex items-center gap-1 rounded-input border border-accent-secondary/30 bg-accent-secondary/5 px-2 py-0.5 text-[10px] font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/10 disabled:opacity-50"
-                  >
-                    {revealLoading ? (
-                      <span className="inline-block h-2.5 w-2.5 animate-spin rounded-full border border-accent-secondary/30 border-t-accent-secondary" />
-                    ) : revealFailed ? "Not found" : "Find email"}
-                  </button>
+                  <>
+                    <button
+                      onClick={handleRevealClick}
+                      disabled={revealLoading || revealFailed}
+                      className="flex items-center gap-1 rounded-input border border-accent-secondary/30 bg-accent-secondary/5 px-2 py-0.5 text-[10px] font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/10 disabled:opacity-50"
+                    >
+                      {revealLoading ? (
+                        <span className="inline-block h-2.5 w-2.5 animate-spin rounded-full border border-accent-secondary/30 border-t-accent-secondary" />
+                      ) : revealFailed ? "Not found" : "Find email"}
+                    </button>
+                    {revealFailed && (
+                      <span className="flex items-center gap-1.5 text-[10px] text-text-tertiary">
+                        {contact.linkedinUrl && (
+                          <a href={contact.linkedinUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-accent-secondary hover:underline">LinkedIn</a>
+                        )}
+                        {contact.companyDomain && (
+                          <a href={`https://${contact.companyDomain}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-accent-secondary hover:underline">Website</a>
+                        )}
+                      </span>
+                    )}
+                  </>
                 );
               }
 
@@ -341,7 +375,7 @@ export function ContactCard({
                     <span className="truncate font-mono text-sm text-text-primary">{displayEmail}</span>
                     <VerificationBadge status={verification} safeToSend={contact.safeToSend} />
                     <Tooltip text="Copy email"><button onClick={handleCopyEmail} className="text-text-tertiary hover:text-accent-primary">
-                      <CopyIcon />
+                      {copySuccess ? <CheckIcon /> : <CopyIcon />}
                     </button></Tooltip>
                   </>
                 );
@@ -353,7 +387,7 @@ export function ContactCard({
                   <span className="truncate font-mono text-sm text-text-secondary">{displayEmail}</span>
                   <VerificationBadge status="unverified" />
                   <Tooltip text="Copy email"><button onClick={handleCopyEmail} className="text-text-tertiary hover:text-accent-primary">
-                    <CopyIcon />
+                    {copySuccess ? <CheckIcon /> : <CopyIcon />}
                   </button></Tooltip>
                 </>
               );
@@ -366,6 +400,17 @@ export function ContactCard({
           <span className="rounded-pill border border-accent-secondary/30 bg-accent-secondary/10 px-1.5 py-0.5 text-[9px] font-medium text-accent-secondary">
             {contact.crmStatus}
           </span>
+        )}
+
+        {/* Contact tags */}
+        {contact.tags && contact.tags.length > 0 && (
+          <div className="flex gap-0.5">
+            {contact.tags.slice(0, 2).map((tag) => (
+              <span key={tag} className="rounded-pill bg-surface-2 px-1 py-0.5 text-[8px] text-text-tertiary">
+                {tag}
+              </span>
+            ))}
+          </div>
         )}
 
         {/* Source badges */}
@@ -403,6 +448,46 @@ export function ContactCard({
         </svg>
       </div>
 
+      {/* Add to CRM confirm dialog */}
+      <ConfirmDialog
+        open={showAddToCrm}
+        title="Add to Freshsales"
+        message={`Create ${contact.firstName} ${contact.lastName}${contact.title ? ` (${contact.title})` : ""} as a contact under ${contact.companyName} in Freshsales?`}
+        confirmLabel="Add to CRM"
+        cancelLabel="Cancel"
+        onConfirm={async () => {
+          setShowAddToCrm(false);
+          setAddToCrmLoading(true);
+          try {
+            const res = await fetch("/api/freshsales/contacts", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                firstName: contact.firstName,
+                lastName: contact.lastName,
+                email: contact.email,
+                phone: contact.phone,
+                title: contact.title,
+                linkedinUrl: contact.linkedinUrl,
+                companyDomain: contact.companyDomain,
+                companyName: contact.companyName,
+              }),
+            });
+            if (res.ok) {
+              setAddedToCrm(true);
+              addToast({ message: `${contact.firstName} added to Freshsales`, type: "success" });
+            } else {
+              addToast({ message: "Failed to add contact to CRM", type: "error" });
+            }
+          } catch {
+            addToast({ message: "Failed to add contact to CRM", type: "error" });
+          } finally {
+            setAddToCrmLoading(false);
+          }
+        }}
+        onCancel={() => setShowAddToCrm(false)}
+      />
+
       {/* Draft email modal */}
       {draftModalOpen && company && (
         <Suspense fallback={null}>
@@ -418,136 +503,130 @@ export function ContactCard({
         </Suspense>
       )}
 
-      {/* Expanded detail */}
+      {/* Expanded detail (D4: collapsible sections) */}
       {isExpanded && (
         <div className="border-t border-surface-3 px-3 py-3 animate-fadeInUp" style={{ animationDuration: "120ms" }}>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
-            {/* Full name + title */}
-            <div>
-              <span className="text-text-tertiary">Name:</span>{" "}
-              <span className="text-text-primary">{contact.firstName ?? ""} {contact.lastName ?? ""}</span>
-            </div>
-            <div>
-              <span className="text-text-tertiary">Title:</span>{" "}
-              <span className="text-text-primary">{contact.title ?? ""}</span>
-              {contact.fieldSources?.title && (
-                <SourceBadge source={contact.fieldSources.title} className="ml-1" />
-              )}
-            </div>
-
-            {/* Email */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-text-tertiary">Email:</span>{" "}
-              {displayEmail ? (
-                <>
-                  <span className={`font-mono ${contact.verificationStatus === "invalid" ? "text-text-tertiary line-through" : "text-text-primary"}`}>
-                    {displayEmail}
-                  </span>
-                  <VerificationBadge status={contact.verificationStatus ?? "unverified"} safeToSend={contact.safeToSend} />
-                  {contact.fieldSources?.email && (
-                    <SourceBadge source={contact.fieldSources.email} />
-                  )}
-                </>
-              ) : revealConfirm ? (
-                <button
-                  onClick={handleRevealEmail}
-                  className="flex items-center gap-1 rounded-input border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400 transition-colors hover:bg-amber-500/20"
-                >
-                  Uses 1 credit — Confirm
-                </button>
-              ) : (
-                <button
-                  onClick={handleRevealClick}
-                  disabled={revealLoading || revealFailed}
-                  className="flex items-center gap-1 rounded-input border border-accent-secondary/30 bg-accent-secondary/5 px-2 py-0.5 text-[10px] font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/10 disabled:opacity-50"
-                >
-                  {revealLoading ? (
-                    <span className="inline-block h-2.5 w-2.5 animate-spin rounded-full border border-accent-secondary/30 border-t-accent-secondary" />
-                  ) : revealFailed ? (
-                    "Not found"
-                  ) : (
-                    "Find email"
-                  )}
-                </button>
-              )}
-            </div>
-
-            {/* Phone */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-text-tertiary">Phone:</span>{" "}
-              {contact.phone ? (
-                <>
-                  <span className="font-mono text-text-primary">{contact.phone}</span>
-                  {contact.fieldSources?.phone && (
-                    <SourceBadge source={contact.fieldSources.phone} />
-                  )}
-                </>
-              ) : (
-                <MissingData label="Not available" />
-              )}
-            </div>
-
-            {/* Seniority */}
-            {show("seniority") && (
+          {/* Contact Info section */}
+          <CollapsibleSection title="Contact Info" defaultOpen>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
               <div>
-                <span className="text-text-tertiary">Seniority:</span>{" "}
-                <span className="rounded-pill bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium text-text-primary">
-                  {seniorityLabel[contact.seniority] ?? contact.seniority}
-                </span>
+                <span className="text-text-tertiary">Name:</span>{" "}
+                <span className="text-text-primary">{contact.firstName ?? ""} {contact.lastName ?? ""}</span>
               </div>
-            )}
-
-            {/* LinkedIn */}
-            {show("linkedin") && (
-              <div>
-                <span className="text-text-tertiary">LinkedIn:</span>{" "}
-                {contact.linkedinUrl ? (
-                  <a
-                    href={contact.linkedinUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-accent-secondary hover:underline"
-                    onClick={(e) => e.stopPropagation()}
+              <div className="flex items-center gap-1.5">
+                <span className="text-text-tertiary">Email:</span>{" "}
+                {displayEmail ? (
+                  <>
+                    <span className={`font-mono ${contact.verificationStatus === "invalid" ? "text-text-tertiary line-through" : "text-text-primary"}`}>
+                      {displayEmail}
+                    </span>
+                    <VerificationBadge status={contact.verificationStatus ?? "unverified"} safeToSend={contact.safeToSend} />
+                    {contact.fieldSources?.email && (
+                      <SourceBadge source={contact.fieldSources.email} />
+                    )}
+                  </>
+                ) : revealConfirm ? (
+                  <button
+                    onClick={handleRevealEmail}
+                    className="flex items-center gap-1 rounded-input border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400 transition-colors hover:bg-amber-500/20"
                   >
-                    Profile
-                  </a>
+                    Uses 1 credit — Confirm
+                  </button>
                 ) : (
-                  <MissingData label="Not found" />
+                  <button
+                    onClick={handleRevealClick}
+                    disabled={revealLoading || revealFailed}
+                    className="flex items-center gap-1 rounded-input border border-accent-secondary/30 bg-accent-secondary/5 px-2 py-0.5 text-[10px] font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/10 disabled:opacity-50"
+                  >
+                    {revealLoading ? (
+                      <span className="inline-block h-2.5 w-2.5 animate-spin rounded-full border border-accent-secondary/30 border-t-accent-secondary" />
+                    ) : revealFailed ? (
+                      "Not found"
+                    ) : (
+                      "Find email"
+                    )}
+                  </button>
                 )}
               </div>
-            )}
-
-            {/* Sources */}
-            <div className="flex items-center gap-1">
-              <span className="text-text-tertiary">Sources:</span>{" "}
-              <div className="flex gap-0.5">
-                {(Array.isArray(contact.sources) ? contact.sources : []).map((src) => (
-                  <SourceBadge key={src} source={src} />
-                ))}
+              <div className="flex items-center gap-1.5">
+                <span className="text-text-tertiary">Phone:</span>{" "}
+                {contact.phone ? (
+                  <>
+                    <span className="font-mono text-text-primary">{contact.phone}</span>
+                    {contact.fieldSources?.phone && (
+                      <SourceBadge source={contact.fieldSources.phone} />
+                    )}
+                  </>
+                ) : (
+                  <MissingData label="Not available" />
+                )}
               </div>
-            </div>
-
-            {/* Company chip with popover */}
-            <div className="relative flex items-center gap-1">
-              <span className="text-text-tertiary">Company:</span>{" "}
-              <span
-                ref={chipRef}
-                onMouseEnter={handlePopoverEnter}
-                onMouseLeave={handlePopoverLeave}
-                className="cursor-default rounded-pill bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium text-text-primary"
-              >
-                {contact.companyName ?? "—"}
-              </span>
-              {popoverOpen && company && (
-                <CompanyPopover
-                  company={company}
-                  onMouseEnter={handlePopoverEnter}
-                  onMouseLeave={handlePopoverLeave}
-                  onViewDossier={handleViewDossier}
-                />
+              {show("linkedin") && (
+                <div>
+                  <span className="text-text-tertiary">LinkedIn:</span>{" "}
+                  {contact.linkedinUrl ? (
+                    <a href={contact.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-accent-secondary hover:underline" onClick={(e) => e.stopPropagation()}>Profile</a>
+                  ) : (
+                    <MissingData label="Not found" />
+                  )}
+                </div>
               )}
             </div>
-          </div>
+          </CollapsibleSection>
+
+          {/* Professional section */}
+          <CollapsibleSection title="Professional" defaultOpen>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
+              <div>
+                <span className="text-text-tertiary">Title:</span>{" "}
+                <span className="text-text-primary">{contact.title ?? ""}</span>
+                {contact.fieldSources?.title && (
+                  <SourceBadge source={contact.fieldSources.title} className="ml-1" />
+                )}
+              </div>
+              {show("seniority") && (
+                <div>
+                  <span className="text-text-tertiary">Seniority:</span>{" "}
+                  <span className="rounded-pill bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium text-text-primary">
+                    {seniorityLabel[contact.seniority] ?? contact.seniority}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center gap-1">
+                <span className="text-text-tertiary">Sources:</span>{" "}
+                <div className="flex gap-0.5">
+                  {(Array.isArray(contact.sources) ? contact.sources : []).map((src) => (
+                    <SourceBadge key={src} source={src} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </CollapsibleSection>
+
+          {/* Company section */}
+          <CollapsibleSection title="Company" defaultOpen={false}>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
+              <div className="relative flex items-center gap-1">
+                <span className="text-text-tertiary">Company:</span>{" "}
+                <span
+                  ref={chipRef}
+                  onMouseEnter={handlePopoverEnter}
+                  onMouseLeave={handlePopoverLeave}
+                  className="cursor-default rounded-pill bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium text-text-primary"
+                >
+                  {contact.companyName ?? "—"}
+                </span>
+                {popoverOpen && company && (
+                  <CompanyPopover
+                    company={company}
+                    onMouseEnter={handlePopoverEnter}
+                    onMouseLeave={handlePopoverLeave}
+                    onViewDossier={handleViewDossier}
+                  />
+                )}
+              </div>
+            </div>
+          </CollapsibleSection>
 
           {/* Actions row */}
           <div className="mt-3 flex items-center gap-2 border-t border-surface-3 pt-2.5">
@@ -587,6 +666,20 @@ export function ContactCard({
             >
               Draft email
             </button>
+            {/* Add to CRM */}
+            {!addedToCrm && !contact.sources.includes("freshsales") && company?.freshsalesAvailable && contact.email && freshsalesSettings.enablePushContact && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowAddToCrm(true); }}
+                className="rounded-input border border-accent-secondary/30 bg-accent-secondary/5 px-2.5 py-1 text-[10px] font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/10"
+              >
+                Add to CRM
+              </button>
+            )}
+            {addedToCrm && (
+              <span className="rounded-input border border-success/30 bg-success/5 px-2.5 py-1 text-[10px] font-medium text-success">
+                In CRM
+              </span>
+            )}
             <button
               onClick={handleExclude}
               className="ml-auto rounded-input border border-danger/30 px-2.5 py-1 text-[10px] font-medium text-danger/70 transition-colors hover:bg-danger/10"
@@ -658,6 +751,12 @@ function CompanyPopover({
             <span className="text-text-secondary">{statusLabel[company.freshsalesStatus] ?? company.freshsalesStatus}</span>
           </div>
         )}
+        {company.freshsalesIntel?.account?.owner && (
+          <div>
+            <span className="text-text-tertiary">CRM Owner:</span>{" "}
+            <span className="text-accent-secondary">{company.freshsalesIntel.account.owner.name}</span>
+          </div>
+        )}
       </div>
       <button
         onClick={onViewDossier}
@@ -674,6 +773,32 @@ function CopyIcon() {
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}
+
+function CollapsibleSection({ title, defaultOpen = true, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="mb-2">
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+        className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary hover:text-text-secondary"
+      >
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className={`transition-transform duration-[180ms] ${open ? "" : "-rotate-90"}`}>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+        {title}
+      </button>
+      {open && children}
+    </div>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-success">
+      <polyline points="20 6 9 17 4 12" />
     </svg>
   );
 }

@@ -3,6 +3,8 @@
 import { useEffect, useCallback } from "react";
 import { useStore } from "@/lib/navigator/store";
 import type { Contact, VerificationResult } from "@/lib/navigator/types";
+import { pick } from "@/lib/navigator/ui-copy";
+import { useBrowserNotifications } from "@/hooks/navigator/useBrowserNotifications";
 
 export function escapeCsvField(field: string): string {
   if (field.includes(",") || field.includes('"') || field.includes("\n")) {
@@ -49,6 +51,7 @@ export function useExport() {
   const adminConfig = useStore((s) => s.adminConfig);
   const addProgressToast = useStore((s) => s.addProgressToast);
   const addToast = useStore((s) => s.addToast);
+  const { notify } = useBrowserNotifications();
 
   const getSelectedContacts = useCallback((): Contact[] => {
     if (viewMode === "contacts") {
@@ -87,18 +90,26 @@ export function useExport() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ contacts: payloads, format: template, companyDomain, companyDomains, userName }),
           });
-          if (!res.ok) throw new Error("Server error");
+          if (!res.ok) {
+            if (res.status === 429) throw new Error("rate_limited");
+            if (res.status === 408) throw new Error("timeout");
+            throw new Error("Server error");
+          }
           const { text, count, skipped } = await res.json();
           await navigator.clipboard.writeText(text);
           const skipMsg = skipped > 0 ? ` (${skipped} skipped — no email)` : "";
           handle.resolve(`Copied ${count} contacts to clipboard${skipMsg}`);
-        } catch {
+          notify("Export complete", `Copied ${count} contacts to clipboard${skipMsg}`);
+        } catch (err) {
+          // H3: Fallback notification
+          addToast({ message: pick("export_fallback"), type: "info", duration: 3000 });
           // Fallback: client-side formatting
           const lines = contacts
             .filter((c) => c.email)
             .map((c) => applyTemplateLocal(template, c));
           await navigator.clipboard.writeText(lines.join("\n"));
           handle.resolve(`Copied ${lines.length} contacts to clipboard`);
+          notify("Export complete", `Copied ${lines.length} contacts to clipboard`);
         }
       } else if (mode === "excel") {
         // Excel export using ExcelJS (client-side)
@@ -139,8 +150,10 @@ export function useExport() {
           a.click();
           URL.revokeObjectURL(url);
           handle.resolve(`Exported ${contacts.length} contacts to Excel`);
+          notify("Export complete", `Exported ${contacts.length} contacts to Excel`);
         } catch {
           handle.reject("Excel export failed");
+          notify("Export failed", "Excel export failed");
         }
       } else {
         // CSV export — respect admin csvColumns
@@ -152,7 +165,11 @@ export function useExport() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ contacts: payloads, companyDomain, companyDomains, userName, csvColumns }),
           });
-          if (!res.ok) throw new Error("Server error");
+          if (!res.ok) {
+            if (res.status === 429) throw new Error("rate_limited");
+            if (res.status === 408) throw new Error("timeout");
+            throw new Error("Server error");
+          }
           const blob = await res.blob();
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
@@ -161,7 +178,10 @@ export function useExport() {
           a.click();
           URL.revokeObjectURL(url);
           handle.resolve(`Exported ${contacts.length} contacts to CSV`);
+          notify("Export complete", `Exported ${contacts.length} contacts to CSV`);
         } catch {
+          // H3: Fallback notification
+          addToast({ message: pick("export_fallback"), type: "info", duration: 3000 });
           // Fallback: client-side CSV generation
           const csvRows = [
             ["First Name", "Last Name", "Email", "Title", "Company", "Phone", "Confidence"].join(","),
@@ -177,10 +197,17 @@ export function useExport() {
           a.click();
           URL.revokeObjectURL(url);
           handle.resolve(`Exported ${contacts.length} contacts to CSV`);
+          notify("Export complete", `Exported ${contacts.length} contacts to CSV`);
         }
       }
-    } catch {
-      handle.reject("Export failed");
+    } catch (err) {
+      const msg = err instanceof Error && err.message === "rate_limited"
+        ? pick("error_rate_limited")
+        : err instanceof Error && err.message === "timeout"
+          ? pick("error_timeout")
+          : "Export failed";
+      handle.reject(msg);
+      notify("Export failed", msg);
       setExportState(null);
       return;
     }
@@ -205,12 +232,31 @@ export function useExport() {
     } catch { /* silent */ }
 
     setExportState(null);
-  }, [adminConfig, userCopyFormat, addProgressToast, addToast, setExportState]);
+  }, [adminConfig, userCopyFormat, addProgressToast, addToast, setExportState, notify]);
 
   const initiateExport = useCallback((mode: "csv" | "clipboard" | "excel") => {
     if (viewMode === "companies" && selectedCompanyDomains.size > 0) {
-      // Open contact picker
       const contacts = getSelectedContacts();
+
+      // Auto-export bypass: skip contact picker when preference is set
+      const autoExport = typeof window !== "undefined" && localStorage.getItem("nav_auto_export") === "1";
+      if (autoExport) {
+        // Still warn about invalid/missing emails
+        const invalidCount = contacts.filter(
+          (c) => c.verificationStatus === "invalid" || !c.email
+        ).length;
+        if (invalidCount > 0) {
+          addToast({
+            message: `${invalidCount} contact${invalidCount > 1 ? "s" : ""} with invalid/missing email${invalidCount > 1 ? "s" : ""} will be included`,
+            type: "warning",
+            duration: 4000,
+          });
+        }
+        executeExport(contacts, mode);
+        return;
+      }
+
+      // Open contact picker
       setExportState({
         step: "picking",
         contactIds: contacts.map((c) => c.id),
@@ -301,9 +347,12 @@ export function useExport() {
           if (threshold > 0) {
             contacts = contacts.filter((c) => c.emailConfidence >= threshold);
           }
+
+          notify("Verification complete", `${results.length} emails verified`);
         } catch (err) {
           const msg = err instanceof Error ? err.message : "Verification failed";
           addToast({ message: msg, type: "warning" });
+          notify("Verification failed", msg);
           // Proceed with unverified contacts rather than blocking export
         }
       }
@@ -311,7 +360,7 @@ export function useExport() {
 
     setExportState(null);
     executeExport(contacts, mode);
-  }, [contactsByDomain, exportState, executeExport, setExportState, adminConfig, addToast]);
+  }, [contactsByDomain, exportState, executeExport, setExportState, adminConfig, addToast, notify]);
 
   // Watch for Cmd+E trigger
   useEffect(() => {

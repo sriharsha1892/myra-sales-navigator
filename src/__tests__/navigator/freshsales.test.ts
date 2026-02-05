@@ -19,6 +19,9 @@ let isFreshsalesAvailable: typeof import("@/lib/navigator/providers/freshsales")
 let getFreshsalesIntel: typeof import("@/lib/navigator/providers/freshsales").getFreshsalesIntel;
 let getFreshsalesContacts: typeof import("@/lib/navigator/providers/freshsales").getFreshsalesContacts;
 let getFreshsalesStatus: typeof import("@/lib/navigator/providers/freshsales").getFreshsalesStatus;
+let createFreshsalesContact: typeof import("@/lib/navigator/providers/freshsales").createFreshsalesContact;
+let findOrCreateAccount: typeof import("@/lib/navigator/providers/freshsales").findOrCreateAccount;
+let createFreshsalesTask: typeof import("@/lib/navigator/providers/freshsales").createFreshsalesTask;
 
 // ---------------------------------------------------------------------------
 // Helper factories
@@ -69,6 +72,25 @@ function makeRawDeal(overrides: Record<string, unknown> = {}) {
     deal_stage: { name: "Negotiation" },
     probability: 60,
     expected_close: "2026-03-01",
+    created_at: "2025-11-01T00:00:00Z",
+    updated_at: "2026-01-15T00:00:00Z",
+    ...overrides,
+  };
+}
+
+function makeActivityResponse(activities: Record<string, unknown>[]) {
+  return makeOkResponse({ sales_activitys: activities });
+}
+
+function makeRawActivity(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 701,
+    activity_type: "email",
+    notes: "Sent intro about Q1 pricing",
+    created_at: "2026-01-20T00:00:00Z",
+    owner: { display_name: "Satish" },
+    outcome: "interested",
+    targetable: { name: "Jane Doe" },
     ...overrides,
   };
 }
@@ -87,11 +109,12 @@ const DEFAULT_ACCOUNT = {
 };
 
 /**
- * Wire up the standard 4-call fetch sequence:
+ * Wire up the standard 5-call fetch sequence:
  *   1. Supabase config
  *   2. Account search
  *   3. Contact search (parallel)
  *   4. Deal search (parallel)
+ *   5. Activity search (parallel)
  */
 function stubHappyPath(
   opts: {
@@ -99,6 +122,7 @@ function stubHappyPath(
     accounts?: Record<string, unknown>[];
     contacts?: Record<string, unknown>[];
     deals?: Record<string, unknown>[];
+    activities?: Record<string, unknown>[];
     rateHeaders?: Record<string, string>;
   } = {}
 ) {
@@ -107,6 +131,7 @@ function stubHappyPath(
     accounts = [DEFAULT_ACCOUNT],
     contacts = [makeRawContact()],
     deals = [makeRawDeal()],
+    activities = [],
     rateHeaders,
   } = opts;
 
@@ -118,7 +143,8 @@ function stubHappyPath(
         : makeAccountResponse(accounts)
     ) // account search
     .mockResolvedValueOnce(makeContactResponse(contacts)) // contacts
-    .mockResolvedValueOnce(makeDealResponse(deals)); // deals
+    .mockResolvedValueOnce(makeDealResponse(deals)) // deals
+    .mockResolvedValueOnce(makeActivityResponse(activities)); // activities
 }
 
 // ---------------------------------------------------------------------------
@@ -140,6 +166,9 @@ beforeEach(async () => {
   getFreshsalesIntel = mod.getFreshsalesIntel;
   getFreshsalesContacts = mod.getFreshsalesContacts;
   getFreshsalesStatus = mod.getFreshsalesStatus;
+  createFreshsalesContact = mod.createFreshsalesContact;
+  findOrCreateAccount = mod.findOrCreateAccount;
+  createFreshsalesTask = mod.createFreshsalesTask;
 });
 
 afterEach(() => {
@@ -262,11 +291,11 @@ describe("getFreshsalesIntel — happy path", () => {
     expect(result.account!.name).toBe("First");
   });
 
-  it("fetches contacts + deals in parallel (both called)", async () => {
+  it("fetches contacts + deals + activities in parallel (all called)", async () => {
     stubHappyPath();
     await getFreshsalesIntel("acme.com");
-    // Supabase(0) + account(1) + contacts(2) + deals(3)
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    // Supabase(0) + account(1) + contacts(2) + deals(3) + activities(4)
+    expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 });
 
@@ -363,7 +392,8 @@ describe("getFreshsalesIntel — partial failures", () => {
       .mockResolvedValueOnce(makeSupabaseConfigResponse())
       .mockResolvedValueOnce(makeAccountResponse([DEFAULT_ACCOUNT]))
       .mockResolvedValueOnce(makeErrorResponse(500)) // contacts fail
-      .mockResolvedValueOnce(makeDealResponse([makeRawDeal()])); // deals ok
+      .mockResolvedValueOnce(makeDealResponse([makeRawDeal()])) // deals ok
+      .mockResolvedValueOnce(makeActivityResponse([])); // activities ok
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const result = await getFreshsalesIntel("acme.com");
     expect(result.contacts).toEqual([]);
@@ -375,7 +405,8 @@ describe("getFreshsalesIntel — partial failures", () => {
       .mockResolvedValueOnce(makeSupabaseConfigResponse())
       .mockResolvedValueOnce(makeAccountResponse([DEFAULT_ACCOUNT]))
       .mockResolvedValueOnce(makeContactResponse([makeRawContact()])) // contacts ok
-      .mockResolvedValueOnce(makeErrorResponse(500)); // deals fail
+      .mockResolvedValueOnce(makeErrorResponse(500)) // deals fail
+      .mockResolvedValueOnce(makeActivityResponse([])); // activities ok
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const result = await getFreshsalesIntel("acme.com");
     expect(result.contacts.length).toBeGreaterThan(0);
@@ -387,7 +418,8 @@ describe("getFreshsalesIntel — partial failures", () => {
       .mockResolvedValueOnce(makeSupabaseConfigResponse())
       .mockResolvedValueOnce(makeAccountResponse([DEFAULT_ACCOUNT]))
       .mockResolvedValueOnce(makeErrorResponse(500))
-      .mockResolvedValueOnce(makeErrorResponse(500));
+      .mockResolvedValueOnce(makeErrorResponse(500))
+      .mockResolvedValueOnce(makeActivityResponse([]));
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const result = await getFreshsalesIntel("acme.com");
     expect(result.account).not.toBeNull();
@@ -399,7 +431,8 @@ describe("getFreshsalesIntel — partial failures", () => {
       .mockResolvedValueOnce(makeSupabaseConfigResponse())
       .mockResolvedValueOnce(makeAccountResponse([DEFAULT_ACCOUNT]))
       .mockRejectedValueOnce(new Error("Network error")) // contacts throw
-      .mockResolvedValueOnce(makeDealResponse([makeRawDeal()])); // deals ok
+      .mockResolvedValueOnce(makeDealResponse([makeRawDeal()])) // deals ok
+      .mockResolvedValueOnce(makeActivityResponse([])); // activities ok
     vi.spyOn(console, "error").mockImplementation(() => {});
     const result = await getFreshsalesIntel("acme.com");
     expect(result.contacts).toEqual([]);
@@ -411,7 +444,8 @@ describe("getFreshsalesIntel — partial failures", () => {
       .mockResolvedValueOnce(makeSupabaseConfigResponse())
       .mockResolvedValueOnce(makeAccountResponse([DEFAULT_ACCOUNT]))
       .mockResolvedValueOnce(makeContactResponse([makeRawContact()]))
-      .mockRejectedValueOnce(new Error("Network error")); // deals throw
+      .mockRejectedValueOnce(new Error("Network error")) // deals throw
+      .mockResolvedValueOnce(makeActivityResponse([])); // activities ok
     vi.spyOn(console, "error").mockImplementation(() => {});
     const result = await getFreshsalesIntel("acme.com");
     expect(result.contacts.length).toBeGreaterThan(0);
@@ -480,8 +514,8 @@ describe("caching", () => {
     const first = await getFreshsalesIntel("acme.com");
     const second = await getFreshsalesIntel("acme.com");
     expect(second).toEqual(first);
-    // 4 fetches from first call only
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    // 5 fetches from first call only (config + account + contacts + deals + activities)
+    expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 
   it("different domains make separate fetches", async () => {
@@ -493,7 +527,8 @@ describe("caching", () => {
       .mockResolvedValueOnce(makeSupabaseConfigResponse()) // config (may be cached in module)
       .mockResolvedValueOnce(makeAccountResponse([{ ...DEFAULT_ACCOUNT, id: 2, name: "Beta" }]))
       .mockResolvedValueOnce(makeContactResponse([]))
-      .mockResolvedValueOnce(makeDealResponse([]));
+      .mockResolvedValueOnce(makeDealResponse([]))
+      .mockResolvedValueOnce(makeActivityResponse([]));
     await getFreshsalesIntel("beta.com");
 
     // At least 5 total fetches (4 for first + more for second)
@@ -505,8 +540,8 @@ describe("caching", () => {
     await getFreshsalesIntel("WWW.ACME.COM");
     const result = await getFreshsalesIntel("acme.com");
     expect(result.domain).toBe("acme.com");
-    // Only 4 fetches total — second call used cache
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    // Only 5 fetches total — second call used cache
+    expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 });
 
@@ -587,7 +622,8 @@ describe("seniority mapping", () => {
       .mockResolvedValueOnce(makeSupabaseConfigResponse())
       .mockResolvedValueOnce(makeAccountResponse([DEFAULT_ACCOUNT]))
       .mockResolvedValueOnce(makeContactResponse([makeRawContact({ job_title: title })]))
-      .mockResolvedValueOnce(makeDealResponse([]));
+      .mockResolvedValueOnce(makeDealResponse([]))
+      .mockResolvedValueOnce(makeActivityResponse([]));
     const result = await mod.getFreshsalesIntel(domain);
     return result.contacts[0]?.seniority ?? "unknown";
   }
@@ -664,7 +700,8 @@ describe("deriveStatus", () => {
       .mockResolvedValueOnce(makeSupabaseConfigResponse())
       .mockResolvedValueOnce(makeAccountResponse([DEFAULT_ACCOUNT]))
       .mockResolvedValueOnce(makeContactResponse([]))
-      .mockResolvedValueOnce(makeDealResponse(deals));
+      .mockResolvedValueOnce(makeDealResponse(deals))
+      .mockResolvedValueOnce(makeActivityResponse([]));
   }
 
   it("no deals → 'new_lead'", async () => {
@@ -729,7 +766,8 @@ describe("config loading", () => {
       .mockResolvedValueOnce(makeSupabaseConfigResponse(customSettings))
       .mockResolvedValueOnce(makeAccountResponse([DEFAULT_ACCOUNT]))
       .mockResolvedValueOnce(makeContactResponse([]))
-      .mockResolvedValueOnce(makeDealResponse([]));
+      .mockResolvedValueOnce(makeDealResponse([]))
+      .mockResolvedValueOnce(makeActivityResponse([]));
     const result = await getFreshsalesIntel("acme.com");
     // Should use custom domain in the base URL
     const accountUrl = fetchMock.mock.calls[1][0] as string;
@@ -747,7 +785,8 @@ describe("config loading", () => {
     fetchMock
       .mockResolvedValueOnce(makeAccountResponse([DEFAULT_ACCOUNT]))
       .mockResolvedValueOnce(makeContactResponse([]))
-      .mockResolvedValueOnce(makeDealResponse([]));
+      .mockResolvedValueOnce(makeDealResponse([]))
+      .mockResolvedValueOnce(makeActivityResponse([]));
     const result = await mod.getFreshsalesIntel("acme.com");
     expect(result.account).not.toBeNull();
   });
@@ -757,7 +796,8 @@ describe("config loading", () => {
       .mockResolvedValueOnce(makeErrorResponse(500)) // supabase fails
       .mockResolvedValueOnce(makeAccountResponse([DEFAULT_ACCOUNT]))
       .mockResolvedValueOnce(makeContactResponse([]))
-      .mockResolvedValueOnce(makeDealResponse([]));
+      .mockResolvedValueOnce(makeDealResponse([]))
+      .mockResolvedValueOnce(makeActivityResponse([]));
     const result = await getFreshsalesIntel("acme.com");
     expect(result.account).not.toBeNull();
   });
@@ -767,7 +807,8 @@ describe("config loading", () => {
       .mockResolvedValueOnce(makeSupabaseConfigResponse()) // empty array
       .mockResolvedValueOnce(makeAccountResponse([DEFAULT_ACCOUNT]))
       .mockResolvedValueOnce(makeContactResponse([]))
-      .mockResolvedValueOnce(makeDealResponse([]));
+      .mockResolvedValueOnce(makeDealResponse([]))
+      .mockResolvedValueOnce(makeActivityResponse([]));
     const result = await getFreshsalesIntel("acme.com");
     expect(result.account).not.toBeNull();
   });
@@ -844,5 +885,381 @@ describe("thin wrappers", () => {
     stubHappyPath({ deals: [makeRawDeal({ deal_stage: { name: "Won" } })] });
     const status = await getFreshsalesStatus("acme.com");
     expect(status).toBe("won");
+  });
+});
+
+// ===========================================================================
+// activity timeline
+// ===========================================================================
+
+describe("activity timeline", () => {
+  it("maps activities from raw data", async () => {
+    stubHappyPath({
+      activities: [
+        makeRawActivity(),
+        makeRawActivity({
+          id: 702,
+          activity_type: "call",
+          notes: "Discovery call",
+          created_at: "2026-01-18T00:00:00Z",
+          owner: { display_name: "Kiran" },
+          outcome: "no_response",
+          targetable: { name: "Mike Rodriguez" },
+        }),
+      ],
+    });
+    const result = await getFreshsalesIntel("acme.com");
+    expect(result.recentActivity).toHaveLength(2);
+    expect(result.recentActivity[0].type).toBe("email");
+    expect(result.recentActivity[0].actor).toBe("Satish");
+    expect(result.recentActivity[0].outcome).toBe("interested");
+    expect(result.recentActivity[0].contactName).toBe("Jane Doe");
+    expect(result.recentActivity[1].type).toBe("call");
+    expect(result.recentActivity[1].actor).toBe("Kiran");
+  });
+
+  it("sorts activities desc by date", async () => {
+    stubHappyPath({
+      activities: [
+        makeRawActivity({ id: 703, created_at: "2026-01-10T00:00:00Z" }),
+        makeRawActivity({ id: 704, created_at: "2026-01-25T00:00:00Z" }),
+        makeRawActivity({ id: 705, created_at: "2026-01-15T00:00:00Z" }),
+      ],
+    });
+    const result = await getFreshsalesIntel("acme.com");
+    expect(result.recentActivity[0].date).toBe("2026-01-25T00:00:00Z");
+    expect(result.recentActivity[1].date).toBe("2026-01-15T00:00:00Z");
+    expect(result.recentActivity[2].date).toBe("2026-01-10T00:00:00Z");
+  });
+
+  it("limits to 10 activities", async () => {
+    const manyActivities = Array.from({ length: 15 }, (_, i) =>
+      makeRawActivity({
+        id: 710 + i,
+        created_at: `2026-01-${String(i + 1).padStart(2, "0")}T00:00:00Z`,
+      })
+    );
+    stubHappyPath({ activities: manyActivities });
+    const result = await getFreshsalesIntel("acme.com");
+    expect(result.recentActivity).toHaveLength(10);
+  });
+
+  it("returns empty array when no activities", async () => {
+    stubHappyPath({ activities: [] });
+    const result = await getFreshsalesIntel("acme.com");
+    expect(result.recentActivity).toEqual([]);
+  });
+
+  it("prefers activity date for lastContactDate over contact.lastVerified", async () => {
+    stubHappyPath({
+      contacts: [makeRawContact({ updated_at: "2025-06-01T00:00:00Z" })],
+      activities: [makeRawActivity({ created_at: "2026-01-20T00:00:00Z" })],
+    });
+    const result = await getFreshsalesIntel("acme.com");
+    expect(result.lastContactDate).toBe("2026-01-20T00:00:00Z");
+  });
+
+  it("falls back to contact.lastVerified when no activities", async () => {
+    stubHappyPath({
+      contacts: [makeRawContact({ updated_at: "2025-12-01T00:00:00Z" })],
+      activities: [],
+    });
+    const result = await getFreshsalesIntel("acme.com");
+    expect(result.lastContactDate).toBe("2025-12-01T00:00:00Z");
+  });
+
+  it("activity fetch failure does not break intel (contacts/deals still present)", async () => {
+    fetchMock
+      .mockResolvedValueOnce(makeSupabaseConfigResponse())
+      .mockResolvedValueOnce(makeAccountResponse([DEFAULT_ACCOUNT]))
+      .mockResolvedValueOnce(makeContactResponse([makeRawContact()]))
+      .mockResolvedValueOnce(makeDealResponse([makeRawDeal()]))
+      .mockRejectedValueOnce(new Error("Network error")); // activities throw
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await getFreshsalesIntel("acme.com");
+    expect(result.contacts.length).toBeGreaterThan(0);
+    expect(result.deals.length).toBeGreaterThan(0);
+    expect(result.recentActivity).toEqual([]);
+  });
+});
+
+// ===========================================================================
+// account owner resolution
+// ===========================================================================
+
+describe("account owner resolution", () => {
+  it("resolves owner when account has owner_id", async () => {
+    const accountWithOwner = {
+      ...DEFAULT_ACCOUNT,
+      owner_id: 42,
+    };
+    fetchMock
+      .mockResolvedValueOnce(makeSupabaseConfigResponse())
+      .mockResolvedValueOnce(makeAccountResponse([accountWithOwner]))
+      .mockResolvedValueOnce(makeContactResponse([]))
+      .mockResolvedValueOnce(makeDealResponse([]))
+      .mockResolvedValueOnce(makeActivityResponse([]))
+      // 6th call: owner resolution GET /users/42
+      .mockResolvedValueOnce(
+        makeOkResponse({ user: { display_name: "Kiran Kaur", email: "kiran@myra.com" } })
+      );
+    const result = await getFreshsalesIntel("acme.com");
+    expect(result.account?.owner).toEqual({
+      id: 42,
+      name: "Kiran Kaur",
+      email: "kiran@myra.com",
+    });
+  });
+
+  it("owner is null when account has no owner_id", async () => {
+    stubHappyPath();
+    const result = await getFreshsalesIntel("acme.com");
+    expect(result.account?.owner).toBeNull();
+  });
+
+  it("owner is null when owner resolution fails", async () => {
+    const accountWithOwner = { ...DEFAULT_ACCOUNT, owner_id: 99 };
+    fetchMock
+      .mockResolvedValueOnce(makeSupabaseConfigResponse())
+      .mockResolvedValueOnce(makeAccountResponse([accountWithOwner]))
+      .mockResolvedValueOnce(makeContactResponse([]))
+      .mockResolvedValueOnce(makeDealResponse([]))
+      .mockResolvedValueOnce(makeActivityResponse([]))
+      .mockResolvedValueOnce(makeErrorResponse(404)); // owner resolution fails
+    const result = await getFreshsalesIntel("acme.com");
+    expect(result.account?.owner).toBeNull();
+  });
+});
+
+// ===========================================================================
+// contact tags
+// ===========================================================================
+
+describe("contact tags", () => {
+  it("maps tags array from raw contact", async () => {
+    stubHappyPath({
+      contacts: [
+        makeRawContact({ tags: ["Decision Maker", "Champion"] }),
+      ],
+    });
+    const result = await getFreshsalesIntel("acme.com");
+    expect(result.contacts[0].tags).toEqual(["Decision Maker", "Champion"]);
+  });
+
+  it("defaults to empty array when tags absent", async () => {
+    stubHappyPath({
+      contacts: [makeRawContact({ tags: undefined })],
+    });
+    const result = await getFreshsalesIntel("acme.com");
+    expect(result.contacts[0].tags).toEqual([]);
+  });
+
+  it("defaults to empty array when tags is not an array", async () => {
+    stubHappyPath({
+      contacts: [makeRawContact({ tags: "not-an-array" })],
+    });
+    const result = await getFreshsalesIntel("acme.com");
+    expect(result.contacts[0].tags).toEqual([]);
+  });
+
+  it("maps freshsalesOwnerId from raw contact", async () => {
+    stubHappyPath({
+      contacts: [makeRawContact({ owner_id: 55 })],
+    });
+    const result = await getFreshsalesIntel("acme.com");
+    expect(result.contacts[0].freshsalesOwnerId).toBe(55);
+  });
+});
+
+// ===========================================================================
+// deal velocity (daysInStage, createdAt, lostReason)
+// ===========================================================================
+
+describe("deal velocity", () => {
+  it("computes daysInStage from updated_at", async () => {
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+    stubHappyPath({
+      deals: [makeRawDeal({ updated_at: twoDaysAgo })],
+    });
+    const result = await getFreshsalesIntel("acme.com");
+    // Should be approximately 2 days (allow +/- 1 for timezone edge cases)
+    expect(result.deals[0].daysInStage).toBeGreaterThanOrEqual(1);
+    expect(result.deals[0].daysInStage).toBeLessThanOrEqual(3);
+  });
+
+  it("daysInStage is null when updated_at is null", async () => {
+    stubHappyPath({
+      deals: [makeRawDeal({ updated_at: null })],
+    });
+    const result = await getFreshsalesIntel("acme.com");
+    expect(result.deals[0].daysInStage).toBeNull();
+  });
+
+  it("maps createdAt from raw deal", async () => {
+    stubHappyPath({
+      deals: [makeRawDeal({ created_at: "2025-11-01T00:00:00Z" })],
+    });
+    const result = await getFreshsalesIntel("acme.com");
+    expect(result.deals[0].createdAt).toBe("2025-11-01T00:00:00Z");
+  });
+
+  it("maps lostReason from raw deal", async () => {
+    stubHappyPath({
+      deals: [makeRawDeal({ lost_reason: "Pricing too high" })],
+    });
+    const result = await getFreshsalesIntel("acme.com");
+    expect(result.deals[0].lostReason).toBe("Pricing too high");
+  });
+
+  it("lostReason null when absent", async () => {
+    stubHappyPath({
+      deals: [makeRawDeal({ lost_reason: null })],
+    });
+    const result = await getFreshsalesIntel("acme.com");
+    expect(result.deals[0].lostReason).toBeNull();
+  });
+});
+
+// ===========================================================================
+// write operations — findOrCreateAccount
+// ===========================================================================
+
+describe("findOrCreateAccount", () => {
+  it("returns existing account when found by domain", async () => {
+    // Config fetch + account search
+    fetchMock
+      .mockResolvedValueOnce(makeSupabaseConfigResponse())
+      .mockResolvedValueOnce(makeAccountResponse([{ id: 10, name: "Existing Corp" }]));
+    const result = await findOrCreateAccount("existing.com", "Existing Corp");
+    expect(result).toEqual({ id: 10, created: false });
+  });
+
+  it("creates new account when not found", async () => {
+    // Config fetch + search (empty) + create POST
+    fetchMock
+      .mockResolvedValueOnce(makeSupabaseConfigResponse())
+      .mockResolvedValueOnce(makeAccountResponse([])) // not found
+      .mockResolvedValueOnce(
+        makeOkResponse({ sales_account: { id: 77 } })
+      ); // create
+    const result = await findOrCreateAccount("new.com", "New Corp");
+    expect(result).toEqual({ id: 77, created: true });
+    // Verify the POST body
+    const createCall = fetchMock.mock.calls[2];
+    expect(createCall[1].method).toBe("POST");
+    const body = JSON.parse(createCall[1].body);
+    expect(body.sales_account.name).toBe("New Corp");
+    expect(body.sales_account.website).toBe("https://new.com");
+  });
+
+  it("returns null when create fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    fetchMock
+      .mockResolvedValueOnce(makeSupabaseConfigResponse())
+      .mockResolvedValueOnce(makeAccountResponse([]))
+      .mockResolvedValueOnce(makeErrorResponse(500));
+    const result = await findOrCreateAccount("fail.com", "Fail Corp");
+    expect(result).toBeNull();
+  });
+});
+
+// ===========================================================================
+// write operations — createFreshsalesContact
+// ===========================================================================
+
+describe("createFreshsalesContact", () => {
+  it("creates contact successfully", async () => {
+    fetchMock
+      .mockResolvedValueOnce(makeSupabaseConfigResponse())
+      .mockResolvedValueOnce(
+        makeOkResponse({ contact: { id: 201 } })
+      );
+    const result = await createFreshsalesContact(
+      { firstName: "Jane", lastName: "Doe", email: "jane@test.com", title: "VP Sales" },
+      10
+    );
+    expect(result).toEqual({ id: 201 });
+    // Verify POST body
+    const createCall = fetchMock.mock.calls[1];
+    expect(createCall[1].method).toBe("POST");
+    const body = JSON.parse(createCall[1].body);
+    expect(body.contact.first_name).toBe("Jane");
+    expect(body.contact.last_name).toBe("Doe");
+    expect(body.contact.email).toBe("jane@test.com");
+    expect(body.contact.job_title).toBe("VP Sales");
+    expect(body.contact.sales_account_id).toBe(10);
+  });
+
+  it("returns null on failure", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    fetchMock
+      .mockResolvedValueOnce(makeSupabaseConfigResponse())
+      .mockResolvedValueOnce(makeErrorResponse(422));
+    const result = await createFreshsalesContact(
+      { firstName: "Bad", lastName: "Data", email: "" },
+      10
+    );
+    expect(result).toBeNull();
+  });
+});
+
+// ===========================================================================
+// write operations — createFreshsalesTask
+// ===========================================================================
+
+describe("createFreshsalesTask", () => {
+  it("creates task successfully", async () => {
+    fetchMock
+      .mockResolvedValueOnce(makeSupabaseConfigResponse())
+      .mockResolvedValueOnce(
+        makeOkResponse({ task: { id: 301 } })
+      );
+    const result = await createFreshsalesTask({
+      title: "Follow up: Acme",
+      dueDate: "2026-02-10",
+      targetableType: "SalesAccount",
+      targetableId: 1,
+    });
+    expect(result).toEqual({ id: 301 });
+    // Verify POST body
+    const createCall = fetchMock.mock.calls[1];
+    expect(createCall[1].method).toBe("POST");
+    const body = JSON.parse(createCall[1].body);
+    expect(body.task.title).toBe("Follow up: Acme");
+    expect(body.task.due_date).toBe("2026-02-10");
+    expect(body.task.targetable_type).toBe("SalesAccount");
+    expect(body.task.targetable_id).toBe(1);
+  });
+
+  it("creates task linked to contact", async () => {
+    fetchMock
+      .mockResolvedValueOnce(makeSupabaseConfigResponse())
+      .mockResolvedValueOnce(
+        makeOkResponse({ task: { id: 302 } })
+      );
+    const result = await createFreshsalesTask({
+      title: "Call Jane",
+      dueDate: "2026-02-10",
+      targetableType: "Contact",
+      targetableId: 101,
+    });
+    expect(result).toEqual({ id: 302 });
+    const body = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(body.task.targetable_type).toBe("Contact");
+    expect(body.task.targetable_id).toBe(101);
+  });
+
+  it("returns null on failure", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    fetchMock
+      .mockResolvedValueOnce(makeSupabaseConfigResponse())
+      .mockResolvedValueOnce(makeErrorResponse(500));
+    const result = await createFreshsalesTask({
+      title: "Fail task",
+      dueDate: "2026-02-10",
+      targetableType: "SalesAccount",
+      targetableId: 1,
+    });
+    expect(result).toBeNull();
   });
 });

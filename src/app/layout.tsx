@@ -5,6 +5,7 @@ import { QueryProvider } from "@/providers/QueryProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { SessionExpiryOverlay } from "@/components/navigator/SessionExpiryOverlay";
 import { ToastContainer } from "@/components/navigator/feedback/ToastContainer";
+import { MobileViewportGuard } from "@/components/navigator/MobileViewportGuard";
 import "./globals.css";
 
 const satoshi = localFont({
@@ -43,6 +44,7 @@ export default function RootLayout({
             {children}
             <SessionExpiryOverlay />
             <ToastContainer />
+            <MobileViewportGuard />
           </AuthProvider>
         </QueryProvider>
       </body>

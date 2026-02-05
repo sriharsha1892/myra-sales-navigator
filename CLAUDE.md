@@ -475,6 +475,8 @@ ADMIN_USERS=adi,jvs
 - **Exclusion:** Supports `email` and `contact_id` types. Contacts without email can be excluded by apolloId. Server-side filtering of contact_id exclusions in contacts route.
 - **Contacts tab:** 300ms minimum skeleton display prevents "0 contacts" flash. Re-fetches when filtered companies change (companyDomainKey in effect deps).
 - **Export picker:** Fetches contacts on demand (fetchQuery + Zustand write), shows spinner until loaded.
+- **Browser notifications:** Native `Notification` API fires when tab is backgrounded (`document.hidden`) and a long-running op completes. Hook: `useBrowserNotifications` (`src/hooks/navigator/useBrowserNotifications.ts`). Wired into 5 locations: search complete/error (SearchBridge), export complete/fail (useExport), verification done (useExport → exportPickedContacts), contacts tab loaded (useContactsTab), dossier refresh (SlideOverPane). Gated by localStorage flag `nav_notifications_enabled` + granted permission. Auto-close 5s, click focuses tab. Toggle in Settings → Notifications; disabled state when browser has blocked.
+- **Workflow preferences (Settings page):** Two toggles under Settings → Workflow. (1) Skip email reveal confirm (`nav_skip_reveal_confirm`) — "Find email" reveals immediately, already wired in ContactCard. (2) Auto-export / skip picker (`nav_auto_export`) — Cmd+E in companies view calls `executeExport` directly, bypassing the contact picker modal. Invalid-email warning toast still fires. Both read/write localStorage directly.
 
 ---
 

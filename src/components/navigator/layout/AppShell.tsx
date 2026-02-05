@@ -1,11 +1,12 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useStore } from "@/lib/navigator/store";
 import { FilterPanel } from "./FilterPanel";
 import { ResultsList } from "./ResultsList";
 import { SlideOverPane } from "./SlideOverPane";
 import { DetailPlaceholder } from "./DetailPlaceholder";
+import { Tooltip } from "@/components/navigator/shared/Tooltip";
 
 export function AppShell() {
   const selectedCompanyDomain = useStore((s) => s.selectedCompanyDomain);
@@ -14,6 +15,18 @@ export function AppShell() {
   const toggleDetailPane = useStore((s) => s.toggleDetailPane);
 
   const showDetailColumn = searchResults !== null && searchResults.length > 0;
+
+  // Cmd+D shortcut to toggle detail pane (C4)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "d") {
+        e.preventDefault();
+        toggleDetailPane();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [toggleDetailPane]);
 
   return (
     <div className="relative flex h-full w-full overflow-hidden">
@@ -35,6 +48,7 @@ export function AppShell() {
           }`}
         >
           {/* Collapse toggle chevron */}
+          <Tooltip text={`${detailPaneCollapsed ? "Expand" : "Collapse"} detail pane (${navigator.platform?.includes("Mac") ? "\u2318" : "Ctrl+"}D)`} placement="bottom">
           <button
             onClick={toggleDetailPane}
             className="absolute -left-3 top-1/2 z-30 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-surface-3 bg-surface-1 text-text-tertiary shadow-sm transition-colors hover:text-text-primary hover:bg-surface-2"
@@ -54,6 +68,7 @@ export function AppShell() {
               <polyline points="15 18 9 12 15 6" />
             </svg>
           </button>
+          </Tooltip>
 
           {!detailPaneCollapsed && (
             <div style={{ animation: "columnReveal 250ms ease-out" }}>

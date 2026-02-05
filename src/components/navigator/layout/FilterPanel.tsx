@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useStore } from "@/lib/navigator/store";
 import { ConfirmDialog } from "@/components/navigator/shared/ConfirmDialog";
 import { FilterSection } from "@/components/navigator/filters/FilterSection";
@@ -11,6 +11,7 @@ import { SignalFilter } from "@/components/navigator/filters/SignalFilter";
 import { ExclusionToggle } from "@/components/navigator/filters/ExclusionToggle";
 import { IcpScoreBadge } from "@/components/navigator/badges";
 import { HelpTip } from "@/components/navigator/shared/HelpTip";
+import { Tooltip } from "@/components/navigator/shared/Tooltip";
 import { useSearchHistory } from "@/hooks/navigator/useSearchHistory";
 import { timeAgo } from "@/lib/utils";
 import { DEFAULT_PIPELINE_STAGES } from "@/lib/navigator/types";
@@ -229,7 +230,9 @@ export function FilterPanel() {
                   <span className="truncate">{entry.label ?? "Search"}</span>
                   <span className="flex items-center gap-2 flex-shrink-0">
                     <span className="font-mono text-xs text-text-tertiary">{entry.resultCount}</span>
-                    <span className="text-xs text-text-tertiary">{timeAgo(entry.timestamp)}</span>
+                    <Tooltip text={new Date(entry.timestamp).toLocaleString()}>
+                      <span className="text-xs text-text-tertiary">{timeAgo(entry.timestamp)}</span>
+                    </Tooltip>
                   </span>
                 </button>
               );
@@ -260,6 +263,9 @@ export function FilterPanel() {
           </div>
         </div>
       )}
+
+      {/* Filter conflict warning (A3) */}
+      <FilterConflictWarning />
 
       {/* Filter Sections */}
       <FilterSection title={<span className="inline-flex items-center gap-1">Vertical <HelpTip text="Industry or market segment, like Food Ingredients or Chemicals." /></span>} defaultOpen={false} count={filters.verticals.length} onClear={() => setFilters({ verticals: [] })}>
@@ -295,6 +301,38 @@ export function FilterPanel() {
         onCancel={() => setConfirmDelete(null)}
         destructive
       />
+    </div>
+  );
+}
+
+// Filter conflict detection (A3)
+function FilterConflictWarning() {
+  const filters = useStore((s) => s.filters);
+
+  const warnings = useMemo(() => {
+    const w: string[] = [];
+    // Only smallest size bucket + expansion signal = unlikely combo
+    if (filters.sizes.length === 1 && filters.sizes[0] === "1-50" && filters.signals.includes("expansion")) {
+      w.push("Very small companies (1-50) rarely show expansion signals.");
+    }
+    // Only one region + many verticals = narrow results
+    if (filters.regions.length === 1 && filters.verticals.length > 3) {
+      w.push(`${filters.verticals.length} verticals in 1 region may yield few results.`);
+    }
+    // All filters minimally set = very restrictive
+    if (filters.verticals.length > 0 && filters.regions.length === 1 && filters.sizes.length === 1 && filters.signals.length === 1) {
+      w.push("Filters are very restrictive. Consider broadening one category.");
+    }
+    return w;
+  }, [filters]);
+
+  if (warnings.length === 0) return null;
+
+  return (
+    <div className="border-b border-warning/20 bg-warning/5 px-3 py-2">
+      {warnings.map((w, i) => (
+        <p key={i} className="text-[10px] text-warning">{w}</p>
+      ))}
     </div>
   );
 }

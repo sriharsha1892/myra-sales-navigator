@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useStore } from "@/lib/navigator/store";
 import { useSearch } from "@/hooks/navigator/useSearch";
 import { useSearchHistory } from "@/hooks/navigator/useSearchHistory";
+import { useBrowserNotifications } from "@/hooks/navigator/useBrowserNotifications";
 import { summarizeFilters } from "@/lib/utils";
 
 export function SearchBridge() {
@@ -16,6 +17,7 @@ export function SearchBridge() {
   const filters = useStore((s) => s.filters);
   const { search } = useSearch();
   const { saveToHistory } = useSearchHistory();
+  const { notify } = useBrowserNotifications();
 
   useEffect(() => {
     if (pendingFreeTextSearch) {
@@ -27,13 +29,17 @@ export function SearchBridge() {
         {
           onSuccess: (data) => {
             saveToHistory(text, {}, data.companies.length);
+            notify("Search complete", `${data.companies.length} companies found`);
+          },
+          onError: () => {
+            notify("Search failed", "Something went wrong with your search");
           },
           onSettled: () => setSearchLoading(false),
         }
       );
       setPendingFreeTextSearch(null);
     }
-  }, [pendingFreeTextSearch, search, setPendingFreeTextSearch, setSearchLoading, setLastSearchQuery, saveToHistory]);
+  }, [pendingFreeTextSearch, search, setPendingFreeTextSearch, setSearchLoading, setLastSearchQuery, saveToHistory, notify]);
 
   useEffect(() => {
     if (pendingFilterSearch) {
@@ -45,13 +51,17 @@ export function SearchBridge() {
         {
           onSuccess: (data) => {
             saveToHistory(summarizeFilters(currentFilters), currentFilters, data.companies.length);
+            notify("Search complete", `${data.companies.length} companies found`);
+          },
+          onError: () => {
+            notify("Search failed", "Something went wrong with your search");
           },
           onSettled: () => setSearchLoading(false),
         }
       );
       setPendingFilterSearch(false);
     }
-  }, [pendingFilterSearch, search, setPendingFilterSearch, setSearchLoading, setLastSearchQuery, filters, saveToHistory]);
+  }, [pendingFilterSearch, search, setPendingFilterSearch, setSearchLoading, setLastSearchQuery, filters, saveToHistory, notify]);
 
   return null;
 }

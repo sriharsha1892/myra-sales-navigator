@@ -10,6 +10,7 @@ interface EmptyStateProps {
   actionLabel?: string;
   onAction?: () => void;
   className?: string;
+  children?: ReactNode;
 }
 
 const icons: Record<string, ReactNode> = {
@@ -43,7 +44,7 @@ const icons: Record<string, ReactNode> = {
   ),
 };
 
-export function EmptyState({ icon, title, description, actionLabel, onAction, className }: EmptyStateProps) {
+export function EmptyState({ icon, title, description, actionLabel, onAction, className, children }: EmptyStateProps) {
   return (
     <div className={cn("flex flex-col items-center justify-center px-6 py-12 text-center", className)}>
       {icon && icons[icon] && <div className="mb-3">{icons[icon]}</div>}
@@ -57,6 +58,7 @@ export function EmptyState({ icon, title, description, actionLabel, onAction, cl
           {actionLabel}
         </button>
       )}
+      {children}
     </div>
   );
 }

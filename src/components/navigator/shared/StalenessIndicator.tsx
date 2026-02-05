@@ -6,6 +6,7 @@ import { Tooltip } from "@/components/navigator/shared/Tooltip";
 interface StalenessIndicatorProps {
   lastRefreshed: string;
   onRefresh?: () => void;
+  isRefreshing?: boolean;
   className?: string;
 }
 
@@ -27,15 +28,21 @@ function formatTimeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
-export function StalenessIndicator({ lastRefreshed, onRefresh, className }: StalenessIndicatorProps) {
+export function StalenessIndicator({ lastRefreshed, onRefresh, isRefreshing, className }: StalenessIndicatorProps) {
   return (
     <span className={cn("inline-flex items-center gap-1.5 font-mono text-xs text-text-tertiary", className)}>
       <span>Last refreshed: {formatTimeAgo(lastRefreshed)}</span>
       {onRefresh && (
-        <Tooltip text="Refresh data">
+        <Tooltip text={isRefreshing ? "Refreshing..." : "Refresh data"}>
           <button
             onClick={onRefresh}
-            className="text-text-tertiary transition-colors hover:text-accent-primary"
+            disabled={isRefreshing}
+            className={cn(
+              "transition-colors",
+              isRefreshing
+                ? "animate-spin text-accent-primary"
+                : "text-text-tertiary hover:text-accent-primary"
+            )}
             aria-label="Refresh data"
           >
           &#x21bb;

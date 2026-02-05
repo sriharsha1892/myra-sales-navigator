@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/providers/AuthProvider";
 import { useStore } from "@/lib/navigator/store";
+import { useBrowserNotifications } from "@/hooks/navigator/useBrowserNotifications";
 import type { ViewMode, SortField } from "@/lib/navigator/types";
 
 const SHORTCUTS = [
@@ -20,6 +22,15 @@ export default function SettingsPage() {
   const setSortField = useStore((s) => s.setSortField);
   const userCopyFormat = useStore((s) => s.userCopyFormat);
   const setUserCopyFormat = useStore((s) => s.setUserCopyFormat);
+  const { enabled: notificationsEnabled, permission: notifPermission, toggleEnabled } = useBrowserNotifications();
+
+  // Workflow preference: skip reveal confirm
+  const [skipReveal, setSkipReveal] = useState(() =>
+    typeof window !== "undefined" ? localStorage.getItem("nav_skip_reveal_confirm") === "1" : false
+  );
+  const [autoExport, setAutoExport] = useState(() =>
+    typeof window !== "undefined" ? localStorage.getItem("nav_auto_export") === "1" : false
+  );
 
   if (isLoading) {
     return (
@@ -102,6 +113,72 @@ export default function SettingsPage() {
               <p className="text-[10px] uppercase tracking-wider text-text-tertiary">Preview</p>
               <p className="mt-0.5 whitespace-pre-wrap font-mono text-xs text-text-secondary">{copyPreview}</p>
             </div>
+          </div>
+        </Section>
+
+        {/* Notifications */}
+        <Section title="Notifications">
+          <label className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              checked={notificationsEnabled}
+              disabled={notifPermission === "denied"}
+              onChange={(e) => toggleEnabled(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-surface-3 bg-surface-2 accent-accent-primary"
+            />
+            <div>
+              <span className="text-sm font-medium text-text-primary">Browser Notifications</span>
+              <p className="mt-0.5 text-[11px] text-text-tertiary">
+                {notifPermission === "denied"
+                  ? "Notifications are blocked. Enable them in your browser settings for this site."
+                  : "Get notified when searches, exports, or data loads finish while you're in another tab."}
+              </p>
+            </div>
+          </label>
+        </Section>
+
+        {/* Workflow */}
+        <Section title="Workflow">
+          <div className="space-y-4">
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                checked={skipReveal}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setSkipReveal(on);
+                  if (on) localStorage.setItem("nav_skip_reveal_confirm", "1");
+                  else localStorage.removeItem("nav_skip_reveal_confirm");
+                }}
+                className="mt-0.5 h-4 w-4 rounded border-surface-3 bg-surface-2 accent-accent-primary"
+              />
+              <div>
+                <span className="text-sm font-medium text-text-primary">Skip email reveal confirmation</span>
+                <p className="mt-0.5 text-[11px] text-text-tertiary">
+                  Clicking &ldquo;Find email&rdquo; reveals immediately without a confirmation step.
+                </p>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                checked={autoExport}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setAutoExport(on);
+                  if (on) localStorage.setItem("nav_auto_export", "1");
+                  else localStorage.removeItem("nav_auto_export");
+                }}
+                className="mt-0.5 h-4 w-4 rounded border-surface-3 bg-surface-2 accent-accent-primary"
+              />
+              <div>
+                <span className="text-sm font-medium text-text-primary">Auto-export (skip contact picker)</span>
+                <p className="mt-0.5 text-[11px] text-text-tertiary">
+                  In companies view, Cmd+E exports all contacts directly without opening the picker.
+                </p>
+              </div>
+            </label>
           </div>
         </Section>
 

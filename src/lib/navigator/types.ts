@@ -24,13 +24,19 @@ export interface FreshsalesDeal {
   stage: string;
   probability: number | null;
   expectedClose: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  daysInStage: number | null;
+  lostReason?: string | null;
 }
 
 export interface FreshsalesActivity {
-  type: string;
+  type: string;        // "email" | "call" | "meeting" | "note" | "task"
   title: string;
   date: string;
-  actor: string;
+  actor: string;       // team member who performed
+  outcome?: string;    // "interested", "not_interested", "no_response", etc.
+  contactName?: string; // which contact was this with
 }
 
 export interface FreshsalesIntel {
@@ -42,6 +48,7 @@ export interface FreshsalesIntel {
     website: string | null;
     industry: string | null;
     employees: number | null;
+    owner: { id: number; name: string; email: string } | null;
   } | null;
   contacts: Contact[];
   deals: FreshsalesDeal[];
@@ -65,6 +72,20 @@ export interface FreshsalesSettings {
     freshsalesCustomer: number;
     freshsalesRecentContact: number;
   };
+  showOwner: boolean;
+  showTags: boolean;
+  showDealVelocity: boolean;
+  stalledDealThresholdDays?: number;
+  tagScoringRules: {
+    boostTags: string[];
+    boostPoints: number;
+    penaltyTags: string[];
+    penaltyPoints: number;
+    excludeTags: string[];
+  };
+  enablePushContact: boolean;
+  enableTaskCreation: boolean;
+  defaultTaskDueDays: number;
 }
 
 export type SignalType = "hiring" | "funding" | "expansion" | "news";
@@ -216,6 +237,9 @@ export interface Contact {
   lastVerified: string | null;
   fieldSources?: Partial<Record<"email" | "phone" | "title" | "linkedinUrl", ResultSource>>;
   crmStatus?: string;
+  tags?: string[];
+  freshsalesOwnerId?: number;
+  freshsalesOwnerName?: string;
   verificationStatus?: "unverified" | "valid" | "valid_risky" | "invalid" | "unknown";
   safeToSend?: boolean;
 }
@@ -301,6 +325,9 @@ export interface IcpWeights {
   freshsalesLead: number;
   freshsalesCustomer: number;
   freshsalesRecentContact: number;
+  freshsalesTagBoost: number;
+  freshsalesTagPenalty: number;
+  freshsalesDealStalled: number;
 }
 
 export interface AnalyticsSettings {

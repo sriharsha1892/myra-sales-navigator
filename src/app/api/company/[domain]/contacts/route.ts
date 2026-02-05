@@ -147,6 +147,23 @@ export async function GET(
       }
     }
 
+    // Auto-exclude contacts with DNC tags (from Freshsales settings)
+    try {
+      const freshsalesSettingsRow = await getCached<{ tagScoringRules?: { excludeTags?: string[] } }>("admin:freshsalesSettings");
+      const excludeTags = freshsalesSettingsRow?.tagScoringRules?.excludeTags || [];
+      if (excludeTags.length > 0) {
+        const beforeCount = merged.length;
+        const tagFiltered = merged.filter((c) => {
+          const tags = (c.tags || []).map((t) => t.toLowerCase());
+          return !tags.some((t) => excludeTags.includes(t));
+        });
+        if (tagFiltered.length < beforeCount) {
+          console.log(`[Contacts] ${normalized}: filtered ${beforeCount - tagFiltered.length} DNC-tagged contacts`);
+        }
+        merged.splice(0, merged.length, ...tagFiltered);
+      }
+    } catch { /* non-fatal */ }
+
     // Filter out contact_id exclusions
     try {
       const supabase = createServerClient();
