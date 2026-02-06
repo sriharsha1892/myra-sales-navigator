@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { getSessionCookie } from "./auth-helper";
+import { getSessionCookie, triggerSearchAndWait } from "./auth-helper";
 
 // ---------------------------------------------------------------------------
 // Timing constants
@@ -19,7 +19,7 @@ async function loadApp(page: Page) {
 }
 
 async function waitForCompanyCards(page: Page) {
-  await page.waitForSelector('[role="option"]', { timeout: 10000 });
+  await triggerSearchAndWait(page);
 }
 
 async function openFirstDossier(page: Page) {

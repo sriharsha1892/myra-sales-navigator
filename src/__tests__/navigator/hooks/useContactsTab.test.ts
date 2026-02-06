@@ -12,7 +12,7 @@ const { mockSetContactsForDomain } = vi.hoisted(() => ({
 vi.mock("@/lib/navigator/store", async () => {
   const { create } = await import("zustand");
   const store = create(() => ({
-    viewMode: "contacts",
+    viewMode: "companies",
     searchResults: [
       { domain: "fail.com", name: "FailCo", contactCount: 5, icpScore: 50, sources: [], signals: [], employeeCount: 10, hqLocation: "", description: "", websiteUrl: "", linkedinUrl: "", industry: "", vertical: "", hubspotStatus: "none", freshsalesStatus: "none", lastRefreshedAt: null },
     ],

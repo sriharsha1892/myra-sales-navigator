@@ -59,7 +59,7 @@ vi.mock("@/components/navigator/layout/MyProspects", () => ({
 vi.mock("@/lib/navigator/store", async () => {
   const { create } = await import("zustand");
   const store = create(() => ({
-    viewMode: "contacts" as const,
+    viewMode: "companies" as const,
     searchResults: [] as unknown[],
     selectedContactIds: new Set<string>(),
     selectedCompanyDomains: new Set<string>(),
@@ -186,7 +186,9 @@ afterEach(() => {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("ContactsView render branches", () => {
+// ContactsView was removed — contacts now render inline via InlineContacts accordion
+// TODO: Replace with InlineContacts tests
+describe.skip("ContactsView render branches (removed — contacts merged into inline expansion)", () => {
   it("renders skeleton cards when loading with no contacts", async () => {
     mockUseContactsTab.mockReturnValue({
       isLoading: true,
@@ -199,7 +201,7 @@ describe("ContactsView render branches", () => {
       retryDomain: vi.fn(),
     });
 
-    useStore.setState({ viewMode: "contacts", searchResults: [] });
+    useStore.setState({ viewMode: "companies", searchResults: [] });
 
     const ResultsList = await importResultsList();
     render(<ResultsList />);
@@ -219,7 +221,7 @@ describe("ContactsView render branches", () => {
       retryDomain: vi.fn(),
     });
 
-    useStore.setState({ viewMode: "contacts", searchResults: [] });
+    useStore.setState({ viewMode: "companies", searchResults: [] });
 
     const ResultsList = await importResultsList();
     render(<ResultsList />);
@@ -243,7 +245,7 @@ describe("ContactsView render branches", () => {
       retryDomain: vi.fn(),
     });
 
-    useStore.setState({ viewMode: "contacts", searchResults: [] });
+    useStore.setState({ viewMode: "companies", searchResults: [] });
 
     const ResultsList = await importResultsList();
     render(<ResultsList />);
@@ -270,7 +272,7 @@ describe("ContactsView render branches", () => {
       retryDomain: vi.fn(),
     });
 
-    useStore.setState({ viewMode: "contacts", searchResults: [] });
+    useStore.setState({ viewMode: "companies", searchResults: [] });
 
     const ResultsList = await importResultsList();
     render(<ResultsList />);
@@ -309,7 +311,7 @@ describe("ContactsView render branches", () => {
       retryDomain: vi.fn(),
     });
 
-    useStore.setState({ viewMode: "contacts", searchResults: [] });
+    useStore.setState({ viewMode: "companies", searchResults: [] });
 
     const ResultsList = await importResultsList();
 
@@ -339,7 +341,7 @@ describe("ContactsView render branches", () => {
       retryDomain: vi.fn(),
     });
 
-    useStore.setState({ viewMode: "contacts", searchResults: [] });
+    useStore.setState({ viewMode: "companies", searchResults: [] });
 
     const ResultsList = await importResultsList();
     render(<ResultsList />);
@@ -367,7 +369,7 @@ describe("ContactsView render branches", () => {
     });
 
     useStore.setState({
-      viewMode: "contacts",
+      viewMode: "companies",
       searchResults: [],
       contactGroupsCollapsed: { "decision_makers": true },
     });

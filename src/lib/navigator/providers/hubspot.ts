@@ -1,5 +1,7 @@
 import type { Contact, HubSpotStatus } from "../types";
 import { getCached, setCached, normalizeDomain } from "../../cache";
+import { apiCallBreadcrumb } from "@/lib/sentry";
+import { logApiCall } from "../health";
 
 const HUBSPOT_BASE_URL = "https://api.hubapi.com";
 const HUBSPOT_CACHE_TTL = 60; // 1 hour in minutes
@@ -167,6 +169,8 @@ export async function getHubSpotStatus(
 
   try {
     // Step 1: Search for company by domain
+    apiCallBreadcrumb("hubspot", "getStatus", { domain: normalized });
+    const _statusStart = Date.now();
     const companyRes = await fetch(
       `${HUBSPOT_BASE_URL}/crm/v3/objects/companies/search`,
       {
@@ -191,6 +195,15 @@ export async function getHubSpotStatus(
         }),
       }
     );
+
+    const hsRateLimit = companyRes.headers.get("X-RateLimit-Remaining");
+    logApiCall({
+      source: "hubspot", endpoint: "companies/search", status_code: companyRes.status,
+      success: companyRes.ok, latency_ms: Date.now() - _statusStart,
+      rate_limit_remaining: hsRateLimit ? parseInt(hsRateLimit, 10) : null,
+      error_message: companyRes.ok ? null : `${companyRes.status}`,
+      context: { domain: normalized }, user_name: null,
+    });
 
     if (!companyRes.ok) {
       console.warn(
@@ -302,6 +315,8 @@ export async function getHubSpotContacts(
     const status = await getHubSpotStatus(normalized);
 
     // Try searching contacts by company domain property
+    apiCallBreadcrumb("hubspot", "getContacts", { domain: normalized });
+    const _contactsStart = Date.now();
     const res = await fetch(
       `${HUBSPOT_BASE_URL}/crm/v3/objects/contacts/search`,
       {
@@ -343,6 +358,13 @@ export async function getHubSpotContacts(
       }
     );
 
+    logApiCall({
+      source: "hubspot", endpoint: "contacts/search", status_code: res.status,
+      success: res.ok, latency_ms: Date.now() - _contactsStart,
+      rate_limit_remaining: null, error_message: res.ok ? null : `${res.status}`,
+      context: { domain: normalized }, user_name: null,
+    });
+
     if (!res.ok) {
       console.warn(
         `[HubSpot] Contact search failed for ${normalized}: ${res.status}`
@@ -352,6 +374,7 @@ export async function getHubSpotContacts(
 
     const data = await res.json();
     const results = data.results || [];
+    apiCallBreadcrumb("hubspot", "getContacts complete", { domain: normalized, count: results.length });
 
     const contacts: Contact[] = results.map(
       (raw: Record<string, unknown>, i: number) => {

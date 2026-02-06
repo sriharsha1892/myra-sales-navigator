@@ -8,22 +8,17 @@ interface ViewToggleProps {
   value: ViewMode;
   onChange: (mode: ViewMode) => void;
   companyCount?: number;
-  contactCount?: number;
   exportedCount?: number;
-  selectedCompanyContactCount?: number;
-  selectedCompanyName?: string;
 }
 
-export function ViewToggle({ value, onChange, companyCount = 0, contactCount = 0, exportedCount, selectedCompanyContactCount, selectedCompanyName }: ViewToggleProps) {
+export function ViewToggle({ value, onChange, companyCount = 0, exportedCount }: ViewToggleProps) {
   const companiesRef = useRef<HTMLButtonElement>(null);
-  const contactsRef = useRef<HTMLButtonElement>(null);
   const exportedRef = useRef<HTMLButtonElement>(null);
   const [underline, setUnderline] = useState({ left: 0, width: 0 });
 
   useEffect(() => {
     const refMap: Record<ViewMode, React.RefObject<HTMLButtonElement | null>> = {
       companies: companiesRef,
-      contacts: contactsRef,
       exported: exportedRef,
     };
     const activeRef = refMap[value];
@@ -52,27 +47,6 @@ export function ViewToggle({ value, onChange, companyCount = 0, contactCount = 0
         {companyCount > 0 && (
           <span className="font-mono text-[10px] tabular-nums text-text-tertiary">
             {companyCount}
-          </span>
-        )}
-      </button>
-
-      {/* Thin vertical divider */}
-      <div className="h-3.5 w-px bg-surface-3" />
-
-      <button
-        ref={contactsRef}
-        onClick={() => onChange("contacts")}
-        className={cn(
-          "relative flex items-center gap-1.5 px-2.5 py-1.5 text-sm transition-all duration-200",
-          value === "contacts"
-            ? "font-semibold text-text-primary"
-            : "text-text-tertiary hover:text-text-secondary"
-        )}
-      >
-        Contacts
-        {(contactCount > 0 || (selectedCompanyContactCount != null && selectedCompanyContactCount > 0)) && (
-          <span className="font-mono text-[10px] tabular-nums text-text-tertiary">
-            {selectedCompanyContactCount != null ? selectedCompanyContactCount : contactCount}
           </span>
         )}
       </button>

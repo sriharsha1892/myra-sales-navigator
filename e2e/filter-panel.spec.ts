@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { getSessionCookie } from "./auth-helper";
+import { getSessionCookie, triggerSearchAndWait } from "./auth-helper";
 
 test.beforeEach(async ({ context }) => {
   await context.addCookies([await getSessionCookie()]);
@@ -8,7 +8,7 @@ test.beforeEach(async ({ context }) => {
 test.describe("Filter Panel", () => {
   test("source filter — check Exa shows only Exa companies", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
     const initialCount = await page.locator('[role="option"]').count();
 
     // Source section is open by default — sources are pill buttons, not labels
@@ -22,7 +22,7 @@ test.describe("Filter Panel", () => {
 
   test("vertical filter changes results", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
     const initialCount = await page.locator('[role="option"]').count();
 
     // Vertical section is open by default — click checkbox label directly
@@ -36,7 +36,7 @@ test.describe("Filter Panel", () => {
 
   test("size filter works", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
 
     // Size section is open by default, click 1K+ button directly
     await page.locator("button", { hasText: "1K+" }).first().click({ force: true });
@@ -48,7 +48,7 @@ test.describe("Filter Panel", () => {
 
   test("signal filter shows companies with signals", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
     const initialCount = await page.locator('[role="option"]').count();
 
     // Signals section is open by default
@@ -61,7 +61,7 @@ test.describe("Filter Panel", () => {
 
   test("quick filter chip — High ICP", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
     const initialCount = await page.locator('[role="option"]').count();
 
     await page.locator("text=High ICP").first().click();
@@ -73,7 +73,7 @@ test.describe("Filter Panel", () => {
 
   test("multiple filters combine (AND logic)", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
 
     // Apply vertical filter
     await page.locator("label", { hasText: "Food Ingredients" }).first().click({ force: true });
@@ -90,7 +90,7 @@ test.describe("Filter Panel", () => {
 
   test("reset filters clears all", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
     const initialCount = await page.locator('[role="option"]').count();
 
     // Apply a vertical filter
@@ -109,7 +109,7 @@ test.describe("Filter Panel", () => {
 
   test("region filter changes results", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
     const initialCount = await page.locator('[role="option"]').count();
 
     // Region section is open by default
@@ -122,7 +122,7 @@ test.describe("Filter Panel", () => {
 
   test("filter badge count updates", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
 
     await page.locator("text=High ICP").first().click();
     await page.waitForTimeout(500);
@@ -132,7 +132,7 @@ test.describe("Filter Panel", () => {
 
   test("save preset flow", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
 
     // Apply a filter first
     await page.locator("text=High ICP").first().click();

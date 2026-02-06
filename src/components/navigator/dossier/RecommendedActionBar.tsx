@@ -21,7 +21,7 @@ export function RecommendedActionBar({ company, contacts }: RecommendedActionBar
   const actionRules = useStore((s) => s.adminConfig.actionRecommendationRules) ?? [];
   const actionEnabled = useStore((s) => s.adminConfig.actionRecommendationEnabled) ?? true;
   const setViewMode = useStore((s) => s.setViewMode);
-  const openContacts = useStore((s) => s.openContacts);
+  const setExpandedContactsDomain = useStore((s) => s.setExpandedContactsDomain);
 
   const [dismissed, setDismissed] = useState(false);
   const [draftOpen, setDraftOpen] = useState(false);
@@ -55,7 +55,7 @@ export function RecommendedActionBar({ company, contacts }: RecommendedActionBar
         }
         break;
       case "export_contacts":
-        openContacts(company.domain);
+        setExpandedContactsDomain(company.domain);
         break;
       case "skip":
         setDismissed(true);

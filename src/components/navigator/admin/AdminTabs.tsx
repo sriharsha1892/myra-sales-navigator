@@ -15,6 +15,7 @@ export const ADMIN_TABS: AdminTab[] = [
   { id: "email-prompts", label: "Email Prompts", description: "Configure LLM prompts, tone instructions, and email templates." },
   { id: "ui", label: "UI", description: "Panel widths, default view mode, auto-refresh, confidence badges, and data sources." },
   { id: "analytics", label: "Analytics", description: "KPIs, discovery funnel, team activity, source performance, and exclusion insights." },
+  { id: "health", label: "Health", description: "API status, error rates, latency, and rate limits." },
 ];
 
 interface AdminTabsProps {

@@ -1,5 +1,7 @@
 import type { CompanyEnriched, Contact } from "../types";
-import { getCached, setCached, CacheKeys, normalizeDomain } from "../../cache";
+import { getCached, setCached, CacheKeys, normalizeDomain, getRootDomain } from "../../cache";
+import { apiCallBreadcrumb } from "@/lib/sentry";
+import { logApiCall } from "../health";
 
 // Cache TTL: 24 hours in minutes (for person enrichment — credit-bearing)
 const APOLLO_CACHE_TTL = 1440;
@@ -69,10 +71,21 @@ export async function enrichCompany(
   if (cached) return cached;
 
   try {
+    apiCallBreadcrumb("apollo", "enrichCompany", { domain: normalized });
+    const _start = Date.now();
     const res = await fetch(
       `${APOLLO_BASE_URL}/organizations/enrich?domain=${encodeURIComponent(normalized)}`,
       { method: "GET", headers: apolloHeaders() }
     );
+
+    const rateLimitRemaining = res.headers.get("x-ratelimit-remaining");
+    logApiCall({
+      source: "apollo", endpoint: "organizations/enrich", status_code: res.status,
+      success: res.ok, latency_ms: Date.now() - _start,
+      rate_limit_remaining: rateLimitRemaining ? parseInt(rateLimitRemaining, 10) : null,
+      error_message: res.ok ? null : `${res.status} ${res.statusText}`,
+      context: { domain: normalized }, user_name: null,
+    });
 
     if (!res.ok) {
       console.warn(
@@ -84,6 +97,8 @@ export async function enrichCompany(
     const data = await res.json();
     const org = data.organization;
     if (!org) return null;
+
+    apiCallBreadcrumb("apollo", "enrichCompany complete", { domain: normalized, found: true });
 
     const enriched: Partial<CompanyEnriched> = {
       name: org.name || undefined,
@@ -129,6 +144,8 @@ export async function findContacts(domain: string): Promise<Contact[]> {
   if (cached) return cached;
 
   try {
+    apiCallBreadcrumb("apollo", "findContacts", { domain: normalized });
+    const _start = Date.now();
     const res = await fetch(`${APOLLO_BASE_URL}/mixed_people/api_search`, {
       method: "POST",
       headers: apolloHeaders(),
@@ -140,6 +157,15 @@ export async function findContacts(domain: string): Promise<Contact[]> {
       }),
     });
 
+    const rateLimitRemaining = res.headers.get("x-ratelimit-remaining");
+    logApiCall({
+      source: "apollo", endpoint: "mixed_people/api_search", status_code: res.status,
+      success: res.ok, latency_ms: Date.now() - _start,
+      rate_limit_remaining: rateLimitRemaining ? parseInt(rateLimitRemaining, 10) : null,
+      error_message: res.ok ? null : `${res.status} ${res.statusText}`,
+      context: { domain: normalized }, user_name: null,
+    });
+
     if (!res.ok) {
       console.warn(
         `[Apollo] findContacts failed for ${normalized}: ${res.status} ${res.statusText}`
@@ -149,8 +175,11 @@ export async function findContacts(domain: string): Promise<Contact[]> {
 
     const data = await res.json();
     const people: unknown[] = data.people || [];
+    apiCallBreadcrumb("apollo", "findContacts complete", { domain: normalized, count: people.length });
 
-    const contacts: Contact[] = people.map(
+    const queriedRoot = getRootDomain(normalized);
+
+    const allContacts: Contact[] = people.map(
       (raw: unknown, i: number) => {
         const p = raw as Record<string, unknown>;
         const org = (p.organization as Record<string, unknown>) || {};
@@ -171,9 +200,32 @@ export async function findContacts(domain: string): Promise<Contact[]> {
           sources: ["apollo"],
           seniority: mapSeniority((p.seniority as string) || (p.title as string)),
           lastVerified: null,
-        };
+          _orgDomain: (org.primary_domain as string) || (org.website_url as string) || null,
+        } as Contact & { _orgDomain: string | null };
       }
     );
+
+    // Filter out cross-domain contacts — Apollo sometimes returns loosely-related people
+    const contacts: Contact[] = [];
+    let filteredOut = 0;
+    for (const c of allContacts) {
+      const orgDomain = (c as Contact & { _orgDomain: string | null })._orgDomain;
+      if (orgDomain) {
+        const contactRoot = getRootDomain(normalizeDomain(orgDomain));
+        if (contactRoot !== queriedRoot) {
+          filteredOut++;
+          continue;
+        }
+      }
+      // Strip internal field before caching
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (c as any)._orgDomain;
+      contacts.push(c);
+    }
+
+    if (filteredOut > 0) {
+      console.warn(`[Apollo] filtered ${filteredOut} cross-domain contacts for ${normalized}`);
+    }
 
     await setCached(cacheKey, contacts, APOLLO_CONTACTS_CACHE_TTL);
     return contacts;

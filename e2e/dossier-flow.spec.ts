@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { getSessionCookie } from "./auth-helper";
+import { getSessionCookie, triggerSearchAndWait } from "./auth-helper";
 
 test.beforeEach(async ({ context }) => {
   await context.addCookies([await getSessionCookie()]);
@@ -8,7 +8,7 @@ test.beforeEach(async ({ context }) => {
 test.describe("Company Dossier Flow", () => {
   test("clicking a company card activates it", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
     const firstCard = page.locator('[role="option"]').first();
     await firstCard.click();
     // Card should get selected state (aria-selected or visual ring)
@@ -22,7 +22,7 @@ test.describe("Company Dossier Flow", () => {
 
   test("dossier panel appears after selecting a company", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
     await page.locator('[role="option"]').first().click();
     // Wait for any dossier content to appear — could be loading, data, or error
     // The slide-over should show the company name or a loading skeleton
@@ -39,7 +39,7 @@ test.describe("Company Dossier Flow", () => {
 
   test("dossier shows company name in header", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
     const firstCard = page.locator('[role="option"]').first();
     await firstCard.click();
     await page.waitForTimeout(2000);
@@ -51,7 +51,7 @@ test.describe("Company Dossier Flow", () => {
 
   test("selecting a different company changes selection", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
     const cards = page.locator('[role="option"]');
     if ((await cards.count()) >= 2) {
       await cards.first().click();
@@ -68,7 +68,7 @@ test.describe("Company Dossier Flow", () => {
 
   test("company card shows ICP score badge", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
     // ICP score badges should be visible on company cards
     const icpBadges = page.locator('[class*="icp"], [data-testid*="icp"]');
     const count = await icpBadges.count();

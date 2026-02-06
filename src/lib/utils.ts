@@ -21,24 +21,48 @@ export function timeAgo(isoDate: string): string {
 }
 
 export function summarizeFilters(filters: FilterState): string {
-  const parts: string[] = [];
+  const sizeLabels: Record<SizeBucket, string> = {
+    "1-50": "small",
+    "51-200": "mid-size",
+    "201-1000": "large",
+    "1000+": "enterprise",
+  };
 
+  // Build main part: "{size} {verticals} in {regions}"
+  const main: string[] = [];
+
+  // Size — omit if all 4 selected or none
+  if (filters.sizes.length > 0 && filters.sizes.length < 4) {
+    main.push(filters.sizes.map((s) => sizeLabels[s]).join(", "));
+  }
+
+  // Verticals — cap at 2 + overflow
   if (filters.verticals.length > 0) {
-    parts.push(filters.verticals.slice(0, 2).join(", "));
-    if (filters.verticals.length > 2) parts[parts.length - 1] += ` +${filters.verticals.length - 2}`;
-  }
-  if (filters.regions.length > 0) {
-    parts.push(filters.regions.slice(0, 2).join(", "));
-    if (filters.regions.length > 2) parts[parts.length - 1] += ` +${filters.regions.length - 2}`;
-  }
-  if (filters.sizes.length > 0) {
-    parts.push(filters.sizes.join(", "));
-  }
-  if (filters.signals.length > 0) {
-    parts.push(filters.signals.join(", "));
+    let v = filters.verticals.slice(0, 2).join(", ");
+    if (filters.verticals.length > 2) v += ` +${filters.verticals.length - 2}`;
+    main.push(v);
   }
 
-  return parts.length > 0 ? parts.join(", ") : "All filters";
+  // Regions — "in" preposition, cap at 2 + overflow
+  if (filters.regions.length > 0) {
+    let r = filters.regions.slice(0, 2).join(", ");
+    if (filters.regions.length > 2) r += ` +${filters.regions.length - 2}`;
+    main.push(`in ${r}`);
+  }
+
+  // Signals — omit if all 4 selected or none
+  let signalPart = "";
+  if (filters.signals.length > 0 && filters.signals.length < 4) {
+    signalPart = filters.signals.join(", ");
+  }
+
+  if (main.length === 0 && !signalPart) return "All filters";
+
+  const label = main.join(" ");
+  if (signalPart) {
+    return label ? `${label} · ${signalPart}` : signalPart;
+  }
+  return label;
 }
 
 export function getSizeBucket(count: number): SizeBucket {

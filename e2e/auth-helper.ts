@@ -1,6 +1,7 @@
 import { SignJWT } from "jose";
 import { readFileSync } from "fs";
 import { resolve } from "path";
+import type { Page } from "@playwright/test";
 
 function loadSecret(): string {
   // Try reading from .env.local (same as Next.js dev server uses)
@@ -30,4 +31,16 @@ export async function getSessionCookie(
     .sign(secret);
 
   return { name: "myra_session", value: token, domain: "localhost", path: "/" };
+}
+
+/**
+ * Click the first quick-start chip to trigger a search, then wait for
+ * company cards ([role="option"]) to appear in results.
+ */
+export async function triggerSearchAndWait(page: Page, timeout = 15000) {
+  // Click the first quick-start chip (e.g. "chemicals in Europe")
+  const chip = page.locator("button.rounded-pill").first();
+  await chip.waitFor({ state: "visible", timeout: 10000 });
+  await chip.click();
+  await page.waitForSelector('[role="option"]', { timeout });
 }

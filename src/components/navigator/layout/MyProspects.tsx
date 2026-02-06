@@ -17,11 +17,8 @@ interface HoverPreview {
 }
 
 export function MyProspects() {
-  const { recentCompanies, recentSearches, inProgress, isLoading } = useSessionResume();
+  const { recentCompanies, inProgress, isLoading } = useSessionResume();
   const selectCompany = useStore((s) => s.selectCompany);
-  const setPendingFreeTextSearch = useStore((s) => s.setPendingFreeTextSearch);
-  const setFilters = useStore((s) => s.setFilters);
-  const setPendingFilterSearch = useStore((s) => s.setPendingFilterSearch);
   const adminConfig = useStore((s) => s.adminConfig);
 
   const [hover, setHover] = useState<HoverPreview | null>(null);
@@ -61,7 +58,7 @@ export function MyProspects() {
     );
   }
 
-  const hasContent = recentCompanies.length > 0 || recentSearches.length > 0 || inProgress.length > 0;
+  const hasContent = recentCompanies.length > 0 || inProgress.length > 0;
   if (!hasContent) return null;
 
   return (
@@ -119,7 +116,7 @@ export function MyProspects() {
             Recently Viewed
           </p>
           <div className="space-y-1">
-            {recentCompanies.slice(0, 5).map((company) => {
+            {recentCompanies.slice(0, 3).map((company) => {
               const stage = stages.find((s) => s.id === company.status);
               return (
                 <button
@@ -144,40 +141,6 @@ export function MyProspects() {
         </div>
       )}
 
-      {/* Recent searches */}
-      {recentSearches.length > 0 && (
-        <div>
-          <p className="mb-2 text-center text-[10px] font-semibold uppercase tracking-widest text-text-tertiary">
-            Recent Searches
-          </p>
-          <div className="flex flex-wrap justify-center gap-2">
-            {recentSearches.map((search) => (
-              <button
-                key={search.id}
-                onClick={() => {
-                  const f = search.filters as Record<string, unknown>;
-                  const hasFilters = f && (
-                    (Array.isArray(f.verticals) && f.verticals.length > 0) ||
-                    (Array.isArray(f.regions) && f.regions.length > 0) ||
-                    (Array.isArray(f.sizes) && f.sizes.length > 0) ||
-                    (Array.isArray(f.signals) && f.signals.length > 0)
-                  );
-                  if (hasFilters) {
-                    setFilters(f as Parameters<typeof setFilters>[0]);
-                    setPendingFilterSearch(true);
-                  } else {
-                    setPendingFreeTextSearch(search.label ?? "");
-                  }
-                }}
-                className="rounded-pill border border-surface-3 bg-surface-1 px-4 py-2 text-xs text-text-secondary transition-colors hover:bg-surface-2"
-              >
-                {search.label ?? "Search"}{" "}
-                <span className="font-mono text-text-tertiary">{search.resultCount}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

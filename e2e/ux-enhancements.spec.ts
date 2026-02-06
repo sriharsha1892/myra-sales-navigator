@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { getSessionCookie } from "./auth-helper";
+import { getSessionCookie, triggerSearchAndWait } from "./auth-helper";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -13,7 +13,7 @@ async function loadApp(page: Page) {
 
 /** Wait for company cards to appear in results */
 async function waitForCompanyCards(page: Page) {
-  await page.waitForSelector('[role="option"]', { timeout: 10000 });
+  await triggerSearchAndWait(page);
 }
 
 /** Open the first company dossier — click card and wait for dossier content */

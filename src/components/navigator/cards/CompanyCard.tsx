@@ -72,7 +72,7 @@ export function CompanyCard({
   onToggleCheck,
 }: CompanyCardProps) {
   const searchSimilar = useStore((s) => s.searchSimilar);
-  const openContacts = useStore((s) => s.openContacts);
+  const setExpandedContactsDomain = useStore((s) => s.setExpandedContactsDomain);
   const lastSearchQuery = useStore((s) => s.lastSearchQuery);
   const [logoError, setLogoError] = useState(false);
   const [isPrefetching, setIsPrefetching] = useState(false);
@@ -332,7 +332,7 @@ export function CompanyCard({
             </button>
             <div className="group/contacts relative ml-auto">
               <button
-                onClick={(e) => { e.stopPropagation(); openContacts(company.domain); }}
+                onClick={(e) => { e.stopPropagation(); setExpandedContactsDomain(company.domain); }}
                 className="font-mono text-xs text-accent-secondary transition-colors hover:underline"
               >
                 {company.contactCount} contacts

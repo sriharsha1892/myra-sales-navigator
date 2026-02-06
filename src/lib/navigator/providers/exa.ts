@@ -2,6 +2,8 @@ import Exa from "exa-js";
 import type { Company, Signal, SignalType } from "../types";
 import { completeJSON, isGroqAvailable } from "../llm/client";
 import { getCached, setCached, CacheKeys, CacheTTL, hashFilters } from "@/lib/cache";
+import { apiCallBreadcrumb } from "@/lib/sentry";
+import { logApiCall } from "../health";
 
 // ---------------------------------------------------------------------------
 // Exa Client Singleton
@@ -159,6 +161,9 @@ export async function searchExa(
   const exa = getExaClient();
   const numResults = params.numResults ?? 25;
 
+  apiCallBreadcrumb("exa", "search", { query: params.query.slice(0, 60), numResults });
+  const searchStart = Date.now();
+
   const [companyResults, newsResults] = await Promise.all([
     // Company search — category:"company" uses a dedicated index that
     // does not support excludeDomains, so we post-filter noise domains instead
@@ -172,6 +177,7 @@ export async function searchExa(
           highlightsPerUrl: 6,
         },
       },
+      ...({ language: "en" } as Record<string, unknown>),
     }),
     // News/signals search
     exa.search(params.query, {
@@ -184,8 +190,20 @@ export async function searchExa(
           highlightsPerUrl: 4,
         },
       },
+      ...({ language: "en" } as Record<string, unknown>),
     }),
   ]);
+
+  apiCallBreadcrumb("exa", "search complete", {
+    companies: companyResults.results.length,
+    news: newsResults.results.length,
+    latencyMs: Date.now() - searchStart,
+  });
+  logApiCall({
+    source: "exa", endpoint: "search", status_code: 200, success: true,
+    latency_ms: Date.now() - searchStart, rate_limit_remaining: null,
+    error_message: null, context: { query: params.query.slice(0, 60) }, user_name: null,
+  });
 
   // Map company results and post-filter any remaining noise domains
   const companies = companyResults.results
@@ -245,6 +263,7 @@ For each signal found, identify:
 - date: ISO date if mentioned, or "unknown"
 
 Only extract signals that are actionable for B2B sales outreach. Skip generic marketing content.
+All output MUST be in English. If the source content is in another language, translate to English.
 
 Return JSON: { "signals": [{ "type": "...", "title": "...", "description": "...", "date": "..." }] }
 

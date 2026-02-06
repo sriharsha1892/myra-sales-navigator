@@ -33,14 +33,12 @@ export function BulkActionBar() {
   const filteredCompanies = useStore((s) => s.filteredCompanies);
   const contactsByDomain = useStore((s) => s.contactsByDomain);
 
-  const selectedIds = viewMode === "contacts" ? selectedContactIds : selectedCompanyDomains;
-  const clearSelection = viewMode === "contacts" ? deselectAllContacts : deselectAllCompanies;
+  const selectedIds = selectedCompanyDomains;
+  const clearSelection = deselectAllCompanies;
   const count = selectedIds.size;
   const domains = Array.from(selectedCompanyDomains);
 
-  const totalCount = viewMode === "contacts"
-    ? Object.values(contactsByDomain).flat().length
-    : filteredCompanies().length;
+  const totalCount = filteredCompanies().length;
 
   const handleBulkExclude = useCallback(async () => {
     setShowExcludeConfirm(false);

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { getSessionCookie } from "./auth-helper";
+import { getSessionCookie, triggerSearchAndWait } from "./auth-helper";
 
 const PALETTE_INPUT = 'input[placeholder*="type a command"]';
 
@@ -38,7 +38,7 @@ test.describe("Keyboard Shortcuts", () => {
 
   test("Escape with slide-over open closes slide-over", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
 
     await page.locator('[role="option"]').first().click();
     await expect(page.locator("text=Last refreshed").first()).toBeVisible({ timeout: 5000 });
@@ -64,7 +64,7 @@ test.describe("Keyboard Shortcuts", () => {
 
   test("Cmd+A selects all visible companies", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
     await page.keyboard.press("Meta+a");
     await page.waitForTimeout(500);
     await expect(
@@ -74,7 +74,7 @@ test.describe("Keyboard Shortcuts", () => {
 
   test("Cmd+Shift+A deselects all", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
     await page.keyboard.press("Meta+a");
     await page.waitForTimeout(500);
     await page.keyboard.press("Meta+Shift+a");
@@ -83,7 +83,7 @@ test.describe("Keyboard Shortcuts", () => {
 
   test("arrow keys navigate results", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
     await page.locator('[role="listbox"]').first().focus();
     await page.keyboard.press("ArrowDown");
     await page.waitForTimeout(300);

@@ -193,7 +193,7 @@ export async function GET(
       return (seniorityRank[a.seniority] ?? 5) - (seniorityRank[b.seniority] ?? 5);
     });
 
-    const responseData = {
+    const responseData: Record<string, unknown> = {
       contacts: merged,
       sources: {
         apollo: apolloAvailable && apolloContacts.length > 0,
@@ -201,6 +201,11 @@ export async function GET(
         freshsales: freshsalesAvailable && freshsalesContacts.length > 0,
       },
     };
+
+    // Signal when all sources returned empty so frontend can show a specific message
+    if (merged.length === 0 && (apolloAvailable || hubspotAvailable || freshsalesAvailable)) {
+      responseData.warning = "no_sources_returned";
+    }
 
     // Cache enriched contacts for 2 hours
     await setCached(enrichedCacheKey, responseData, CacheTTL.enrichedContacts);

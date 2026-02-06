@@ -52,6 +52,7 @@ import { FilterHeatmap } from "@/components/navigator/admin/analytics/FilterHeat
 import { ExclusionInsights } from "@/components/navigator/admin/analytics/ExclusionInsights";
 import { DateRangeSelector } from "@/components/navigator/admin/analytics/DateRangeSelector";
 import { KpiTargetEditor } from "@/components/navigator/admin/analytics/KpiTargetEditor";
+import { HealthDashboard } from "@/components/navigator/admin/health/HealthDashboard";
 
 function getTabFromHash(): string {
   if (typeof window === "undefined") return "general";
@@ -266,6 +267,7 @@ export default function AdminPage() {
               <ChatbotConfigSection />
             </>
           )}
+          {activeTab === "health" && <HealthDashboard />}
           {activeTab === "analytics" && (
             <>
               <div className="flex flex-wrap items-center justify-between gap-4">

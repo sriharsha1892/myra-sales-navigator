@@ -273,11 +273,58 @@
 @keyframes typewriter { from { width: 0 } to { width: 100% } }
 
 
+/* ── Dark mode overrides (Obsidian + Ember/Arctic) ── */
+[data-theme="dark"] {
+  --color-surface-0: #0a0a0f;
+  --color-surface-1: #12121a;
+  --color-surface-2: #1a1a24;
+  --color-surface-3: #25252f;
+  --color-surface-hover: #1e1e28;
+
+  --color-text-primary: #e8e6e1;
+  --color-text-secondary: #a0a0a0;
+  --color-text-tertiary: #6b6b6b;
+  --color-text-inverse: #0a0a0f;
+
+  --color-accent-primary: #d4a012;
+  --color-accent-primary-hover: #e0b030;
+  --color-accent-primary-light: rgba(212, 160, 18, 0.12);
+  --color-accent-highlight: #22d3ee;
+  --color-accent-highlight-light: rgba(34, 211, 238, 0.12);
+  --color-accent-secondary: #22d3ee;
+  --color-accent-secondary-light: rgba(34, 211, 238, 0.08);
+
+  --color-intel: #d4a012;
+  --color-intel-hover: #e0b030;
+  --color-intel-light: rgba(212, 160, 18, 0.12);
+  --color-intel-mint: #22d3ee;
+  --color-intel-mint-glow: rgba(34, 211, 238, 0.3);
+
+  --color-info: #d4a012;
+  --color-info-light: rgba(212, 160, 18, 0.06);
+
+  --color-source-exa: #9B7BFF;
+  --color-source-apollo: #E0B030;
+  --color-source-hubspot: #FF9580;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-focus: 0 0 0 3px rgba(212, 160, 18, 0.2);
+
+  --gradient-primary: linear-gradient(135deg, #d4a012, #22d3ee);
+  --gradient-warm: linear-gradient(135deg, #0a0a0f, #12121a);
+  --gradient-ambient-filter: radial-gradient(ellipse at 30% 20%, rgba(212, 160, 18, 0.04) 0%, transparent 70%);
+  --gradient-ambient-header: radial-gradient(ellipse at 50% 0%, rgba(212, 160, 18, 0.03) 0%, transparent 60%);
+  --gradient-ambient-detail: radial-gradient(ellipse at 70% 30%, rgba(34, 211, 238, 0.04) 0%, transparent 70%);
+
+  color-scheme: dark;
+}
+
 html, body {
   background: var(--color-surface-0);
   color: var(--color-text-primary);
   font-family: var(--font-body);
-  color-scheme: light;
 }
 
 /* Shimmer for skeleton loading (light mode) */
@@ -327,6 +374,12 @@ html, body {
   background: var(--color-surface-0);
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
+
+/* Dark mode glass overrides */
+[data-theme="dark"] .glass { background: rgba(18, 18, 26, 0.85); backdrop-filter: blur(20px); }
+[data-theme="dark"] .glass-subtle { background: rgba(10, 10, 15, 0.9); }
+[data-theme="dark"] .glass-panel { background: var(--color-surface-1); border-color: rgba(255, 255, 255, 0.06); }
+[data-theme="dark"] .glass-topbar { background: var(--color-surface-0); border-color: rgba(255, 255, 255, 0.06); }
 
 /* Gradient utility classes */
 .btn-gradient {
@@ -487,6 +540,11 @@ html, body {
   z-index: 0;
 }
 
+[data-theme="dark"] .prospect-dot-grid::before { background-image: radial-gradient(circle, #25252f 0.5px, transparent 0.5px); }
+[data-theme="dark"] .login-right-dot-grid::before { background-image: radial-gradient(circle, #25252f 0.6px, transparent 0.6px); }
+[data-theme="dark"] .shimmer { background: linear-gradient(90deg, var(--color-surface-1) 25%, var(--color-surface-hover) 50%, var(--color-surface-1) 75%); background-size: 200% 100%; }
+[data-theme="dark"] ::selection { background: var(--color-accent-primary); color: #0a0a0f; }
+
 .noise-overlay {
   position: fixed;
   inset: 0;
@@ -511,6 +569,7 @@ html, body {
   background: linear-gradient(to bottom, transparent, #E5E3DD 30%, #E5E3DD 70%, transparent);
   pointer-events: none;
 }
+[data-theme="dark"] .panel-divider::before { background: linear-gradient(to bottom, transparent, #25252f 30%, #25252f 70%, transparent); }
 
 .dossier-border-glow {
   position: relative;

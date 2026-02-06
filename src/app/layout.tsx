@@ -6,6 +6,7 @@ import { AuthProvider } from "@/providers/AuthProvider";
 import { SessionExpiryOverlay } from "@/components/navigator/SessionExpiryOverlay";
 import { ToastContainer } from "@/components/navigator/feedback/ToastContainer";
 import { MobileViewportGuard } from "@/components/navigator/MobileViewportGuard";
+import { SentryUserSync } from "@/components/SentryUserSync";
 import "./globals.css";
 
 const satoshi = localFont({
@@ -36,11 +37,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem("nav_theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);else document.documentElement.setAttribute("data-theme","light")}catch(e){document.documentElement.setAttribute("data-theme","light")}})()` }} />
+      </head>
       <body
-        className={`${satoshi.variable} ${geistMono.variable} antialiased bg-[#F5F4F0]`}
+        className={`${satoshi.variable} ${geistMono.variable} antialiased bg-surface-0`}
       >
         <QueryProvider>
           <AuthProvider>
+            <SentryUserSync />
             {children}
             <SessionExpiryOverlay />
             <ToastContainer />

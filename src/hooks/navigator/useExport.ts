@@ -54,18 +54,27 @@ export function useExport() {
   const { notify } = useBrowserNotifications();
 
   const getSelectedContacts = useCallback((): Contact[] => {
-    if (viewMode === "contacts") {
-      const allContacts = Object.values(contactsByDomain).flat();
-      return allContacts.filter((c) => selectedContactIds.has(c.id));
-    }
-    // Company view — get all contacts for selected companies
+    // Gather contacts for selected companies, plus any individually selected contacts
     const contacts: Contact[] = [];
+    const seen = new Set<string>();
     selectedCompanyDomains.forEach((domain) => {
       const domainContacts = contactsByDomain[domain] ?? [];
-      contacts.push(...domainContacts);
+      for (const c of domainContacts) {
+        seen.add(c.id);
+        contacts.push(c);
+      }
     });
+    // Also include individually selected contacts (from inline expansion)
+    if (selectedContactIds.size > 0) {
+      const allContacts = Object.values(contactsByDomain).flat();
+      for (const c of allContacts) {
+        if (selectedContactIds.has(c.id) && !seen.has(c.id)) {
+          contacts.push(c);
+        }
+      }
+    }
     return contacts;
-  }, [viewMode, selectedContactIds, selectedCompanyDomains, contactsByDomain]);
+  }, [selectedContactIds, selectedCompanyDomains, contactsByDomain]);
 
   const executeExport = useCallback(async (contacts: Contact[], mode: "csv" | "clipboard" | "excel") => {
     if (contacts.length === 0) {

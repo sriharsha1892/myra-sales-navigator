@@ -52,7 +52,7 @@ function seedStore(contacts: Contact[], autoVerify = true, threshold = 0) {
   }
   useStore.setState({
     contactsByDomain: byDomain,
-    viewMode: "contacts",
+    viewMode: "companies",
     selectedContactIds: new Set(contacts.map((c) => c.id)),
     userName: "TestUser",
     adminConfig: {

@@ -40,11 +40,6 @@ export default function LoginPage() {
 
   useEffect(() => {
     setName(getSavedName());
-    const prev = document.body.style.background;
-    document.body.style.background = "#F5F4F0";
-    return () => {
-      document.body.style.background = prev;
-    };
   }, []);
 
   // Auto-focus the right input after dossier invite pulse
@@ -103,7 +98,7 @@ export default function LoginPage() {
   const isDisabled = loading || !name || !password.trim();
 
   return (
-    <div className="flex min-h-screen bg-[#F5F4F0]">
+    <div className="flex min-h-screen bg-surface-0">
       {/* Noise overlay — z-40 so comet (z-50) punches through */}
       <div className="noise-overlay" />
 
@@ -114,7 +109,7 @@ export default function LoginPage() {
       </div>
 
       {/* Right panel — Branding + Login */}
-      <div className="flex w-[45%] flex-col items-center justify-center panel-divider login-right-dot-grid relative bg-[#FDFCFA]">
+      <div className="flex w-[45%] flex-col items-center justify-center panel-divider login-right-dot-grid relative bg-surface-1">
         {/* Branding */}
         <div className="relative flex flex-col items-center">
           {/* Brand glow */}
@@ -126,13 +121,13 @@ export default function LoginPage() {
               top: "-10px",
               left: "50%",
               transform: "translateX(-50%)",
-              background: "radial-gradient(ellipse at center, rgba(143,217,196,0.15), transparent 70%)",
+              background: "radial-gradient(ellipse at center, var(--color-accent-highlight-light), transparent 70%)",
               filter: "blur(40px)",
               zIndex: 0,
             }}
           />
           <h1
-            className="relative text-[2.5rem] text-[#2D2D2D]"
+            className="relative text-[2.5rem] text-text-primary"
             style={{
               fontFamily: "'Instrument Serif', Georgia, serif",
               animation: "loginLogoReveal 500ms ease-out both",
@@ -142,7 +137,7 @@ export default function LoginPage() {
             myRA
           </h1>
           <p
-            className="relative mt-1 text-[0.8rem] font-medium uppercase tracking-[0.12em] text-[#1B4D3E]"
+            className="relative mt-1 text-[0.8rem] font-medium uppercase tracking-[0.12em] text-accent-secondary"
             style={{
               fontFamily: "'Plus Jakarta Sans', sans-serif",
               animation: "loginLogoReveal 400ms ease-out 200ms both",
@@ -152,7 +147,7 @@ export default function LoginPage() {
             Sales Navigator
           </p>
           <p
-            className="relative mt-2 text-[0.75rem] italic text-[#8A8A85]"
+            className="relative mt-2 text-[0.75rem] italic text-text-tertiary"
             style={{
               fontFamily: "'Plus Jakarta Sans', sans-serif",
               animation: "loginTaglineFade 400ms ease-out 500ms both",
@@ -186,11 +181,11 @@ export default function LoginPage() {
             onBlur={handleCardBlur}
             className="relative w-full rounded-2xl p-8"
             style={{
-              background: "rgba(253,252,250,0.8)",
+              background: "var(--color-surface-1)",
               backdropFilter: "blur(16px)",
               WebkitBackdropFilter: "blur(16px)",
-              border: (cardFocused || dossierDone) ? "none" : "1px solid #E5E3DD",
-              boxShadow: "0 1px 3px rgba(45,45,45,0.06)",
+              border: (cardFocused || dossierDone) ? "none" : "1px solid var(--color-surface-3)",
+              boxShadow: "var(--shadow-sm)",
               animation: "loginCardFadeUp 400ms ease-out 400ms both",
             }}
           >
@@ -198,7 +193,7 @@ export default function LoginPage() {
               <p
                 key={error}
                 role="alert"
-                className="mb-4 text-center text-xs text-[#dc2626]"
+                className="mb-4 text-center text-xs text-danger"
                 style={{
                   fontFamily: "'Plus Jakarta Sans', sans-serif",
                   animation: "loginTaglineFade 200ms ease-out both",
@@ -212,7 +207,7 @@ export default function LoginPage() {
               {/* Name dropdown */}
               <div>
                 <label
-                  className="mb-2 block text-[0.75rem] font-medium uppercase tracking-[0.06em] text-[#5C5C58]"
+                  className="mb-2 block text-[0.75rem] font-medium uppercase tracking-[0.06em] text-text-secondary"
                   style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                 >
                   Who are you?
@@ -220,7 +215,7 @@ export default function LoginPage() {
                 <select
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-lg border border-[#E5E3DD] bg-white px-3 py-2.5 text-sm text-[#2D2D2D] outline-none transition-all duration-[180ms] ease-out focus:border-[#1B4D3E] focus:shadow-[0_0_0_3px_rgba(27,77,62,0.08)] appearance-none"
+                  className="w-full rounded-lg border border-surface-3 bg-surface-1 px-3 py-2.5 text-sm text-text-primary outline-none transition-all duration-[180ms] ease-out focus:border-accent-secondary focus:shadow-focus appearance-none"
                   style={{
                     fontFamily: "'Plus Jakarta Sans', sans-serif",
                     backgroundImage: `url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238A8A85' stroke-width='2' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
@@ -242,7 +237,7 @@ export default function LoginPage() {
               {/* Password */}
               <div>
                 <label
-                  className="mb-1.5 block text-[0.75rem] font-medium uppercase tracking-[0.06em] text-[#5C5C58]"
+                  className="mb-1.5 block text-[0.75rem] font-medium uppercase tracking-[0.06em] text-text-secondary"
                   style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                 >
                   Team password
@@ -256,14 +251,14 @@ export default function LoginPage() {
                       if (e.key === "Enter") handleLogin();
                     }}
                     placeholder="Enter team password"
-                    className="w-full rounded-lg border border-[#E5E3DD] bg-white px-3 py-2.5 pr-9 text-sm text-[#2D2D2D] outline-none transition-all duration-[180ms] ease-out placeholder:text-[#B5B3AD] focus:border-[#1B4D3E] focus:shadow-[0_0_0_3px_rgba(27,77,62,0.08)]"
+                    className="w-full rounded-lg border border-surface-3 bg-surface-1 px-3 py-2.5 pr-9 text-sm text-text-primary outline-none transition-all duration-[180ms] ease-out placeholder:text-text-tertiary/60 focus:border-accent-secondary focus:shadow-focus"
                     style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     tabIndex={-1}
-                    className="absolute right-2.5 top-1/2 flex -translate-y-1/2 cursor-pointer border-none bg-transparent p-0 text-[#8A8A85]"
+                    className="absolute right-2.5 top-1/2 flex -translate-y-1/2 cursor-pointer border-none bg-transparent p-0 text-text-tertiary"
                   >
                     {showPassword ? (
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -286,8 +281,8 @@ export default function LoginPage() {
                 disabled={isDisabled}
                 className={`sign-in-btn w-full rounded-lg border-none py-[11px] px-4 text-sm font-semibold transition-all duration-[180ms] ease-out ${
                   isDisabled
-                    ? "cursor-not-allowed bg-[rgba(27,77,62,0.3)] text-[#8A8A85]"
-                    : "cursor-pointer bg-[#1B4D3E] text-white hover:bg-[#2A6B5A]"
+                    ? "cursor-not-allowed bg-accent-secondary/30 text-text-tertiary"
+                    : "cursor-pointer bg-accent-secondary text-white hover:bg-accent-secondary/80"
                 }`}
                 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
               >
@@ -356,7 +351,7 @@ export default function LoginPage() {
           <div
             className="absolute inset-0"
             style={{
-              background: "radial-gradient(circle at 72.5% 50%, rgba(27,77,62,0.15), rgba(245,244,240,0.9))",
+              background: "radial-gradient(circle at 72.5% 50%, rgba(212,160,18,0.15), var(--color-surface-0))",
               animation: "loginFadeOut 400ms ease-in 800ms both",
             }}
           />

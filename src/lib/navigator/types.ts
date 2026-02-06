@@ -92,7 +92,7 @@ export type SignalType = "hiring" | "funding" | "expansion" | "news";
 
 export type ConfidenceLevel = "high" | "medium" | "low" | "none";
 
-export type ViewMode = "companies" | "contacts" | "exported";
+export type ViewMode = "companies" | "exported";
 
 export type SortField = "icp_score" | "name" | "employee_count" | "relevance";
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/providers/AuthProvider";
 import { useStore } from "@/lib/navigator/store";
 import { useBrowserNotifications } from "@/hooks/navigator/useBrowserNotifications";
+import { getTheme, setTheme, type Theme } from "@/lib/theme";
 import type { ViewMode, SortField } from "@/lib/navigator/types";
 
 const SHORTCUTS = [
@@ -23,6 +24,10 @@ export default function SettingsPage() {
   const userCopyFormat = useStore((s) => s.userCopyFormat);
   const setUserCopyFormat = useStore((s) => s.setUserCopyFormat);
   const { enabled: notificationsEnabled, permission: notifPermission, toggleEnabled } = useBrowserNotifications();
+
+  const [currentTheme, setCurrentTheme] = useState<Theme>(() =>
+    typeof window !== "undefined" ? getTheme() : "light"
+  );
 
   // Workflow preference: skip reveal confirm
   const [skipReveal, setSkipReveal] = useState(() =>
@@ -80,7 +85,7 @@ export default function SettingsPage() {
                 className="w-full rounded-input border border-surface-3 bg-surface-2 px-2.5 py-2 text-sm text-text-primary focus:border-accent-primary focus:outline-none"
               >
                 <option value="companies">Companies</option>
-                <option value="contacts">Contacts</option>
+                <option value="exported">Exported</option>
               </select>
             </SettingField>
 
@@ -114,6 +119,27 @@ export default function SettingsPage() {
               <p className="mt-0.5 whitespace-pre-wrap font-mono text-xs text-text-secondary">{copyPreview}</p>
             </div>
           </div>
+        </Section>
+
+        {/* Appearance */}
+        <Section title="Appearance">
+          <SettingField label="Theme" hint="Switch between light and dark mode.">
+            <div className="flex gap-2">
+              {(["light", "dark"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => { setTheme(t); setCurrentTheme(t); }}
+                  className={`rounded-input border px-4 py-2 text-sm font-medium capitalize transition-all duration-[180ms] ${
+                    currentTheme === t
+                      ? "border-accent-primary bg-accent-primary-light text-text-primary"
+                      : "border-surface-3 bg-surface-2 text-text-secondary hover:border-accent-primary/40"
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </SettingField>
         </Section>
 
         {/* Notifications */}

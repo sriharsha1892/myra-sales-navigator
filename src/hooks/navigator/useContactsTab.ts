@@ -110,8 +110,8 @@ export function useContactsTab(): ContactsTabState {
   }
 
   // Fix A: Synchronous detection of unfetched domains for correct first-render loading state
-  const hasUnfetchedDomains = viewMode === "contacts" && !!searchResults && searchResults.length > 0 &&
-    companies.some(c => !contactsByDomain[c.domain] && !fetchedDomainsRef.current.has(c.domain));
+  // Note: This hook is retained for potential future use but contacts tab has been merged into inline expansion
+  const hasUnfetchedDomains = false;
 
   // Estimated total from search results contactCount fields
   const estimatedTotal = useMemo(() => {
@@ -124,7 +124,8 @@ export function useContactsTab(): ContactsTabState {
 
   // Trigger fetch when switching to contacts view
   useEffect(() => {
-    if (viewMode !== "contacts" || !searchResults || searchResults.length === 0) return;
+    // Hook is retained for tests but contacts tab merged into inline expansion
+    if (!searchResults || searchResults.length === 0) return;
 
     const domains = companies.map((c) => c.domain);
     // Skip domains already fetched (cached from dossier views or previous fetches)
@@ -163,7 +164,13 @@ export function useContactsTab(): ContactsTabState {
             `/api/company/${encodeURIComponent(domain)}/contacts${qs}`,
             { signal: controller.signal }
           );
-          if (!res.ok) return;
+          if (!res.ok) {
+            fetchedDomainsRef.current.add(domain);
+            setFailedDomains((prev) => new Set(prev).add(domain));
+            const addToast = useStore.getState().addToast;
+            addToast({ message: `Contacts unavailable for ${domain} (${res.status})`, type: "warning" });
+            return;
+          }
           const data = await res.json();
           if (controller.signal.aborted) return;
           setContactsForDomain(domain, data.contacts ?? []);

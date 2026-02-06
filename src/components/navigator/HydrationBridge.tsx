@@ -36,7 +36,7 @@ export function HydrationBridge() {
         if (data?.copyFormat) {
           useStore.getState().setUserCopyFormat(data.copyFormat);
         }
-        if (data?.viewMode) {
+        if (data?.viewMode && data.viewMode !== "contacts") {
           useStore.getState().setViewMode(data.viewMode);
         }
       })

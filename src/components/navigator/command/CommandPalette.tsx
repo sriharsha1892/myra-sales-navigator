@@ -131,14 +131,6 @@ export function CommandPalette() {
               </CommandItem>
               <CommandItem
                 onSelect={() => {
-                  setViewMode("contacts");
-                  setOpen(false);
-                }}
-              >
-                View Contacts
-              </CommandItem>
-              <CommandItem
-                onSelect={() => {
                   resetFilters();
                   setOpen(false);
                   addToast({ message: "Filters reset", type: "info" });

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { getSessionCookie } from "./auth-helper";
+import { getSessionCookie, triggerSearchAndWait } from "./auth-helper";
 
 test.beforeEach(async ({ context }) => {
   await context.addCookies([await getSessionCookie()]);
@@ -8,7 +8,7 @@ test.beforeEach(async ({ context }) => {
 test.describe("Contacts View", () => {
   test("switching to Contacts tab loads contact list", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
     const contactsBtn = page.locator("button", { hasText: "Contacts" }).first();
     await contactsBtn.click();
     await page.waitForTimeout(2000);
@@ -20,7 +20,7 @@ test.describe("Contacts View", () => {
 
   test("switching back to Companies tab restores company list", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
 
     // Switch to contacts
     const contactsBtn = page.locator("button", { hasText: "Contacts" }).first();
@@ -38,7 +38,7 @@ test.describe("Contacts View", () => {
 
   test("contacts tab shows loading or contact content", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
 
     const contactsBtn = page.locator("button", { hasText: "Contacts" }).first();
     await contactsBtn.click();

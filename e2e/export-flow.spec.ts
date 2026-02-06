@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { getSessionCookie } from "./auth-helper";
+import { getSessionCookie, triggerSearchAndWait } from "./auth-helper";
 
 test.beforeEach(async ({ context }) => {
   await context.addCookies([await getSessionCookie()]);
@@ -8,7 +8,7 @@ test.beforeEach(async ({ context }) => {
 test.describe("Export Flow", () => {
   test("selecting companies shows bulk action bar", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
 
     // Select all with keyboard shortcut
     await page.keyboard.press("Meta+a");
@@ -22,7 +22,7 @@ test.describe("Export Flow", () => {
 
   test("export buttons available after selection", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
 
     await page.keyboard.press("Meta+a");
     await page.waitForTimeout(500);
@@ -37,7 +37,7 @@ test.describe("Export Flow", () => {
 
   test("click Export CSV triggers export flow", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
 
     await page.keyboard.press("Meta+a");
     await page.waitForTimeout(500);
@@ -51,7 +51,7 @@ test.describe("Export Flow", () => {
 
   test("contacts view selection and export", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
 
     // Switch to contacts view
     await page.locator("button", { hasText: "Contacts" }).first().click();
@@ -67,7 +67,7 @@ test.describe("Export Flow", () => {
 
   test("Cmd+E triggers export shortcut", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
 
     // Select all first
     await page.keyboard.press("Meta+a");
@@ -80,7 +80,7 @@ test.describe("Export Flow", () => {
 
   test("deselect all hides bulk action bar", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
 
     // Select all
     await page.keyboard.press("Meta+a");
@@ -96,7 +96,7 @@ test.describe("Export Flow", () => {
 
   test("clicking company card shows dossier with contacts", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
 
     await page.locator('[role="option"]').first().click();
     await page.waitForTimeout(1000);
@@ -106,7 +106,7 @@ test.describe("Export Flow", () => {
 
   test("company dossier shows source badges", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 10000 });
+    await triggerSearchAndWait(page);
 
     await page.locator('[role="option"]').first().click();
     await page.waitForTimeout(1000);

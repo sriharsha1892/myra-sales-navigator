@@ -85,6 +85,10 @@ interface AppState {
   // Extracted entities from NL search (for editable chips)
   extractedEntities: ExtractedEntities | null;
 
+  // Inline contacts expansion (accordion below company card)
+  expandedContactsDomain: string | null;
+  setExpandedContactsDomain: (domain: string | null) => void;
+
   // Result grouping & detail pane
   resultGrouping: "icp_tier" | "source" | "none";
   detailPaneCollapsed: boolean;
@@ -255,6 +259,10 @@ export const useStore = create<AppState>((set, get) => ({
   searchLoading: false,
   lastSearchQuery: null,
   extractedEntities: null,
+  expandedContactsDomain: null,
+  setExpandedContactsDomain: (domain) => set((state) => ({
+    expandedContactsDomain: state.expandedContactsDomain === domain ? null : domain,
+  })),
   resultGrouping: "icp_tier",
   detailPaneCollapsed: false,
   dossierScrollToTop: 0,
@@ -327,17 +335,11 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   selectAllContacts: () => {
-    if (get().viewMode === "contacts") {
-      // In contacts tab view, select ALL contacts across all domains
-      const allIds = Object.values(get().contactsByDomain).flat().map((c) => c.id);
-      set({ selectedContactIds: new Set(allIds) });
-    } else {
-      // In company dossier view, select contacts for the selected company only
-      const domain = get().selectedCompanyDomain;
-      if (!domain) return;
-      const contacts = get().contactsByDomain[domain] ?? [];
-      set({ selectedContactIds: new Set(contacts.map((c) => c.id)) });
-    }
+    // Select contacts for the expanded domain or selected company
+    const domain = get().expandedContactsDomain ?? get().selectedCompanyDomain;
+    if (!domain) return;
+    const contacts = get().contactsByDomain[domain] ?? [];
+    set({ selectedContactIds: new Set(contacts.map((c) => c.id)) });
   },
 
   deselectAllContacts: () => set({ selectedContactIds: new Set() }),

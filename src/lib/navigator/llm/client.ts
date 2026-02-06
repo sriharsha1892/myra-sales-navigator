@@ -1,5 +1,7 @@
 import Groq from "groq-sdk";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { apiCallBreadcrumb } from "@/lib/sentry";
+import { logApiCall } from "../health";
 
 // ---------------------------------------------------------------------------
 // LLM Provider Interface
@@ -35,14 +37,30 @@ class GroqProvider implements LLMProvider {
 
   async complete(prompt: string, options?: LLMOptions): Promise<string> {
     const client = this.getClient();
-    const response = await client.chat.completions.create({
-      model: "llama-3.1-8b-instant",
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: options?.maxTokens ?? 1024,
-      temperature: options?.temperature ?? 0.3,
-      ...(options?.json ? { response_format: { type: "json_object" } } : {}),
-    });
-    return response.choices[0]?.message?.content ?? "";
+    apiCallBreadcrumb("groq", "complete", { promptLen: prompt.length, json: !!options?.json });
+    const _start = Date.now();
+    try {
+      const response = await client.chat.completions.create({
+        model: "llama-3.1-8b-instant",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: options?.maxTokens ?? 1024,
+        temperature: options?.temperature ?? 0.3,
+        ...(options?.json ? { response_format: { type: "json_object" } } : {}),
+      });
+      logApiCall({
+        source: "groq", endpoint: "chat/completions", status_code: 200, success: true,
+        latency_ms: Date.now() - _start, rate_limit_remaining: null,
+        error_message: null, context: null, user_name: null,
+      });
+      return response.choices[0]?.message?.content ?? "";
+    } catch (err) {
+      logApiCall({
+        source: "groq", endpoint: "chat/completions", status_code: null, success: false,
+        latency_ms: Date.now() - _start, rate_limit_remaining: null,
+        error_message: err instanceof Error ? err.message : String(err), context: null, user_name: null,
+      });
+      throw err;
+    }
   }
 }
 
@@ -65,16 +83,32 @@ class GeminiProvider implements LLMProvider {
 
   async complete(prompt: string, options?: LLMOptions): Promise<string> {
     const ai = this.getAI();
-    const model = ai.getGenerativeModel({
-      model: "gemini-2.0-flash",
-      generationConfig: {
-        maxOutputTokens: options?.maxTokens ?? 1024,
-        temperature: options?.temperature ?? 0.7,
-        ...(options?.json ? { responseMimeType: "application/json" } : {}),
-      },
-    });
-    const result = await model.generateContent(prompt);
-    return result.response.text();
+    apiCallBreadcrumb("gemini", "complete", { promptLen: prompt.length, json: !!options?.json });
+    const _start = Date.now();
+    try {
+      const model = ai.getGenerativeModel({
+        model: "gemini-2.0-flash",
+        generationConfig: {
+          maxOutputTokens: options?.maxTokens ?? 1024,
+          temperature: options?.temperature ?? 0.7,
+          ...(options?.json ? { responseMimeType: "application/json" } : {}),
+        },
+      });
+      const result = await model.generateContent(prompt);
+      logApiCall({
+        source: "gemini", endpoint: "generateContent", status_code: 200, success: true,
+        latency_ms: Date.now() - _start, rate_limit_remaining: null,
+        error_message: null, context: null, user_name: null,
+      });
+      return result.response.text();
+    } catch (err) {
+      logApiCall({
+        source: "gemini", endpoint: "generateContent", status_code: null, success: false,
+        latency_ms: Date.now() - _start, rate_limit_remaining: null,
+        error_message: err instanceof Error ? err.message : String(err), context: null, user_name: null,
+      });
+      throw err;
+    }
   }
 }
 

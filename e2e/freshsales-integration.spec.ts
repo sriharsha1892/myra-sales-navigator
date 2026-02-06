@@ -1,10 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { getSessionCookie } from "./auth-helper";
+import { getSessionCookie, triggerSearchAndWait } from "./auth-helper";
 
 // Helper: select a company card and wait for dossier to load
 async function selectCompanyAndWaitForDossier(page: import("@playwright/test").Page) {
   await page.goto("/");
-  await page.waitForSelector('[role="option"]', { timeout: 15000 });
+  await triggerSearchAndWait(page);
   // Click the first company card
   await page.locator('[role="option"]').first().click();
   // Wait for dossier content to appear (Freshsales section, loading, or skeleton)
@@ -204,7 +204,7 @@ test.describe("Freshsales Integration — CompanyCard", () => {
 
   test("CRM status pills and owner name on company cards", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 15000 });
+    await triggerSearchAndWait(page);
 
     // Look for CRM status pills across all cards
     const crmPills = page.locator("text=/CRM: /");
@@ -230,7 +230,7 @@ test.describe("Freshsales Integration — ContactCard", () => {
 
   test("Contact tags and Add to CRM button in contacts view", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector('[role="option"]', { timeout: 15000 });
+    await triggerSearchAndWait(page);
 
     // Switch to Contacts tab
     const contactsBtn = page.locator("button", { hasText: "Contacts" }).first();

@@ -1,6 +1,8 @@
 import type { Contact, FreshsalesIntel, FreshsalesStatus, FreshsalesDeal, FreshsalesActivity, FreshsalesSettings } from "../types";
 import { getCached, setCached, CacheKeys, CacheTTL, normalizeDomain, getRootDomain } from "../../cache";
 import { defaultFreshsalesSettings } from "../mock-data";
+import { apiCallBreadcrumb } from "@/lib/sentry";
+import { logApiCall } from "../health";
 
 // ---------------------------------------------------------------------------
 // Admin config access (server-side)
@@ -88,10 +90,18 @@ function mapSeniority(title: string | null | undefined): Contact["seniority"] {
   return "staff";
 }
 
-function checkRateLimit(headers: Headers): void {
+function checkRateLimit(headers: Headers, endpoint?: string): void {
   const remaining = headers.get("X-Ratelimit-Remaining");
-  if (remaining && parseInt(remaining, 10) < 100) {
+  const remainingNum = remaining ? parseInt(remaining, 10) : null;
+  if (remainingNum !== null && remainingNum < 100) {
     console.warn(`[Freshsales] Rate limit low: ${remaining} remaining`);
+  }
+  if (remainingNum !== null && endpoint) {
+    logApiCall({
+      source: "freshsales", endpoint, status_code: 200, success: true,
+      latency_ms: null, rate_limit_remaining: remainingNum,
+      error_message: null, context: null, user_name: null,
+    });
   }
 }
 
@@ -139,6 +149,7 @@ async function paginatedFilteredSearch(
 ): Promise<Record<string, unknown>[]> {
   const all: Record<string, unknown>[] = [];
   for (let page = 1; page <= maxPages; page++) {
+    const _start = Date.now();
     const res = await fetch(
       `${baseUrl}/filtered_search/${entity}?page=${page}`,
       {
@@ -148,10 +159,17 @@ async function paginatedFilteredSearch(
       }
     );
     if (!res.ok) {
-      if (page === 1) console.warn(`[Freshsales] ${entity} search failed: ${res.status}`);
+      if (page === 1) {
+        console.warn(`[Freshsales] ${entity} search failed: ${res.status}`);
+        logApiCall({
+          source: "freshsales", endpoint: `filtered_search/${entity}`, status_code: res.status,
+          success: false, latency_ms: Date.now() - _start, rate_limit_remaining: null,
+          error_message: `${res.status}`, context: { entity, page }, user_name: null,
+        });
+      }
       break;
     }
-    checkRateLimit(res.headers);
+    checkRateLimit(res.headers, `filtered_search/${entity}`);
     let data: Record<string, unknown>;
     try { data = await res.json(); } catch { break; }
     // Entity key is plural: "contacts", "deals", "sales_accounts"
@@ -222,6 +240,8 @@ export async function getFreshsalesIntel(
 
   try {
     const baseUrl = getBaseUrl(settings);
+
+    apiCallBreadcrumb("freshsales", "getFreshsalesIntel", { domain: normalized, companyName });
 
     // Step 1: Search for sales account by website/domain
     const accountFilterRule = [
