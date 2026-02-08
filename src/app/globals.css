@@ -431,10 +431,12 @@ html, body {
   to { opacity: 1; transform: translateX(0); }
 }
 
-/* Fade in up animation for results */
+/* Fade in up animation for results — uses individual transform properties
+   (translate/scale) so the animation doesn't override the shorthand `transform`
+   used by card-interactive hover/active states */
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(10px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; translate: 0 10px; scale: 0.98; }
+  to { opacity: 1; translate: 0 0; scale: 1; }
 }
 
 @keyframes scaleIn {
@@ -442,7 +444,7 @@ html, body {
   to { transform: scale(1); opacity: 1; }
 }
 .animate-fadeInUp {
-  animation: fadeInUp 0.3s var(--ease-spring) both;
+  animation: fadeInUp 0.3s var(--ease-spring) forwards;
 }
 
 /* Smooth spinner */

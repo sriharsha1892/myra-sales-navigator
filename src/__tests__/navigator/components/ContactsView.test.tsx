@@ -1,11 +1,6 @@
-import { describe, it, expect, afterEach, beforeAll, beforeEach, vi } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
+import { render, screen, cleanup, waitFor, fireEvent } from "@testing-library/react";
 import type { Contact } from "@/lib/navigator/types";
-
-// jsdom doesn't implement scrollTo
-beforeAll(() => {
-  Element.prototype.scrollTo = vi.fn();
-});
 
 // ---------------------------------------------------------------------------
 // Mock @tanstack/react-query (ContactCard uses useQueryClient)
@@ -24,32 +19,14 @@ vi.mock("@tanstack/react-query", async (importOriginal) => {
 });
 
 // ---------------------------------------------------------------------------
-// Mock hooks
+// Mock hooks used by ContactCard (child of InlineContacts)
 // ---------------------------------------------------------------------------
-
-const mockUseContactsTab = vi.fn();
-
-vi.mock("@/hooks/navigator/useContactsTab", () => ({
-  useContactsTab: () => mockUseContactsTab(),
-}));
-
-vi.mock("@/hooks/navigator/useSearchHistory", () => ({
-  useSearchHistory: () => ({ history: [], isLoading: false }),
-}));
 
 vi.mock("@/hooks/navigator/useInlineFeedback", () => ({
   useInlineFeedback: () => ({
     trigger: vi.fn(),
     FeedbackLabel: null,
   }),
-}));
-
-vi.mock("@/lib/navigator/ui-copy", () => ({
-  pick: (key: string) => key,
-}));
-
-vi.mock("@/components/navigator/layout/MyProspects", () => ({
-  MyProspects: () => null,
 }));
 
 // ---------------------------------------------------------------------------
@@ -59,73 +36,19 @@ vi.mock("@/components/navigator/layout/MyProspects", () => ({
 vi.mock("@/lib/navigator/store", async () => {
   const { create } = await import("zustand");
   const store = create(() => ({
-    viewMode: "companies" as const,
-    searchResults: [] as unknown[],
+    contactsByDomain: {} as Record<string, Contact[]>,
     selectedContactIds: new Set<string>(),
-    selectedCompanyDomains: new Set<string>(),
-    contactGroupsCollapsed: {} as Record<string, boolean>,
-    contactVisibleFields: new Set(["name", "email", "title", "seniority", "sources", "lastContacted"]),
-    focusedContactId: null as string | null,
-    sortField: "icp_score",
-    sortDirection: "desc",
-    resultGrouping: "icp_tier",
-    detailPaneCollapsed: false,
-    selectedCompanyDomain: null as string | null,
-    searchLoading: false,
-    searchError: null as string | null,
-    filters: {
-      sources: ["exa", "apollo", "hubspot", "freshsales"],
-      verticals: [] as string[],
-      regions: [] as string[],
-      sizes: [] as string[],
-      signals: [] as string[],
-      statuses: [] as string[],
-      hideExcluded: true,
-      quickFilters: [] as string[],
-    },
-    contactFilters: { seniority: [] as string[], hasEmail: false, sources: [] as string[], sortBy: "seniority" },
-    exportState: null,
-    triggerExport: null,
-    sessionCompaniesReviewed: 0,
-    sessionContactsExported: 0,
-    pendingFreeTextSearch: null,
-    companies: [] as unknown[],
-    contactsByDomain: {} as Record<string, unknown[]>,
-    commandPaletteOpen: false,
-    slideOverOpen: false,
-    slideOverMode: "dossier",
-    recentDomains: [] as string[],
-    triggerDossierScrollToTop: vi.fn(),
-    adminConfig: { freshsalesSettings: {} },
+    toggleContactSelection: vi.fn(),
+    setContactsForDomain: vi.fn(),
+    // Fields accessed by ContactCard child
+    userName: "Adi",
+    lastSearchQuery: "",
+    searchSimilar: vi.fn(),
+    setExpandedContactsDomain: vi.fn(),
+    setCompanyStatus: vi.fn(),
+    adminConfig: { freshsalesSettings: {}, pipelineStages: [] },
     addToast: vi.fn(),
     excludeContact: vi.fn(),
-
-    // Actions
-    toggleContactSelection: vi.fn(),
-    toggleCompanySelection: vi.fn(),
-    toggleContactGroupCollapsed: vi.fn(),
-    selectCompany: vi.fn(),
-    updateContact: vi.fn(),
-    setViewMode: vi.fn(),
-    setContactFilters: vi.fn(),
-    setContactVisibleFields: vi.fn(),
-    collapseAllContactGroups: vi.fn(),
-    expandAllContactGroups: vi.fn(),
-    setFocusedContactId: vi.fn(),
-    setResultGrouping: vi.fn(),
-    filteredCompanies: () => [],
-    selectedCompany: () => null,
-    setTriggerExport: vi.fn(),
-    deselectAllContacts: vi.fn(),
-    deselectAllCompanies: vi.fn(),
-    selectAllContacts: vi.fn(),
-    selectAllCompanies: vi.fn(),
-    setExportState: vi.fn(),
-    setSortField: vi.fn(),
-    setSortDirection: vi.fn(),
-    setFilters: vi.fn(),
-    setPendingFreeTextSearch: vi.fn(),
-    setPendingFilterSearch: vi.fn(),
   }));
   return { useStore: store };
 });
@@ -133,9 +56,9 @@ vi.mock("@/lib/navigator/store", async () => {
 import { useStore } from "@/lib/navigator/store";
 
 // Lazy import to ensure mocks are in place
-async function importResultsList() {
-  const mod = await import("@/components/navigator/layout/ResultsList");
-  return mod.ResultsList;
+async function importInlineContacts() {
+  const mod = await import("@/components/navigator/cards/InlineContacts");
+  return mod.InlineContacts;
 }
 
 // ---------------------------------------------------------------------------
@@ -163,223 +86,147 @@ function makeContact(overrides: Partial<Contact> = {}): Contact {
 }
 
 beforeEach(() => {
-  // Mock fetch for session endpoints that ResultsList calls on mount
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
     ok: true,
-    json: async () => ({ trending: [] }),
+    json: async () => ({ contacts: [] }),
   }));
-  // Mock localStorage
-  vi.stubGlobal("localStorage", {
-    getItem: vi.fn().mockReturnValue("1"),
-    setItem: vi.fn(),
-    removeItem: vi.fn(),
-  });
 });
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   vi.unstubAllGlobals();
+  useStore.setState({ contactsByDomain: {}, selectedContactIds: new Set() });
 });
 
 // ---------------------------------------------------------------------------
-// Tests
+// InlineContacts Tests (replaces deprecated ContactsView tests)
 // ---------------------------------------------------------------------------
 
-// ContactsView was removed — contacts now render inline via InlineContacts accordion
-// TODO: Replace with InlineContacts tests
-describe.skip("ContactsView render branches (removed — contacts merged into inline expansion)", () => {
-  it("renders skeleton cards when loading with no contacts", async () => {
-    mockUseContactsTab.mockReturnValue({
-      isLoading: true,
-      fetchedCount: 0,
-      totalCount: 5,
-      estimatedTotal: 25,
-      groupedContacts: [],
-      personaGroups: [],
-      failedDomains: new Set<string>(),
-      retryDomain: vi.fn(),
-    });
+describe("InlineContacts", () => {
+  it("shows shimmer loading state when contacts are not yet cached", async () => {
+    // Contacts not in store, fetch will resolve eventually
+    useStore.setState({ contactsByDomain: {} });
 
-    useStore.setState({ viewMode: "companies", searchResults: [] });
+    const InlineContacts = await importInlineContacts();
+    render(<InlineContacts domain="test.com" />);
 
-    const ResultsList = await importResultsList();
-    render(<ResultsList />);
-
-    expect(screen.getByText("Loading contacts...")).toBeInTheDocument();
+    // Should show shimmer skeleton (3 placeholder cards)
+    const shimmers = document.querySelectorAll(".shimmer");
+    expect(shimmers.length).toBeGreaterThanOrEqual(3);
   });
 
-  it("renders EmptyState when done loading with no contacts", async () => {
-    mockUseContactsTab.mockReturnValue({
-      isLoading: false,
-      fetchedCount: 5,
-      totalCount: 5,
-      estimatedTotal: 0,
-      groupedContacts: [],
-      personaGroups: [],
-      failedDomains: new Set<string>(),
-      retryDomain: vi.fn(),
-    });
+  it("shows 'No contacts found' when store has empty array for domain", async () => {
+    useStore.setState({ contactsByDomain: { "test.com": [] } });
 
-    useStore.setState({ viewMode: "companies", searchResults: [] });
+    const InlineContacts = await importInlineContacts();
+    render(<InlineContacts domain="test.com" />);
 
-    const ResultsList = await importResultsList();
-    render(<ResultsList />);
-
-    expect(screen.getByText("No contacts available")).toBeInTheDocument();
+    expect(screen.getByText("No contacts found")).toBeInTheDocument();
   });
 
-  it("renders progress bar when loading with some contacts visible", async () => {
+  it("renders contacts from store without fetching when already cached", async () => {
     const contacts = [
-      makeContact({ id: "c1", companyDomain: "alpha.com", companyName: "Alpha" }),
+      makeContact({ id: "c1", firstName: "Jane", lastName: "Doe" }),
+      makeContact({ id: "c2", firstName: "John", lastName: "Smith", seniority: "director", emailConfidence: 90 }),
     ];
+    useStore.setState({ contactsByDomain: { "test.com": contacts } });
 
-    mockUseContactsTab.mockReturnValue({
-      isLoading: true,
-      fetchedCount: 2,
-      totalCount: 5,
-      estimatedTotal: 25,
-      groupedContacts: [{ domain: "alpha.com", companyName: "Alpha", icpScore: 85, contacts }],
-      personaGroups: [{ persona: "decision_makers", label: "Decision Makers", contacts: contacts.map((c) => ({ ...c, companyDomain: "alpha.com", companyName: "Alpha" })) }],
-      failedDomains: new Set<string>(),
-      retryDomain: vi.fn(),
-    });
+    const InlineContacts = await importInlineContacts();
+    render(<InlineContacts domain="test.com" />);
 
-    useStore.setState({ viewMode: "companies", searchResults: [] });
-
-    const ResultsList = await importResultsList();
-    render(<ResultsList />);
-
-    expect(screen.getByText("2/5 companies loaded")).toBeInTheDocument();
-    expect(screen.getByText("~25 estimated contacts")).toBeInTheDocument();
+    expect(screen.getByText("Jane Doe")).toBeInTheDocument();
+    expect(screen.getByText("John Smith")).toBeInTheDocument();
+    // Should NOT have called fetch since contacts were in store
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled();
   });
 
-  it("renders grouped list with company headers when contacts loaded", async () => {
-    const contacts1 = [makeContact({ id: "c1", companyDomain: "alpha.com", companyName: "Alpha" })];
-    const contacts2 = [makeContact({ id: "c2", companyDomain: "beta.com", companyName: "Beta" })];
+  it("fetches contacts from API when not in store", async () => {
+    const apiContacts = [
+      makeContact({ id: "c1", firstName: "Alice", lastName: "Wong" }),
+    ];
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ contacts: apiContacts }),
+    } as Response);
 
-    mockUseContactsTab.mockReturnValue({
-      isLoading: false,
-      fetchedCount: 2,
-      totalCount: 2,
-      estimatedTotal: 2,
-      groupedContacts: [
-        { domain: "alpha.com", companyName: "Alpha", icpScore: 90, contacts: contacts1 },
-        { domain: "beta.com", companyName: "Beta", icpScore: 80, contacts: contacts2 },
-      ],
-      personaGroups: [{ persona: "decision_makers", label: "Decision Makers", contacts: [...contacts1, ...contacts2].map((c) => ({ ...c })) }],
-      failedDomains: new Set<string>(),
-      retryDomain: vi.fn(),
+    useStore.setState({ contactsByDomain: {} });
+
+    const InlineContacts = await importInlineContacts();
+    render(<InlineContacts domain="newco.com" companyName="NewCo" />);
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/api/company/newco.com/contacts?name=NewCo")
+      );
     });
 
-    useStore.setState({ viewMode: "companies", searchResults: [] });
-
-    const ResultsList = await importResultsList();
-    render(<ResultsList />);
-
-    // With persona grouping, we see persona headers instead of company names
-    expect(screen.getByText(/Decision Makers/)).toBeInTheDocument();
+    expect(useStore.getState().setContactsForDomain).toHaveBeenCalledWith("newco.com", apiContacts);
   });
 
-  it("renders error boundary fallback when child crashes", async () => {
-    // Provide personaGroups with a proxy that throws during ContactsView's .map iteration
-    const realGroup = { domain: "crash.com", companyName: "Crash Co", icpScore: 50, contacts: [makeContact({ id: "c1" })] };
-    const groupsArray = [realGroup];
+  it("shows error message when fetch fails", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+    } as Response);
 
-    // personaGroups array that throws on .map (used in ContactsView render)
-    const personaGroupsArray = [{ persona: "decision_makers", label: "Decision Makers", contacts: [makeContact({ id: "c1" })] }];
-    const originalReduce = personaGroupsArray.reduce;
-    Object.defineProperty(personaGroupsArray, "map", {
-      value: function () {
-        throw new Error("render crash");
-      },
-      configurable: true,
+    useStore.setState({ contactsByDomain: {} });
+
+    const InlineContacts = await importInlineContacts();
+    render(<InlineContacts domain="fail.com" />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Failed to load contacts/)).toBeInTheDocument();
     });
-    Object.defineProperty(personaGroupsArray, "reduce", {
-      value: originalReduce,
-      configurable: true,
-    });
-
-    mockUseContactsTab.mockReturnValue({
-      isLoading: false,
-      fetchedCount: 1,
-      totalCount: 1,
-      estimatedTotal: 1,
-      groupedContacts: groupsArray,
-      personaGroups: personaGroupsArray,
-      failedDomains: new Set<string>(),
-      retryDomain: vi.fn(),
-    });
-
-    useStore.setState({ viewMode: "companies", searchResults: [] });
-
-    const ResultsList = await importResultsList();
-
-    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-    render(<ResultsList />);
-    spy.mockRestore();
-
-    expect(screen.getByText("Something went wrong rendering contacts.")).toBeInTheDocument();
-    expect(screen.getByText("Reload")).toBeInTheDocument();
   });
 
-  it("renders failed domains banner with retry button", async () => {
+  it("sorts contacts by seniority then email confidence", async () => {
     const contacts = [
-      makeContact({ id: "c1", companyDomain: "alpha.com", companyName: "Alpha" }),
+      makeContact({ id: "c1", firstName: "Staff", lastName: "Person", seniority: "staff", emailConfidence: 90 }),
+      makeContact({ id: "c2", firstName: "VP", lastName: "Person", seniority: "vp", emailConfidence: 80 }),
+      makeContact({ id: "c3", firstName: "CLevel", lastName: "Person", seniority: "c_level", emailConfidence: 70 }),
     ];
+    useStore.setState({ contactsByDomain: { "test.com": contacts } });
 
-    mockUseContactsTab.mockReturnValue({
-      isLoading: false,
-      fetchedCount: 2,
-      totalCount: 2,
-      estimatedTotal: 2,
-      groupedContacts: [
-        { domain: "alpha.com", companyName: "Alpha", icpScore: 90, contacts },
-      ],
-      personaGroups: [{ persona: "decision_makers", label: "Decision Makers", contacts: contacts.map((c) => ({ ...c })) }],
-      failedDomains: new Set(["beta.com", "gamma.com"]),
-      retryDomain: vi.fn(),
-    });
+    const InlineContacts = await importInlineContacts();
+    render(<InlineContacts domain="test.com" />);
 
-    useStore.setState({ viewMode: "companies", searchResults: [] });
-
-    const ResultsList = await importResultsList();
-    render(<ResultsList />);
-
-    expect(screen.getByText("2 companies failed to load contacts")).toBeInTheDocument();
-    expect(screen.getByText("Retry all")).toBeInTheDocument();
+    const names = screen.getAllByText(/Person/).map((el) => el.textContent);
+    // c_level first, then vp, then staff
+    expect(names[0]).toContain("CLevel");
+    expect(names[1]).toContain("VP");
+    expect(names[2]).toContain("Staff");
   });
 
-  it("collapsed groups hide their contact cards", async () => {
-    const contacts = [
-      makeContact({ id: "c1", companyDomain: "alpha.com", companyName: "Alpha", firstName: "Jane", lastName: "Doe" }),
-    ];
+  it("shows only first 5 contacts with 'Show all' button when more than 5", async () => {
+    const contacts = Array.from({ length: 8 }, (_, i) =>
+      makeContact({ id: `c${i}`, firstName: `Person${i}`, lastName: "Test", seniority: "staff" })
+    );
+    useStore.setState({ contactsByDomain: { "test.com": contacts } });
 
-    mockUseContactsTab.mockReturnValue({
-      isLoading: false,
-      fetchedCount: 1,
-      totalCount: 1,
-      estimatedTotal: 1,
-      groupedContacts: [
-        { domain: "alpha.com", companyName: "Alpha", icpScore: 90, contacts },
-      ],
-      personaGroups: [{ persona: "decision_makers", label: "Decision Makers", contacts: contacts.map((c) => ({ ...c })) }],
-      failedDomains: new Set<string>(),
-      retryDomain: vi.fn(),
-    });
+    const InlineContacts = await importInlineContacts();
+    render(<InlineContacts domain="test.com" />);
 
-    useStore.setState({
-      viewMode: "companies",
-      searchResults: [],
-      contactGroupsCollapsed: { "decision_makers": true },
-    });
+    // Should show "Show all 8 contacts" button
+    expect(screen.getByText("Show all 8 contacts")).toBeInTheDocument();
+    // First 5 visible, last 3 not
+    expect(screen.getByText("Person0 Test")).toBeInTheDocument();
+    expect(screen.getByText("Person4 Test")).toBeInTheDocument();
+    expect(screen.queryByText("Person5 Test")).not.toBeInTheDocument();
+  });
 
-    const ResultsList = await importResultsList();
-    render(<ResultsList />);
+  it("expands to show all contacts when 'Show all' is clicked", async () => {
+    const contacts = Array.from({ length: 8 }, (_, i) =>
+      makeContact({ id: `c${i}`, firstName: `Person${i}`, lastName: "Test", seniority: "staff" })
+    );
+    useStore.setState({ contactsByDomain: { "test.com": contacts } });
 
-    // Persona header should be visible
-    expect(screen.getByText(/Decision Makers/)).toBeInTheDocument();
-    // Contact name should NOT be visible (group is collapsed)
-    expect(screen.queryByText("Jane Doe")).not.toBeInTheDocument();
+    const InlineContacts = await importInlineContacts();
+    render(<InlineContacts domain="test.com" />);
+
+    fireEvent.click(screen.getByText("Show all 8 contacts"));
+
+    expect(screen.getByText("Person7 Test")).toBeInTheDocument();
+    expect(screen.getByText("Show fewer")).toBeInTheDocument();
   });
 });

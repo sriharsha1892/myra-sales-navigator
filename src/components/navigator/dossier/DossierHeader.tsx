@@ -26,7 +26,8 @@ const completenessFields: { key: keyof CompanyEnriched; label: string }[] = [
 
 export function DossierHeader({ company, onRefresh, isRefreshing }: DossierHeaderProps) {
   const searchSimilar = useStore((s) => s.searchSimilar);
-  const contacts = useStore((s) => s.contactsByDomain[company.domain] ?? []);
+  const rawContacts = useStore((s) => s.contactsByDomain[company.domain]);
+  const contacts = useMemo(() => rawContacts ?? [], [rawContacts]);
 
   // Capture time at mount — avoids impure Date.now() in render (react-hooks/purity)
   const [mountTime] = useState(() => Date.now());

@@ -189,6 +189,7 @@ export interface CompanyEnriched {
   aiSummary?: string;
   exactMatch?: boolean;
   icpBreakdown?: { factor: string; points: number; matched: boolean }[];
+  exaRelevanceScore?: number;
 }
 
 

@@ -16,11 +16,8 @@ export function CompanyStatusBadge({ domain, currentStatus, size = "md" }: Compa
   const ref = useRef<HTMLDivElement>(null);
   const userName = useStore((s) => s.userName);
   const setCompanyStatus = useStore((s) => s.setCompanyStatus);
-  const adminConfig = useStore((s) => s.adminConfig);
-
-  const stages: PipelineStage[] =
-    (adminConfig as unknown as Record<string, unknown>).pipelineStages as PipelineStage[] | undefined
-    ?? DEFAULT_PIPELINE_STAGES;
+  const rawPipelineStages = useStore((s) => (s.adminConfig as unknown as Record<string, unknown>)?.pipelineStages as PipelineStage[] | undefined);
+  const stages: PipelineStage[] = rawPipelineStages ?? DEFAULT_PIPELINE_STAGES;
 
   const currentStage = stages.find((s) => s.id === currentStatus) ?? stages[0];
 

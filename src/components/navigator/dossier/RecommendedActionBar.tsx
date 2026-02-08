@@ -18,8 +18,10 @@ interface RecommendedActionBarProps {
 }
 
 export function RecommendedActionBar({ company, contacts }: RecommendedActionBarProps) {
-  const actionRules = useStore((s) => s.adminConfig.actionRecommendationRules) ?? [];
-  const actionEnabled = useStore((s) => s.adminConfig.actionRecommendationEnabled) ?? true;
+  const rawActionRules = useStore((s) => s.adminConfig.actionRecommendationRules);
+  const actionRules = useMemo(() => rawActionRules ?? [], [rawActionRules]);
+  const rawActionEnabled = useStore((s) => s.adminConfig.actionRecommendationEnabled);
+  const actionEnabled = rawActionEnabled ?? true;
   const setViewMode = useStore((s) => s.setViewMode);
   const setExpandedContactsDomain = useStore((s) => s.setExpandedContactsDomain);
 

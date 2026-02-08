@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useStore } from "@/lib/navigator/store";
 import { suggestTemplate, type TemplateSuggestion } from "./suggestTemplate";
@@ -18,7 +19,8 @@ export function useOutreachSuggestion(
   contact: Contact | null | undefined,
   enabled: boolean
 ): TemplateSuggestion | null {
-  const rules = useStore((s) => s.adminConfig?.outreachSuggestionRules) ?? [];
+  const rawRules = useStore((s) => s.adminConfig?.outreachSuggestionRules);
+  const rules = useMemo(() => rawRules ?? [], [rawRules]);
 
   const { data: existingDraftChannels } = useQuery<string[]>({
     queryKey: ["outreach-drafts", contact?.id],

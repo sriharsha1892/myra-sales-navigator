@@ -151,7 +151,8 @@ export async function POST(request: Request) {
     });
   }
 
-  // LLM query reformulation (Groq) — expands raw text into semantic queries
+  // LLM query reformulation (Groq) — expands raw text into semantic queries.
+  // Skip reformulation for company name queries to avoid genericizing them.
   const defaultFilters: FilterState = {
     sources: [],
     verticals: [],
@@ -162,12 +163,22 @@ export async function POST(request: Request) {
     hideExcluded: true,
     quickFilters: [],
   };
-  const reformulated = await reformulateQueryWithEntities(
-    freeText || "",
-    filters || defaultFilters
-  );
-  const reformulatedQueries = reformulated.queries;
-  const extractedEntities = reformulated.entities;
+  const isNameQuery = looksLikeCompanyName(freeText || "");
+  let reformulatedQueries: string[];
+  let extractedEntities: { verticals: string[]; regions: string[]; signals: string[] };
+
+  if (isNameQuery && freeText?.trim()) {
+    // Company name → use exact text, skip LLM to avoid genericization
+    reformulatedQueries = [freeText.trim()];
+    extractedEntities = { verticals: [], regions: [], signals: [] };
+  } else {
+    const reformulated = await reformulateQueryWithEntities(
+      freeText || "",
+      filters || defaultFilters
+    );
+    reformulatedQueries = reformulated.queries;
+    extractedEntities = reformulated.entities;
+  }
 
   if (!isExaAvailable()) {
     return NextResponse.json({
@@ -180,7 +191,6 @@ export async function POST(request: Request) {
 
   try {
     const primaryQuery = reformulatedQueries[0] || freeText || "";
-    const isNameQuery = looksLikeCompanyName(freeText || "");
     const numResults = isNameQuery ? 15 : 25;
     console.log("[Search] primaryQuery:", primaryQuery, "isNameQuery:", isNameQuery);
 
@@ -257,6 +267,9 @@ export async function POST(request: Request) {
       c.icpScore = score;
       c.icpBreakdown = breakdown;
     }
+
+    // Sort by ICP score descending — best results first
+    companies.sort((a, b) => b.icpScore - a.icpScore);
 
     // Exact match detection: find ALL matching companies, pick the largest
     const queryLower = (freeText || "").toLowerCase().trim();

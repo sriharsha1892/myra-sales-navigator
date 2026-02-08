@@ -121,13 +121,15 @@ export function calculateIcpScore(
     });
   }
 
-  // 6. Exa relevance (if sources include exa, give bonus)
+  // 6. Exa relevance — scale bonus by actual Exa relevance score (0-1)
   const hasExa = company.sources.includes("exa");
   if (hasExa) {
+    const relevance = company.exaRelevanceScore ?? 0.5;
+    const scaledPoints = Math.round(w.exaRelevance * relevance);
     breakdown.push({
-      factor: "Exa semantic match",
-      points: w.exaRelevance,
-      matched: true,
+      factor: `Exa relevance: ${Math.round(relevance * 100)}%`,
+      points: scaledPoints,
+      matched: scaledPoints > 0,
     });
   }
 

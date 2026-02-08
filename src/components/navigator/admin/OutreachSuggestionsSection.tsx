@@ -1,9 +1,11 @@
 "use client";
 
+import { useMemo } from "react";
 import { useStore } from "@/lib/navigator/store";
 
 export function OutreachSuggestionsSection() {
-  const rules = useStore((s) => s.adminConfig.outreachSuggestionRules) ?? [];
+  const rawRules = useStore((s) => s.adminConfig.outreachSuggestionRules);
+  const rules = useMemo(() => rawRules ?? [], [rawRules]);
   const updateAdminConfig = useStore((s) => s.updateAdminConfig);
 
   const toggleRule = (id: string) => {

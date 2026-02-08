@@ -1,9 +1,12 @@
 import Exa from "exa-js";
 import type { Company, Signal, SignalType } from "../types";
 import { completeJSON, isGroqAvailable } from "../llm/client";
-import { getCached, setCached, CacheKeys, CacheTTL, hashFilters } from "@/lib/cache";
+import { getCached, setCached, CacheKeys, CacheTTL, hashFilters, getRootDomain } from "@/lib/cache";
 import { apiCallBreadcrumb } from "@/lib/sentry";
 import { logApiCall } from "../health";
+
+/** Minimum Exa relevance score (0-1) to include a result. Filters garbage. */
+const MIN_EXA_RELEVANCE = 0.10;
 
 // ---------------------------------------------------------------------------
 // Exa Client Singleton
@@ -57,19 +60,6 @@ export function isNoiseDomain(domain: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Base domain extraction (strip TLD for dedup — "basf.com" → "basf")
-// ---------------------------------------------------------------------------
-
-function getBaseDomain(domain: string): string {
-  const parts = domain.split(".");
-  if (parts.length <= 1) return domain;
-  const twoPartTlds = ["co.uk", "com.au", "co.jp", "co.in", "com.br", "com.my"];
-  const tld = parts.slice(-2).join(".");
-  if (twoPartTlds.includes(tld) && parts.length > 2) return parts.slice(0, -2).join(".");
-  return parts.slice(0, -1).join(".");
-}
-
-// ---------------------------------------------------------------------------
 // Domain extraction helper
 // ---------------------------------------------------------------------------
 
@@ -92,6 +82,7 @@ function mapExaResultToCompany(result: {
   author?: string | null;
   publishedDate?: string | null;
   highlights?: string[];
+  score?: number;
 }): Company {
   const domain = extractDomain(result.url);
   const name = result.title || domain;
@@ -136,6 +127,7 @@ function mapExaResultToCompany(result: {
     contactCount: 0,
     lastRefreshed: now,
     website: result.url,
+    exaRelevanceScore: result.score ?? undefined,
   };
 }
 
@@ -205,17 +197,18 @@ export async function searchExa(
     error_message: null, context: { query: params.query.slice(0, 60) }, user_name: null,
   });
 
-  // Map company results and post-filter any remaining noise domains
+  // Map company results, capture Exa relevance scores, filter noise + low-relevance
   const companies = companyResults.results
     .map(mapExaResultToCompany)
-    .filter(c => !isNoiseDomain(c.domain));
+    .filter(c => !isNoiseDomain(c.domain))
+    .filter(c => (c.exaRelevanceScore ?? 1) >= MIN_EXA_RELEVANCE);
 
-  // Dedupe by base domain (strip TLD to catch variants like basf.com / basf.de)
+  // Dedupe by root domain (consistent with route-level dedup in cache.ts)
   const seen = new Set<string>();
   const dedupedCompanies = companies.filter((c) => {
-    const base = getBaseDomain(c.domain);
-    if (seen.has(base)) return false;
-    seen.add(base);
+    const root = getRootDomain(c.domain);
+    if (seen.has(root)) return false;
+    seen.add(root);
     return true;
   });
 

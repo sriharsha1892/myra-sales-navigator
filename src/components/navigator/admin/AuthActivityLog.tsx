@@ -24,7 +24,7 @@ function formatIST(dateStr: string): string {
 }
 
 export function AuthActivityLog() {
-  const authLog = useStore((s) => s.adminConfig.authLog ?? []);
+  const authLog = useStore((s) => s.adminConfig.authLog) ?? [];
 
   // Show newest first
   const sortedLog = [...authLog].reverse();

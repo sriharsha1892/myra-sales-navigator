@@ -1,9 +1,11 @@
 "use client";
 
+import { useMemo } from "react";
 import { useStore } from "@/lib/navigator/store";
 
 export function ActionRecommendationsSection() {
-  const rules = useStore((s) => s.adminConfig.actionRecommendationRules) ?? [];
+  const rawRules = useStore((s) => s.adminConfig.actionRecommendationRules);
+  const rules = useMemo(() => rawRules ?? [], [rawRules]);
   const enabled = useStore((s) => s.adminConfig.actionRecommendationEnabled) ?? true;
   const updateAdminConfig = useStore((s) => s.updateAdminConfig);
 
