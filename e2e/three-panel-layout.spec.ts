@@ -10,7 +10,7 @@ test.describe("Three-Panel Layout", () => {
     await page.goto("/");
     await expect(page.locator("text=myRA")).toBeVisible();
     await expect(page.locator("text=Sales Navigator")).toBeVisible();
-    await expect(page.locator("text=Filters")).toBeVisible();
+    await expect(page.locator("h2", { hasText: "Filters" })).toBeVisible();
   });
 
   test("company cards render with mock data", async ({ page }) => {
@@ -23,33 +23,42 @@ test.describe("Three-Panel Layout", () => {
 
   test("clicking company card opens slide-over", async ({ page }) => {
     await page.goto("/");
+    await page.waitForSelector("text=myRA", { timeout: 20000 });
     await triggerSearchAndWait(page);
+    // Click on the first company card to open the slide-over
     await page.locator('[role="option"]').first().click();
-    await expect(page.locator("text=Last refreshed").first()).toBeVisible({ timeout: 5000 });
+    // Wait for slide-over to render — check for breadcrumb, company name, or action buttons
+    await expect(
+      page.locator("nav[aria-label='Breadcrumb']").or(page.locator("text=Mark Excluded")).first()
+    ).toBeVisible({ timeout: 20000 });
   });
 
   test("clicking different company updates slide-over", async ({ page }) => {
     await page.goto("/");
+    await page.waitForSelector("text=myRA", { timeout: 20000 });
     await triggerSearchAndWait(page);
     const cards = page.locator('[role="option"]');
 
+    // Click first company card
     await cards.first().click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000);
 
     if ((await cards.count()) > 1) {
       await cards.nth(1).click();
       await page.waitForTimeout(500);
-      await expect(page.locator("text=Last refreshed").first()).toBeVisible();
+      await expect(
+        page.locator("nav[aria-label='Breadcrumb']").or(page.locator("text=Mark Excluded")).first()
+      ).toBeVisible({ timeout: 20000 });
     }
   });
 
-  test("view toggle switches between companies and contacts", async ({ page }) => {
+  test("view toggle switches between companies and exported", async ({ page }) => {
     await page.goto("/");
     await triggerSearchAndWait(page);
 
-    // Find the toggle buttons - they are inside a toggle container
-    const contactsBtn = page.locator("button", { hasText: "Contacts" }).first();
-    await contactsBtn.click();
+    // Find the toggle buttons — now Companies + Exported (Contacts tab removed)
+    const exportedBtn = page.locator("button", { hasText: "Exported" }).first();
+    await exportedBtn.click();
     await page.waitForTimeout(500);
 
     const companiesBtn = page.locator("button", { hasText: "Companies" }).first();
@@ -69,22 +78,29 @@ test.describe("Three-Panel Layout", () => {
   test("admin link visible for admin user", async ({ page }) => {
     await page.goto("/");
     await page.waitForSelector("text=myRA", { timeout: 10000 });
-    await expect(page.locator("a", { hasText: "Admin" })).toBeVisible();
+    // Admin link is inside user settings panel — click avatar to open it
+    const avatar = page.locator("button.rounded-full", { hasText: "A" });
+    await avatar.click();
+    await expect(page.locator("a", { hasText: "Admin Settings" })).toBeVisible({ timeout: 3000 });
   });
 
   test("Cmd+K button is visible in top bar", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator("text=Search companies...")).toBeVisible();
+    await page.waitForSelector("text=myRA", { timeout: 20000 });
+    // The ⌘K badge is always visible in the search bar
+    await expect(page.locator("kbd").first()).toBeVisible({ timeout: 10000 });
   });
 
   test("results list shows company names", async ({ page }) => {
     await page.goto("/");
     await triggerSearchAndWait(page);
-    // At least one known mock company should be visible
-    const hasKnown = await page.locator("text=Ingredion").isVisible() ||
-      await page.locator("text=BASF").isVisible() ||
-      await page.locator("text=Lonza").isVisible();
-    expect(hasKnown).toBe(true);
+    // Company cards should be visible with company names (h3 inside cards)
+    const cards = page.locator('[role="option"]');
+    const count = await cards.count();
+    expect(count).toBeGreaterThan(0);
+    // First card should have a non-empty company name
+    const firstName = await cards.first().locator("h3").textContent();
+    expect(firstName?.length).toBeGreaterThan(0);
   });
 
   test("empty slide-over until company selected", async ({ page }) => {

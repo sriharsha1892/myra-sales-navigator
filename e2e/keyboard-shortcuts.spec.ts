@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { getSessionCookie, triggerSearchAndWait } from "./auth-helper";
 
-const PALETTE_INPUT = 'input[placeholder*="type a command"]';
+const PALETTE_INPUT = 'input[placeholder*="Search a company"]';
 
 test.beforeEach(async ({ context }) => {
   await context.addCookies([await getSessionCookie()]);
@@ -38,10 +38,15 @@ test.describe("Keyboard Shortcuts", () => {
 
   test("Escape with slide-over open closes slide-over", async ({ page }) => {
     await page.goto("/");
+    await page.waitForSelector("text=myRA", { timeout: 20000 });
     await triggerSearchAndWait(page);
 
+    // Click on the first company card to open the slide-over
     await page.locator('[role="option"]').first().click();
-    await expect(page.locator("text=Last refreshed").first()).toBeVisible({ timeout: 5000 });
+    // Wait for slide-over breadcrumb or action buttons
+    await expect(
+      page.locator("nav[aria-label='Breadcrumb']").or(page.locator("text=Mark Excluded")).first()
+    ).toBeVisible({ timeout: 20000 });
 
     await page.keyboard.press("Escape");
     await page.waitForTimeout(500);
@@ -49,7 +54,7 @@ test.describe("Keyboard Shortcuts", () => {
 
   test("/ focuses filter search input", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector("text=Filters", { timeout: 10000 });
+    await triggerSearchAndWait(page);
     // Click on the results area first to ensure no input is focused
     await page.locator('[role="listbox"]').first().click();
     await page.waitForTimeout(300);

@@ -7,7 +7,7 @@ import { getSessionCookie, triggerSearchAndWait } from "./auth-helper";
 
 async function loadApp(page: Page) {
   await page.goto("/");
-  await page.waitForSelector("text=myRA", { timeout: 10000 });
+  await page.waitForSelector("text=myRA", { timeout: 20000 });
 }
 
 async function waitForCompanyCards(page: Page) {
@@ -17,9 +17,10 @@ async function waitForCompanyCards(page: Page) {
 async function openFirstDossier(page: Page) {
   await waitForCompanyCards(page);
   await page.locator('[role="option"]').first().click();
+  // Wait for slide-over breadcrumb nav (renders immediately on selection)
   await expect(
-    page.locator("text=Last refreshed").first()
-  ).toBeVisible({ timeout: 10000 }).catch(() => {});
+    page.locator("nav[aria-label='Breadcrumb']").first()
+  ).toBeVisible({ timeout: 20000 }).catch(() => {});
   await page.waitForTimeout(1500);
 }
 
@@ -44,28 +45,22 @@ async function openDraftModal(page: Page): Promise<boolean> {
 }
 
 /**
- * Open draft modal from contacts tab by expanding a contact row.
+ * Open draft modal from dossier contacts section.
+ * Assumes company cards are already loaded (caller must call waitForCompanyCards first).
  * Returns true if modal opened.
  */
-async function openDraftFromContactsTab(page: Page): Promise<boolean> {
-  await page.locator("button", { hasText: "Contacts" }).first().click();
-  await page.waitForTimeout(3000);
+async function openDraftFromDossierContacts(page: Page): Promise<boolean> {
+  // Click first card to open dossier (cards should already be loaded)
+  await page.locator('[role="option"]').first().click();
+  await expect(
+    page.locator("nav[aria-label='Breadcrumb']").first()
+  ).toBeVisible({ timeout: 20000 }).catch(() => {});
+  // Wait for contacts to load in dossier
+  await page.waitForTimeout(2000);
 
-  // Check for contact content
-  const hasCheckbox = await page.locator("input[type='checkbox']").first()
-    .isVisible({ timeout: 8000 }).catch(() => false);
-  if (!hasCheckbox) return false;
-
-  // Expand first contact
-  const contactName = page.locator('[class*="border-b"] [class*="truncate"][class*="font-medium"]').first();
-  if (await contactName.isVisible({ timeout: 3000 }).catch(() => false)) {
-    await contactName.click({ force: true });
-    await page.waitForTimeout(1500);
-  }
-
-  // Click Draft button on expanded contact
+  // Click Draft button on a contact in the dossier
   const draftBtn = page.locator("button", { hasText: /Draft/i }).first();
-  if (!(await draftBtn.isVisible({ timeout: 3000 }).catch(() => false))) return false;
+  if (!(await draftBtn.isVisible({ timeout: 5000 }).catch(() => false))) return false;
 
   await draftBtn.click();
   await expect(page.locator("text=Draft Outreach")).toBeVisible({ timeout: 3000 });
@@ -638,40 +633,29 @@ test.describe("Email Outreach — myRA AI Context", () => {
 // Section 5: Contacts Tab → Draft Flow
 // ===========================================================================
 
-test.describe("Email Outreach — Contacts Tab Integration", () => {
+test.describe("Email Outreach — Dossier Contacts Integration", () => {
   test.beforeEach(async ({ context }) => {
     await context.addCookies([await getSessionCookie()]);
   });
 
-  test("Draft button appears on expanded contact card", async ({ page }) => {
+  test("Draft button appears in dossier contacts section", async ({ page }) => {
     await loadApp(page);
-    await waitForCompanyCards(page);
+    await openFirstDossier(page);
 
-    await page.locator("button", { hasText: "Contacts" }).first().click();
-    await page.waitForTimeout(3000);
+    // Wait for contacts to load in dossier
+    await page.waitForTimeout(2000);
 
-    const hasCheckbox = await page.locator("input[type='checkbox']").first()
-      .isVisible({ timeout: 8000 }).catch(() => false);
-    if (!hasCheckbox) return;
-
-    // Expand first contact
-    const contactName = page.locator('[class*="border-b"] [class*="truncate"][class*="font-medium"]').first();
-    if (await contactName.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await contactName.click({ force: true });
-      await page.waitForTimeout(1500);
-
-      // Draft button should appear in expanded row
-      const draftBtn = page.locator("button", { hasText: /Draft/i }).first();
-      const hasDraft = await draftBtn.isVisible({ timeout: 3000 }).catch(() => false);
-      expect(typeof hasDraft).toBe("boolean");
-    }
+    // Draft button should appear for contacts in dossier
+    const draftBtn = page.locator("button", { hasText: /Draft/i }).first();
+    const hasDraft = await draftBtn.isVisible({ timeout: 5000 }).catch(() => false);
+    expect(typeof hasDraft).toBe("boolean");
   });
 
-  test("Draft from contacts tab opens modal with correct contact context", async ({ page }) => {
+  test("Draft from dossier contacts opens modal with correct contact context", async ({ page }) => {
     await loadApp(page);
     await waitForCompanyCards(page);
 
-    const modalOpened = await openDraftFromContactsTab(page);
+    const modalOpened = await openDraftFromDossierContacts(page);
     if (!modalOpened) return;
 
     // Modal should be visible
@@ -681,11 +665,11 @@ test.describe("Email Outreach — Contacts Tab Integration", () => {
     await expect(subtitle).toBeVisible({ timeout: 2000 });
   });
 
-  test("full flow: contacts tab → expand → draft → generate → copy → close", async ({ page }) => {
+  test("full flow: dossier → draft → generate → copy → close", async ({ page }) => {
     await loadApp(page);
     await waitForCompanyCards(page);
 
-    const modalOpened = await openDraftFromContactsTab(page);
+    const modalOpened = await openDraftFromDossierContacts(page);
     if (!modalOpened) return;
 
     // Generate

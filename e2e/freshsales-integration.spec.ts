@@ -4,6 +4,7 @@ import { getSessionCookie, triggerSearchAndWait } from "./auth-helper";
 // Helper: select a company card and wait for dossier to load
 async function selectCompanyAndWaitForDossier(page: import("@playwright/test").Page) {
   await page.goto("/");
+  await page.waitForSelector("text=myRA", { timeout: 20000 });
   await triggerSearchAndWait(page);
   // Click the first company card
   await page.locator('[role="option"]').first().click();

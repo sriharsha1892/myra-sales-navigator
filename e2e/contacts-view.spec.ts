@@ -6,25 +6,21 @@ test.beforeEach(async ({ context }) => {
 });
 
 test.describe("Contacts View", () => {
-  test("switching to Contacts tab loads contact list", async ({ page }) => {
+  test("company card shows contacts link", async ({ page }) => {
     await page.goto("/");
     await triggerSearchAndWait(page);
-    const contactsBtn = page.locator("button", { hasText: "Contacts" }).first();
-    await contactsBtn.click();
-    await page.waitForTimeout(2000);
-    // Contacts view should show some content (contact rows or loading)
-    const hasContent = await page.locator("[class*='contact'], [data-testid*='contact'], tr, [role='row']").first().isVisible({ timeout: 5000 }).catch(() => false);
-    // If mock data is loaded, there should be contacts
-    expect(typeof hasContent).toBe("boolean");
+    // Each company card has a "N contacts" link
+    const contactsLink = page.locator("text=/\\d+ contacts/").first();
+    await expect(contactsLink).toBeVisible({ timeout: 5000 });
   });
 
-  test("switching back to Companies tab restores company list", async ({ page }) => {
+  test("switching between companies and exported tabs works", async ({ page }) => {
     await page.goto("/");
     await triggerSearchAndWait(page);
 
-    // Switch to contacts
-    const contactsBtn = page.locator("button", { hasText: "Contacts" }).first();
-    await contactsBtn.click();
+    // Switch to exported
+    const exportedBtn = page.locator("button", { hasText: "Exported" }).first();
+    await exportedBtn.click();
     await page.waitForTimeout(1000);
 
     // Switch back to companies
@@ -40,15 +36,15 @@ test.describe("Contacts View", () => {
     await page.goto("/");
     await triggerSearchAndWait(page);
 
-    const contactsBtn = page.locator("button", { hasText: "Contacts" }).first();
-    await contactsBtn.click();
-    await page.waitForTimeout(2000);
+    // Click "N contacts" on the first company card to expand inline contacts
+    const contactsLink = page.locator("text=/\\d+ contacts/").first();
+    if (await contactsLink.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await contactsLink.click();
+      await page.waitForTimeout(2000);
+    }
 
-    // The contacts tab should show some UI: loading skeletons, contact rows, or empty state
-    const hasLoading = await page.locator('[class*="animate-pulse"], [class*="skeleton"]').first().isVisible().catch(() => false);
-    const hasContacts = await page.locator("input[type='checkbox'], [role='checkbox']").first().isVisible().catch(() => false);
-    const hasEmptyState = await page.locator("text=/no contacts|loading/i").first().isVisible().catch(() => false);
-    // At least one of these states should be present
-    expect(hasLoading || hasContacts || hasEmptyState || true).toBe(true);
+    // The page should still have company cards visible
+    const hasCards = await page.locator('[role="option"]').first().isVisible().catch(() => false);
+    expect(hasCards).toBe(true);
   });
 });

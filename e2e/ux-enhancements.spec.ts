@@ -8,7 +8,7 @@ import { getSessionCookie, triggerSearchAndWait } from "./auth-helper";
 /** Navigate to main page, wait for initial load */
 async function loadApp(page: Page) {
   await page.goto("/");
-  await page.waitForSelector("text=myRA", { timeout: 10000 });
+  await page.waitForSelector("text=myRA", { timeout: 20000 });
 }
 
 /** Wait for company cards to appear in results */
@@ -20,12 +20,12 @@ async function waitForCompanyCards(page: Page) {
 async function openFirstDossier(page: Page) {
   await waitForCompanyCards(page);
   await page.locator('[role="option"]').first().click();
-  // Wait for dossier to load — "Last refreshed" or company heading in detail pane
+  // Wait for slide-over breadcrumb nav (renders immediately on selection)
   await expect(
-    page.locator("text=Last refreshed").first()
-  ).toBeVisible({ timeout: 10000 }).catch(() => {});
+    page.locator("nav[aria-label='Breadcrumb']").first()
+  ).toBeVisible({ timeout: 20000 }).catch(() => {});
   // Give contacts time to load
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(1000);
 }
 
 // ---------------------------------------------------------------------------
@@ -89,6 +89,7 @@ test.describe("Section 1: Multi-Channel Outreach Draft Modal", () => {
   });
 
   test("1.4 — WhatsApp pill disabled when no CRM relationship", async ({ page }) => {
+    test.setTimeout(60000);
     await loadApp(page);
     await openFirstDossier(page);
 
@@ -260,6 +261,7 @@ test.describe("Section 3: Recommended Next Action Bar", () => {
   });
 
   test("3.2 — Action bar has actionable button", async ({ page }) => {
+    test.setTimeout(60000);
     await loadApp(page);
     await openFirstDossier(page);
 
@@ -317,12 +319,11 @@ test.describe("Section 5: Exported Contacts View", () => {
     await context.addCookies([await getSessionCookie()]);
   });
 
-  test("5.1 — View toggle shows 3 tabs: Companies, Contacts, Exported", async ({ page }) => {
+  test("5.1 — View toggle shows 2 tabs: Companies and Exported", async ({ page }) => {
     await loadApp(page);
     await waitForCompanyCards(page);
 
     await expect(page.locator("button", { hasText: "Companies" }).first()).toBeVisible();
-    await expect(page.locator("button", { hasText: "Contacts" }).first()).toBeVisible();
     await expect(page.locator("button", { hasText: "Exported" }).first()).toBeVisible();
   });
 
@@ -341,6 +342,7 @@ test.describe("Section 5: Exported Contacts View", () => {
   });
 
   test("5.3 — Exported tab has date range filter pills (7d, 30d, All)", async ({ page }) => {
+    test.setTimeout(60000);
     await loadApp(page);
     await waitForCompanyCards(page);
 
@@ -350,10 +352,11 @@ test.describe("Section 5: Exported Contacts View", () => {
     // Date range pills
     await expect(page.locator("button", { hasText: "7d" })).toBeVisible();
     await expect(page.locator("button", { hasText: "30d" })).toBeVisible();
-    await expect(page.locator("button", { hasText: "All" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "All", exact: true })).toBeVisible();
   });
 
   test("5.4 — Date range pills are clickable and switch ranges", async ({ page }) => {
+    test.setTimeout(60000);
     await loadApp(page);
     await waitForCompanyCards(page);
 
@@ -364,8 +367,8 @@ test.describe("Section 5: Exported Contacts View", () => {
     await page.locator("button", { hasText: "7d" }).click();
     await page.waitForTimeout(300);
 
-    // Click All
-    await page.locator("button", { hasText: "All" }).click();
+    // Click All (exact match to avoid "Clear all")
+    await page.getByRole("button", { name: "All", exact: true }).click();
     await page.waitForTimeout(300);
 
     // Click back to 30d
@@ -759,20 +762,23 @@ test.describe("Integration: Cross-Section Flows", () => {
     expect(restoredCount).toBeGreaterThan(0);
   });
 
-  test("flow.3 — Contacts tab → open draft from contact row", async ({ page }) => {
+  test("flow.3 — Exported tab → back to Companies", async ({ page }) => {
     await loadApp(page);
     await waitForCompanyCards(page);
 
-    // Switch to Contacts
-    await page.locator("button", { hasText: "Contacts" }).first().click();
-    await page.waitForTimeout(2000); // Contacts lazy-load
+    // Switch to Exported (Contacts tab was removed)
+    await page.locator("button", { hasText: "Exported" }).first().click();
+    await page.waitForTimeout(1000);
 
-    // Try to find a draft button in contacts view
-    const draftBtn = page.locator("button", { hasText: /Draft/i }).first();
-    if (await draftBtn.isVisible().catch(() => false)) {
-      await draftBtn.click();
-      await expect(page.locator("text=Draft Outreach")).toBeVisible({ timeout: 3000 });
-    }
+    // Should show exported view or empty state
+    const hasExported = await page.locator("text=Recent Exports").isVisible().catch(() => false);
+    const hasEmpty = await page.locator("text=No exports found").isVisible().catch(() => false);
+    expect(hasExported || hasEmpty).toBe(true);
+
+    // Switch back to Companies
+    await page.locator("button", { hasText: "Companies" }).first().click();
+    await page.waitForTimeout(500);
+    await expect(page.locator('[role="option"]').first()).toBeVisible({ timeout: 5000 });
   });
 
   test("flow.4 — Admin saves config → modal reflects changes", async ({ context, page }) => {

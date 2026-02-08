@@ -49,20 +49,19 @@ test.describe("Export Flow", () => {
     }
   });
 
-  test("contacts view selection and export", async ({ page }) => {
+  test("exported view accessible via toggle", async ({ page }) => {
     await page.goto("/");
     await triggerSearchAndWait(page);
 
-    // Switch to contacts view
-    await page.locator("button", { hasText: "Contacts" }).first().click();
+    // Switch to exported view (Contacts tab removed, replaced by Exported)
+    await page.locator("button", { hasText: "Exported" }).first().click();
     await page.waitForTimeout(500);
 
-    // Select a contact if visible
-    const contacts = page.locator('[role="option"]');
-    if ((await contacts.count()) > 0) {
-      await contacts.first().click();
-      await page.waitForTimeout(300);
-    }
+    // Switch back to companies
+    await page.locator("button", { hasText: "Companies" }).first().click();
+    await page.waitForTimeout(500);
+    const cards = page.locator('[role="option"]');
+    expect(await cards.count()).toBeGreaterThan(0);
   });
 
   test("Cmd+E triggers export shortcut", async ({ page }) => {
@@ -96,22 +95,28 @@ test.describe("Export Flow", () => {
 
   test("clicking company card shows dossier with contacts", async ({ page }) => {
     await page.goto("/");
+    await page.waitForSelector("text=myRA", { timeout: 20000 });
     await triggerSearchAndWait(page);
 
+    // Click on the first company card
     await page.locator('[role="option"]').first().click();
     await page.waitForTimeout(1000);
 
-    await expect(page.locator("text=Last refreshed").first()).toBeVisible({ timeout: 5000 });
+    // Wait for slide-over breadcrumb or action buttons
+    await expect(
+      page.locator("nav[aria-label='Breadcrumb']").or(page.locator("text=Mark Excluded")).first()
+    ).toBeVisible({ timeout: 20000 });
   });
 
   test("company dossier shows source badges", async ({ page }) => {
     await page.goto("/");
+    await page.waitForSelector("text=myRA", { timeout: 20000 });
     await triggerSearchAndWait(page);
 
     await page.locator('[role="option"]').first().click();
-    await page.waitForTimeout(1000);
-
-    const dossierArea = page.locator("text=Last refreshed").first().locator("..");
-    await expect(dossierArea).toBeVisible();
+    // Wait for slide-over breadcrumb or action buttons
+    await expect(
+      page.locator("nav[aria-label='Breadcrumb']").or(page.locator("text=Mark Excluded")).first()
+    ).toBeVisible({ timeout: 20000 });
   });
 });

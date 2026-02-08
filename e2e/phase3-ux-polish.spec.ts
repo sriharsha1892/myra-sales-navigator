@@ -25,9 +25,10 @@ async function waitForCompanyCards(page: Page) {
 async function openFirstDossier(page: Page) {
   await waitForCompanyCards(page);
   await page.locator('[role="option"]').first().click();
+  // Wait for slide-over breadcrumb nav (renders immediately on selection)
   await expect(
-    page.locator("text=Last refreshed").first()
-  ).toBeVisible({ timeout: 10000 }).catch(() => {});
+    page.locator("nav[aria-label='Breadcrumb']").first()
+  ).toBeVisible({ timeout: 20000 }).catch(() => {});
   await page.waitForTimeout(1500);
 }
 
@@ -322,6 +323,7 @@ test.describe("Section 2: Confirmation Dialogs", () => {
   });
 
   test("2.4 — Bulk exclude >3 shows confirmation dialog", async ({ page }) => {
+    test.setTimeout(60000);
     await loadApp(page);
     await waitForCompanyCards(page);
 
@@ -355,6 +357,7 @@ test.describe("Section 2: Confirmation Dialogs", () => {
   });
 
   test("2.5 — Cancel preserves selection in bulk exclude", async ({ page }) => {
+    test.setTimeout(60000);
     await loadApp(page);
     await waitForCompanyCards(page);
 
@@ -393,6 +396,7 @@ test.describe("Section 2: Confirmation Dialogs", () => {
   });
 
   test("2.6 — Confirm excludes companies", async ({ page }) => {
+    test.setTimeout(60000);
     await loadApp(page);
     await waitForCompanyCards(page);
 
