@@ -29,7 +29,6 @@ export function DueStepsWidget() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
 
     fetch(`/api/outreach/due-steps`)
       .then((res) => {

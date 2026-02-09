@@ -40,8 +40,6 @@ export default function SettingsPage() {
 
   // Outreach: per-user config
   const setUserConfig = useStore((s) => s.setUserConfig);
-  const [freshsalesDomain, setFreshsalesDomain] = useState("");
-  const [hasLinkedinSalesNav, setHasLinkedinSalesNav] = useState(false);
 
   const { data: userConfigData, isFetched: outreachConfigLoaded } = useQuery({
     queryKey: ["user-config"],
@@ -53,13 +51,17 @@ export default function SettingsPage() {
     staleTime: 60_000,
   });
 
-  useEffect(() => {
-    if (userConfigData) {
-      setFreshsalesDomain(userConfigData.freshsalesDomain ?? "");
-      setHasLinkedinSalesNav(userConfigData.hasLinkedinSalesNav ?? false);
-      setUserConfig(userConfigData);
-    }
-  }, [userConfigData, setUserConfig]);
+  const [freshsalesDomain, setFreshsalesDomain] = useState("");
+  const [hasLinkedinSalesNav, setHasLinkedinSalesNav] = useState(false);
+  const [configSynced, setConfigSynced] = useState(false);
+
+  // Sync query data to local state once (not synchronous setState in effect body)
+  if (userConfigData && !configSynced) {
+    setFreshsalesDomain(userConfigData.freshsalesDomain ?? "");
+    setHasLinkedinSalesNav(userConfigData.hasLinkedinSalesNav ?? false);
+    setUserConfig(userConfigData);
+    setConfigSynced(true);
+  }
 
   const saveOutreachConfig = useCallback(async (fsDomain: string, linkedinSalesNav: boolean) => {
     const cfg = { freshsalesDomain: fsDomain || null, hasLinkedinSalesNav: linkedinSalesNav, preferences: {} };
