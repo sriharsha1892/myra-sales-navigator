@@ -53,7 +53,7 @@ function makeRawContact(overrides: Record<string, unknown> = {}) {
     id: 101,
     first_name: "Jane",
     last_name: "Doe",
-    email: "jane@external.com",
+    email: "jane@acme.com",
     job_title: "VP of Sales",
     mobile_number: "+1555000111",
     work_number: "+1555000222",
@@ -557,23 +557,44 @@ describe("contact mapping", () => {
     expect(c.id).toBe("freshsales-101");
     expect(c.firstName).toBe("Jane");
     expect(c.lastName).toBe("Doe");
-    expect(c.email).toBe("jane@external.com");
+    expect(c.email).toBe("jane@acme.com");
     expect(c.title).toBe("VP of Sales");
     expect(c.linkedinUrl).toBe("https://linkedin.com/in/janedoe");
   });
 
-  it("emailConfidence 75 when email present, 0 when absent", async () => {
+  it("emailConfidence 75 when email present", async () => {
     stubHappyPath({
       contacts: [
-        makeRawContact({ email: "has@email.com" }),
+        makeRawContact({ email: "has@acme.com" }),
+      ],
+    });
+    const result = await getFreshsalesIntel("acme.com");
+    const withEmail = result.contacts.find((c) => c.email === "has@acme.com");
+    expect(withEmail?.emailConfidence).toBe(75);
+  });
+
+  it("filters out contacts with no email (can't validate affiliation)", async () => {
+    stubHappyPath({
+      contacts: [
+        makeRawContact({ email: "has@acme.com" }),
         makeRawContact({ id: 102, email: null }),
       ],
     });
     const result = await getFreshsalesIntel("acme.com");
-    const withEmail = result.contacts.find((c) => c.email === "has@email.com");
-    const withoutEmail = result.contacts.find((c) => c.email === null);
-    expect(withEmail?.emailConfidence).toBe(75);
-    expect(withoutEmail?.emailConfidence).toBe(0);
+    expect(result.contacts).toHaveLength(1);
+    expect(result.contacts[0].email).toBe("has@acme.com");
+  });
+
+  it("filters out contacts whose email domain doesn't match company domain", async () => {
+    stubHappyPath({
+      contacts: [
+        makeRawContact({ email: "jane@acme.com" }),
+        makeRawContact({ id: 102, email: "oliver@othercorp.com" }),
+      ],
+    });
+    const result = await getFreshsalesIntel("acme.com");
+    expect(result.contacts).toHaveLength(1);
+    expect(result.contacts[0].email).toBe("jane@acme.com");
   });
 
   it("sources always ['freshsales']", async () => {
@@ -585,8 +606,8 @@ describe("contact mapping", () => {
   it("phone falls back mobile_number → work_number", async () => {
     stubHappyPath({
       contacts: [
-        makeRawContact({ mobile_number: "+1111", work_number: "+2222" }),
-        makeRawContact({ id: 103, mobile_number: null, work_number: "+3333" }),
+        makeRawContact({ email: "a@acme.com", mobile_number: "+1111", work_number: "+2222" }),
+        makeRawContact({ id: 103, email: "b@acme.com", mobile_number: null, work_number: "+3333" }),
       ],
     });
     const result = await getFreshsalesIntel("acme.com");
@@ -621,7 +642,7 @@ describe("seniority mapping", () => {
     fetchMock
       .mockResolvedValueOnce(makeSupabaseConfigResponse())
       .mockResolvedValueOnce(makeAccountResponse([DEFAULT_ACCOUNT]))
-      .mockResolvedValueOnce(makeContactResponse([makeRawContact({ job_title: title })]))
+      .mockResolvedValueOnce(makeContactResponse([makeRawContact({ job_title: title, email: `jane@${domain}` })]))
       .mockResolvedValueOnce(makeDealResponse([]))
       .mockResolvedValueOnce(makeActivityResponse([]));
     const result = await mod.getFreshsalesIntel(domain);
@@ -848,9 +869,9 @@ describe("lastContactDate", () => {
   it("picks most recent lastVerified from contacts", async () => {
     stubHappyPath({
       contacts: [
-        makeRawContact({ id: 201, updated_at: "2025-06-01T00:00:00Z" }),
-        makeRawContact({ id: 202, updated_at: "2025-12-15T00:00:00Z" }),
-        makeRawContact({ id: 203, updated_at: "2025-09-01T00:00:00Z" }),
+        makeRawContact({ id: 201, email: "a@acme.com", updated_at: "2025-06-01T00:00:00Z" }),
+        makeRawContact({ id: 202, email: "b@acme.com", updated_at: "2025-12-15T00:00:00Z" }),
+        makeRawContact({ id: 203, email: "c@acme.com", updated_at: "2025-09-01T00:00:00Z" }),
       ],
     });
     const result = await getFreshsalesIntel("acme.com");
@@ -860,8 +881,8 @@ describe("lastContactDate", () => {
   it("null when no contacts have updated_at", async () => {
     stubHappyPath({
       contacts: [
-        makeRawContact({ id: 204, updated_at: null }),
-        makeRawContact({ id: 205, updated_at: undefined }),
+        makeRawContact({ id: 204, email: "d@acme.com", updated_at: null }),
+        makeRawContact({ id: 205, email: "e@acme.com", updated_at: undefined }),
       ],
     });
     const result = await getFreshsalesIntel("acme.com");

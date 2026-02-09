@@ -70,6 +70,20 @@ function getBaseUrl(settings?: FreshsalesSettings): string {
   return `https://${domain}.freshsales.io/api`;
 }
 
+function contactBelongsToCompany(
+  contact: Record<string, unknown>,
+  targetDomain: string
+): boolean {
+  const email = contact.email as string | undefined;
+  if (email) {
+    const emailDomain = email.split("@")[1]?.toLowerCase();
+    if (!emailDomain) return false;
+    return getRootDomain(emailDomain) === getRootDomain(targetDomain);
+  }
+  // No email — can't validate affiliation. Exclude to be safe.
+  return false;
+}
+
 function mapSeniority(title: string | null | undefined): Contact["seniority"] {
   if (!title) return "staff";
   const t = title.toLowerCase();
@@ -399,12 +413,17 @@ async function fetchFreshsalesContacts(
       },
     ];
     const rawContacts = await paginatedFilteredSearch(baseUrl, "contact", filterRule, 4);
+    const validated = rawContacts.filter((raw) => contactBelongsToCompany(raw, domain));
+    const filtered = rawContacts.length - validated.length;
+    if (filtered > 0) {
+      console.log(`[Freshsales] Filtered ${filtered}/${rawContacts.length} contacts (email domain mismatch) for ${domain}`);
+    }
 
     // Freshsales contacts are CRM records — do NOT run sanitizeContacts on them.
     // sanitizeContacts filters out contacts whose email domain matches the company
     // domain, which is exactly wrong for CRM data (we want our known contacts AT
     // the company).
-    const contacts: Contact[] = rawContacts.map(
+    const contacts: Contact[] = validated.map(
       (raw: Record<string, unknown>, i: number) => ({
         id: `freshsales-${raw.id || i}`,
         companyDomain: domain,
@@ -450,8 +469,13 @@ async function fetchFreshsalesContactsByCompanyName(
       },
     ];
     const rawContacts = await paginatedFilteredSearch(baseUrl, "contact", filterRule, 4);
+    const validated = rawContacts.filter((raw) => contactBelongsToCompany(raw, domain));
+    const filtered = rawContacts.length - validated.length;
+    if (filtered > 0) {
+      console.log(`[Freshsales] Filtered ${filtered}/${rawContacts.length} contacts (email domain mismatch) for ${domain}`);
+    }
 
-    return rawContacts.map(
+    return validated.map(
       (raw: Record<string, unknown>, i: number) => ({
         id: `freshsales-${raw.id || i}`,
         companyDomain: domain,
