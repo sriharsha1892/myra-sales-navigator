@@ -39,6 +39,7 @@ export interface ExaSearchParams {
 export interface ExaSearchResult {
   companies: Company[];
   signals: Signal[];
+  cacheHit?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -147,7 +148,7 @@ export async function searchExa(
   const cached = await getCached<ExaSearchResult>(cacheKey);
   if (cached) {
     console.log("[Exa] Returning cached search results for:", params.query.slice(0, 60));
-    return cached;
+    return { ...cached, cacheHit: true };
   }
 
   const exa = getExaClient();
@@ -235,7 +236,7 @@ export async function searchExa(
     }
   }
 
-  const result: ExaSearchResult = { companies: dedupedCompanies, signals };
+  const result: ExaSearchResult = { companies: dedupedCompanies, signals, cacheHit: false };
 
   // Cache for 6 hours
   await setCached(cacheKey, result, CacheTTL.exaSearch).catch(() => {});

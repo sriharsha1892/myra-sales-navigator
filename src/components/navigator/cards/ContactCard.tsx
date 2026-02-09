@@ -13,6 +13,7 @@ import { Tooltip } from "@/components/navigator/shared/Tooltip";
 import { defaultFreshsalesSettings } from "@/lib/navigator/mock-data";
 
 import { useOutreachSuggestion } from "@/lib/navigator/outreach/useOutreachSuggestion";
+import { logEmailCopy } from "@/lib/navigator/logEmailCopy";
 
 const OutreachDraftModal = lazy(() => import("@/components/navigator/outreach/OutreachDraftModal").then((m) => ({ default: m.OutreachDraftModal })));
 
@@ -170,6 +171,7 @@ export function ContactCard({
       trigger("Copied");
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 1500);
+      logEmailCopy(emailToCopy, `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim(), contact.companyDomain ?? "");
     }).catch(() => {
       trigger("Copy failed", "error");
     });

@@ -13,6 +13,7 @@ import { pick } from "@/lib/navigator/ui-copy";
 import { Tooltip } from "@/components/navigator/shared/Tooltip";
 import { useInlineFeedback } from "@/hooks/navigator/useInlineFeedback";
 import type { Contact } from "@/lib/navigator/types";
+import { logEmailCopy } from "@/lib/navigator/logEmailCopy";
 
 interface CompanyCardProps {
   company: CompanyEnriched;
@@ -532,6 +533,7 @@ export function CompanyCard({
                                 setCopiedContactId(contact.id);
                                 addToast({ message: `Copied ${contact.email}`, type: "success", duration: 1500, dedupKey: "inline-copy" });
                                 setTimeout(() => setCopiedContactId(null), 1500);
+                                logEmailCopy(contact.email!, `${contact.firstName} ${contact.lastName}`, company.domain);
                               });
                             }}
                             className="flex-shrink-0 text-text-tertiary transition-colors hover:text-accent-primary"

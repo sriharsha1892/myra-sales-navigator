@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useStore } from "@/lib/navigator/store";
+import { logEmailCopy } from "@/lib/navigator/logEmailCopy";
 
 export function useKeyboardShortcuts() {
   useEffect(() => {
@@ -83,6 +84,7 @@ export function useKeyboardShortcuts() {
           e.preventDefault();
           navigator.clipboard.writeText(withEmail.email).then(() => {
             state.addToast({ message: `Copied ${withEmail.email}`, type: "success", duration: 2000 });
+            logEmailCopy(withEmail.email!, `${withEmail.firstName ?? ""} ${withEmail.lastName ?? ""}`.trim(), domain);
           });
         }
         return;

@@ -76,6 +76,7 @@ export function SearchBridge() {
             saveToHistory(text, {}, data.companies.length);
             notify("Search complete", `${data.companies.length} companies found`);
             preWarmContacts(data.companies);
+            useStore.getState().incrementSessionSearchCount();
           },
           onError: () => {
             notify("Search failed", "Something went wrong with your search");
@@ -101,6 +102,7 @@ export function SearchBridge() {
             saveToHistory(summarizeFilters(currentFilters), currentFilters, data.companies.length);
             notify("Search complete", `${data.companies.length} companies found`);
             preWarmContacts(data.companies);
+            useStore.getState().incrementSessionSearchCount();
           },
           onError: () => {
             notify("Search failed", "Something went wrong with your search");

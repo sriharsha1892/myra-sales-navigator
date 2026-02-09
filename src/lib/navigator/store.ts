@@ -221,6 +221,11 @@ interface AppState {
   activeResultIndex: number | null;
   setActiveResultIndex: (index: number | null) => void;
 
+  // Session activity counters (for heartbeat deltas)
+  sessionSearchCount: number;
+  sessionTriageCount: number;
+  incrementSessionSearchCount: () => void;
+
   // Follow-up nudges
   followUpNudgesDismissed: boolean;
   dismissFollowUpNudges: () => void;
@@ -379,7 +384,7 @@ export const useStore = create<AppState>((set, get) => ({
   triageFilter: "all",
   setCompanyDecision: (domain, decision) => {
     const next = { ...get().companyDecisions, [domain]: decision };
-    set({ companyDecisions: next });
+    set({ companyDecisions: next, sessionTriageCount: get().sessionTriageCount + 1 });
     // Persist to localStorage
     if (typeof window !== "undefined") {
       localStorage.setItem("nav_company_decisions", JSON.stringify(next));
@@ -433,6 +438,11 @@ export const useStore = create<AppState>((set, get) => ({
   // Active result index for arrow key navigation
   activeResultIndex: null,
   setActiveResultIndex: (index) => set({ activeResultIndex: index }),
+
+  // Session activity counters
+  sessionSearchCount: 0,
+  sessionTriageCount: 0,
+  incrementSessionSearchCount: () => set((state) => ({ sessionSearchCount: state.sessionSearchCount + 1 })),
 
   // Follow-up nudges
   followUpNudgesDismissed: false,

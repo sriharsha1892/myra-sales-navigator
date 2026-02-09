@@ -7,6 +7,7 @@ import { BulkActionBar } from "@/components/navigator/shared";
 import { UserSettingsPanel } from "@/components/navigator/settings/UserSettingsPanel";
 import { SearchBridge } from "@/components/navigator/SearchBridge";
 import { HydrationBridge } from "@/components/navigator/HydrationBridge";
+import { SessionActivityBridge } from "@/components/navigator/SessionActivityBridge";
 import { ExtractedChips } from "@/components/navigator/shared/ExtractedChips";
 import { useKeyboardShortcuts } from "@/hooks/navigator/useKeyboardShortcuts";
 import { useAuth } from "@/providers/AuthProvider";
@@ -206,6 +207,7 @@ export default function Home() {
       <BulkActionBar />
       <SearchBridge />
       <HydrationBridge />
+      <SessionActivityBridge />
       <ChatWidget />
       <TeamPulseWidget />
     </div>

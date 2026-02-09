@@ -30,6 +30,20 @@ export async function GET(request: NextRequest) {
       resultCount: row.result_count,
       label: row.label ?? undefined,
       timestamp: row.created_at,
+      // Search performance fields
+      totalDurationMs: row.total_duration_ms ?? undefined,
+      reformulationMs: row.reformulation_ms ?? undefined,
+      exaDurationMs: row.exa_duration_ms ?? undefined,
+      apolloDurationMs: row.apollo_duration_ms ?? undefined,
+      nlIcpScoringMs: row.nl_icp_scoring_ms ?? undefined,
+      exaCacheHit: row.exa_cache_hit ?? undefined,
+      exaResultCount: row.exa_result_count ?? undefined,
+      apolloEnrichedCount: row.apollo_enriched_count ?? undefined,
+      highFitCount: row.high_fit_count ?? undefined,
+      exaError: row.exa_error ?? undefined,
+      apolloError: row.apollo_error ?? undefined,
+      nlIcpError: row.nl_icp_error ?? undefined,
+      queryText: row.query_text ?? undefined,
     }));
 
     return NextResponse.json({ history });

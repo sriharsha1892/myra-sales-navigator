@@ -152,6 +152,20 @@ export async function POST(request: Request) {
     });
   }
 
+  // Performance tracking
+  const searchStart = Date.now();
+  let reformulationMs = 0;
+  let exaDurationMs = 0;
+  let apolloDurationMs = 0;
+  let nlIcpScoringMs = 0;
+  let exaCacheHit = false;
+  let exaResultCount = 0;
+  let apolloEnrichedCount = 0;
+  let highFitCount = 0;
+  let exaError: string | null = null;
+  let apolloError: string | null = null;
+  let nlIcpError: string | null = null;
+
   // LLM query reformulation (Groq) — expands raw text into semantic queries.
   // Skip reformulation for company name queries to avoid genericizing them.
   const defaultFilters: FilterState = {
@@ -168,6 +182,7 @@ export async function POST(request: Request) {
   let reformulatedQueries: string[];
   let extractedEntities: { verticals: string[]; regions: string[]; signals: string[] };
 
+  const reformulationStart = Date.now();
   if (isNameQuery && freeText?.trim()) {
     // Company name → use exact text, skip LLM to avoid genericization
     reformulatedQueries = [freeText.trim()];
@@ -180,6 +195,7 @@ export async function POST(request: Request) {
     reformulatedQueries = reformulated.queries;
     extractedEntities = reformulated.entities;
   }
+  reformulationMs = Date.now() - reformulationStart;
 
   if (!isExaAvailable()) {
     return NextResponse.json({
@@ -196,10 +212,17 @@ export async function POST(request: Request) {
     console.log("[Search] primaryQuery:", primaryQuery, "isNameQuery:", isNameQuery);
 
     // Parallel: Exa semantic search + exclusion list fetch
+    const exaStart = Date.now();
     const [exaResult, excluded] = await Promise.all([
-      searchExa({ query: primaryQuery, numResults }),
+      searchExa({ query: primaryQuery, numResults }).catch((err) => {
+        exaError = err instanceof Error ? err.message : "Exa search failed";
+        return { companies: [], signals: [], cacheHit: false } as import("@/lib/navigator/providers/exa").ExaSearchResult;
+      }),
       filters?.hideExcluded !== false ? getExcludedValues() : Promise.resolve(new Set<string>()),
     ]);
+    exaDurationMs = Date.now() - exaStart;
+    exaCacheHit = exaResult.cacheHit ?? false;
+    exaResultCount = exaResult.companies.length;
 
     // Apply exclusion filter to Exa results
     const filteredExa = applyExclusionFilter(exaResult.companies, excluded);
@@ -209,7 +232,16 @@ export async function POST(request: Request) {
     // Apollo structured enrichment — runs in parallel on Exa domains
     // Smart Enrich: only top N by Exa relevance (admin-configurable, default 10)
     const enrichLimits = await getEnrichmentLimits();
-    const apolloEnriched = await apolloStructuredSearch(exaCompanies, enrichLimits.maxSearchEnrich);
+    const apolloStart = Date.now();
+    let apolloEnriched: Company[] = [];
+    try {
+      apolloEnriched = await apolloStructuredSearch(exaCompanies, enrichLimits.maxSearchEnrich);
+    } catch (err) {
+      apolloError = err instanceof Error ? err.message : "Apollo enrichment failed";
+      apolloEnriched = [];
+    }
+    apolloDurationMs = Date.now() - apolloStart;
+    apolloEnrichedCount = apolloEnriched.length;
 
     // Build final company list: Apollo-enriched where available, raw Exa otherwise
     const enrichedDomains = new Set(apolloEnriched.map((c) => c.domain));
@@ -273,6 +305,7 @@ export async function POST(request: Request) {
     // NL ICP scoring — only for discovery queries, not company name lookups
     let nlIcpCriteria: NLICPCriteria | null = null;
     if (!isNameQuery && freeText) {
+      const nlStart = Date.now();
       try {
         nlIcpCriteria = await extractICPCriteria(freeText);
         const nlScores = await scoreCompaniesAgainstICP(nlIcpCriteria, companies);
@@ -287,8 +320,10 @@ export async function POST(request: Request) {
           }
         }
       } catch (err) {
+        nlIcpError = err instanceof Error ? err.message : "NL ICP scoring failed";
         console.warn("[Search] NL ICP scoring failed, using rule-based:", err);
       }
+      nlIcpScoringMs = Date.now() - nlStart;
     }
 
     // Sort by ICP score descending — best results first
@@ -323,7 +358,11 @@ export async function POST(request: Request) {
       }
     }
 
-    // Log search to history (fire-and-forget)
+    // Compute high-fit count + total duration
+    highFitCount = companies.filter((c) => c.icpScore >= 70).length;
+    const totalDurationMs = Date.now() - searchStart;
+
+    // Log search to history (fire-and-forget) with perf fields
     if (body.userName) {
       const supabase = createServerClient();
       supabase
@@ -332,6 +371,19 @@ export async function POST(request: Request) {
           user_name: body.userName,
           filters: filters || { freeText },
           result_count: companies.length,
+          total_duration_ms: totalDurationMs,
+          reformulation_ms: reformulationMs,
+          exa_duration_ms: exaDurationMs,
+          apollo_duration_ms: apolloDurationMs,
+          nl_icp_scoring_ms: nlIcpScoringMs || null,
+          exa_cache_hit: exaCacheHit,
+          exa_result_count: exaResultCount,
+          apollo_enriched_count: apolloEnrichedCount,
+          high_fit_count: highFitCount,
+          exa_error: exaError,
+          apollo_error: apolloError,
+          nl_icp_error: nlIcpError,
+          query_text: freeText || null,
         })
         .then(({ error: histErr }) => {
           if (histErr) console.warn("[Search] Failed to log history:", histErr);

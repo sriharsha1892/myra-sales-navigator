@@ -167,6 +167,17 @@ export function useExport() {
           URL.revokeObjectURL(url);
           handle.resolve(`Exported ${contacts.length} contacts to Excel`);
           notify("Export complete", `Exported ${contacts.length} contacts to Excel`);
+          // Log Excel export (fire-and-forget)
+          fetch("/api/export/log", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contacts: contacts.filter((c) => c.email).map((c) => ({ email: c.email, name: `${c.firstName} ${c.lastName}` })),
+              companyDomain,
+              userName,
+              destination: "excel",
+            }),
+          }).catch(() => {});
         } catch {
           handle.reject("Excel export failed");
           notify("Export failed", "Excel export failed");
