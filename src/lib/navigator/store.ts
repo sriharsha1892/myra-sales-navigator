@@ -292,7 +292,7 @@ export const useStore = create<AppState>((set, get) => ({
     expandedContactsDomain: state.expandedContactsDomain === domain ? null : domain,
   })),
   resultGrouping: "icp_tier",
-  detailPaneCollapsed: false,
+  detailPaneCollapsed: typeof window !== "undefined" && localStorage.getItem("nav_detail_pane_collapsed") === "1",
   dossierScrollToTop: 0,
   triggerDossierScrollToTop: () => set((state) => ({ dossierScrollToTop: state.dossierScrollToTop + 1 })),
   sessionCompaniesReviewed: 0,
@@ -343,7 +343,12 @@ export const useStore = create<AppState>((set, get) => ({
   setViewMode: (mode) => set({ viewMode: mode, focusedContactId: null }),
 
   selectCompany: (domain) => {
-    set((state) => ({ selectedCompanyDomain: domain, slideOverOpen: !!domain, slideOverMode: "dossier", detailPaneCollapsed: false, dossierScrollToTop: state.dossierScrollToTop + 1 }));
+    set((state) => {
+      if (typeof window !== "undefined" && domain) {
+        localStorage.setItem("nav_detail_pane_collapsed", "0");
+      }
+      return { selectedCompanyDomain: domain, slideOverOpen: !!domain, slideOverMode: "dossier", detailPaneCollapsed: false, dossierScrollToTop: state.dossierScrollToTop + 1 };
+    });
     if (domain) {
       if (!sessionViewedDomains.has(domain)) {
         sessionViewedDomains.add(domain);
@@ -889,7 +894,13 @@ export const useStore = create<AppState>((set, get) => ({
   setExtractedEntities: (entities) => set({ extractedEntities: entities }),
   setSearchLoading: (loading) => set({ searchLoading: loading }),
   setResultGrouping: (g) => set({ resultGrouping: g }),
-  toggleDetailPane: () => set((state) => ({ detailPaneCollapsed: !state.detailPaneCollapsed })),
+  toggleDetailPane: () => set((state) => {
+    const next = !state.detailPaneCollapsed;
+    if (typeof window !== "undefined") {
+      localStorage.setItem("nav_detail_pane_collapsed", next ? "1" : "0");
+    }
+    return { detailPaneCollapsed: next };
+  }),
 
   // Contact tab actions
   setContactFilters: (partial) =>

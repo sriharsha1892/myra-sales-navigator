@@ -110,7 +110,7 @@ export function useExport() {
           const skipMsg = skipped > 0 ? ` (${skipped} skipped — no email)` : "";
           handle.resolve(`Copied ${count} contacts to clipboard${skipMsg}`);
           notify("Export complete", `Copied ${count} contacts to clipboard${skipMsg}`);
-        } catch (err) {
+        } catch {
           // H3: Fallback notification
           addToast({ message: pick("export_fallback"), type: "info", duration: 3000 });
           // Fallback: client-side formatting
@@ -268,8 +268,31 @@ export function useExport() {
   }, [adminConfig, userCopyFormat, addProgressToast, addToast, setExportState, notify]);
 
   const initiateExport = useCallback((mode: "csv" | "clipboard" | "excel") => {
+    // Fix 3: If dossier is open and no companies bulk-selected, export dossier company's contacts
+    const currentState = useStore.getState();
+    if (currentState.selectedCompanyDomain && currentState.slideOverOpen && selectedCompanyDomains.size === 0) {
+      const dossierContacts = currentState.contactsByDomain[currentState.selectedCompanyDomain] ?? [];
+      if (dossierContacts.length === 0) {
+        addToast({ message: "No contacts available for this company", type: "warning" });
+        return;
+      }
+      executeExport(dossierContacts, mode);
+      return;
+    }
+
     if (viewMode === "companies" && selectedCompanyDomains.size > 0) {
       const contacts = getSelectedContacts();
+
+      // Fix 1: Check if ANY contacts have email before opening the picker
+      const contactsWithEmail = contacts.filter((c) => c.email);
+      if (contactsWithEmail.length === 0) {
+        addToast({
+          message: "None of the contacts have email addresses yet. Try refreshing the company dossier or using 'Find Email' on individual contacts.",
+          type: "warning",
+          duration: 6000,
+        });
+        return;
+      }
 
       // Auto-export bypass: skip contact picker when preference is set
       const autoExport = typeof window !== "undefined" && localStorage.getItem("nav_auto_export") === "1";
@@ -300,6 +323,10 @@ export function useExport() {
       });
     } else {
       const contacts = getSelectedContacts();
+      if (contacts.length === 0) {
+        addToast({ message: "Select companies to export", type: "warning" });
+        return;
+      }
       // Warn about invalid/missing emails
       const invalidCount = contacts.filter(
         (c) => c.verificationStatus === "invalid" || !c.email
@@ -376,9 +403,17 @@ export function useExport() {
             return c;
           });
 
-          // Filter out contacts below confidence threshold
+          // Fix 4: Filter out contacts below confidence threshold and notify about dropped count
           if (threshold > 0) {
+            const beforeCount = contacts.length;
             contacts = contacts.filter((c) => c.emailConfidence >= threshold);
+            const droppedCount = beforeCount - contacts.length;
+            if (droppedCount > 0) {
+              addToast({
+                message: `${droppedCount} contact${droppedCount > 1 ? "s" : ""} removed (email confidence below ${threshold}%)`,
+                type: "info",
+              });
+            }
           }
 
           notify("Verification complete", `${results.length} emails verified`);

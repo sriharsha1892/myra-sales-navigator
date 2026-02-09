@@ -22,7 +22,6 @@ export function RecommendedActionBar({ company, contacts }: RecommendedActionBar
   const actionRules = useMemo(() => rawActionRules ?? [], [rawActionRules]);
   const rawActionEnabled = useStore((s) => s.adminConfig.actionRecommendationEnabled);
   const actionEnabled = rawActionEnabled ?? true;
-  const setViewMode = useStore((s) => s.setViewMode);
   const setExpandedContactsDomain = useStore((s) => s.setExpandedContactsDomain);
 
   const [dismissed, setDismissed] = useState(false);
@@ -83,6 +82,9 @@ export function RecommendedActionBar({ company, contacts }: RecommendedActionBar
         <div className="flex-1 min-w-0">
           <p className="text-xs font-medium text-text-primary">{action.label}</p>
           <p className="text-xs text-text-secondary truncate">{action.description}</p>
+          {action.reason && (
+            <p className="text-[10px] text-text-tertiary truncate">{action.reason}</p>
+          )}
         </div>
         <button
           onClick={handleAction}

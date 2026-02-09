@@ -7,6 +7,7 @@ export interface RecommendedAction {
   contactId?: string;
   channel?: OutreachChannel;
   priority: "high" | "medium" | "low";
+  reason: string;
 }
 
 interface ActionRule {
@@ -47,14 +48,26 @@ const RULES: ActionRule[] = [
       ctx.company.signals.length > 0 &&
       ctx.company.extractionCount === 0 &&
       (ctx.company.status === "new" || ctx.company.status === "researching"),
-    buildAction: (ctx) => ({
-      action: "draft_outreach",
-      label: `Reach out to ${ctx.topContact ? `${ctx.topContact.firstName} ${ctx.topContact.lastName}` : "a contact"}`,
-      description: "High ICP fit with buying signals and no exports yet.",
-      contactId: ctx.topContact?.id,
-      channel: "email",
-      priority: "high",
-    }),
+    buildAction: (ctx) => {
+      const parts: string[] = [];
+      if (ctx.topContact) {
+        const senLabels: Record<string, string> = { c_level: "C-level", vp: "VP", director: "Director", manager: "Manager" };
+        parts.push(`${senLabels[ctx.topContact.seniority] ?? ctx.topContact.seniority}-level contact`);
+        if (ctx.topContact.email) parts.push("with email");
+      }
+      const signalTypes = [...new Set(ctx.company.signals.map((s) => s.type))].slice(0, 2);
+      if (signalTypes.length > 0) parts.push(`${signalTypes.join(" + ")} signal`);
+      parts.push(`ICP ${ctx.company.icpScore}`);
+      return {
+        action: "draft_outreach",
+        label: `Reach out to ${ctx.topContact ? `${ctx.topContact.firstName} ${ctx.topContact.lastName}` : "a contact"}`,
+        description: "High ICP fit with buying signals and no exports yet.",
+        contactId: ctx.topContact?.id,
+        channel: "email",
+        priority: "high",
+        reason: parts.join(" \u00b7 "),
+      };
+    },
   },
   {
     id: "researching_stale",
@@ -77,6 +90,7 @@ const RULES: ActionRule[] = [
         contactId: ctx.topContact?.id,
         channel: "email",
         priority: "medium",
+        reason: `In researching status for ${days} days with no outreach`,
       };
     },
   },
@@ -88,12 +102,18 @@ const RULES: ActionRule[] = [
       const daysSince = (Date.now() - new Date(ctx.company.lastExtractionAt).getTime()) / (1000 * 60 * 60 * 24);
       return daysSince > 7 && ctx.company.status === "contacted";
     },
-    buildAction: () => ({
-      action: "re_engage",
-      label: "Follow up on exports",
-      description: "Contacts were exported over a week ago — time for a follow-up.",
-      priority: "medium",
-    }),
+    buildAction: (ctx) => {
+      const expDays = ctx.company.lastExtractionAt
+        ? Math.floor((Date.now() - new Date(ctx.company.lastExtractionAt).getTime()) / (1000 * 60 * 60 * 24))
+        : 7;
+      return {
+        action: "re_engage",
+        label: "Follow up on exports",
+        description: "Contacts were exported over a week ago — time for a follow-up.",
+        priority: "medium",
+        reason: `Contacts exported ${expDays}d ago with contacted status`,
+      };
+    },
   },
   {
     id: "expansion_opp",
@@ -103,24 +123,32 @@ const RULES: ActionRule[] = [
         ctx.company.freshsalesStatus === "won" ||
         ctx.company.freshsalesStatus === "customer") &&
       ctx.company.signals.some((s) => s.type === "expansion" || s.type === "hiring"),
-    buildAction: (ctx) => ({
-      action: "draft_outreach",
-      label: "Expansion opportunity",
-      description: "Existing customer with expansion/hiring signals.",
-      contactId: ctx.topContact?.id,
-      channel: "email",
-      priority: "high",
-    }),
+    buildAction: (ctx) => {
+      const sigTypes = ctx.company.signals
+        .filter((s) => s.type === "expansion" || s.type === "hiring")
+        .map((s) => s.type);
+      const uniqSigs = [...new Set(sigTypes)].join(" + ");
+      return {
+        action: "draft_outreach",
+        label: "Expansion opportunity",
+        description: "Existing customer with expansion/hiring signals.",
+        contactId: ctx.topContact?.id,
+        channel: "email",
+        priority: "high",
+        reason: `Existing customer with ${uniqSigs} signals`,
+      };
+    },
   },
   {
     id: "low_icp",
     name: "Low ICP → Consider skipping",
     checkFn: (ctx) => ctx.company.icpScore < 40,
-    buildAction: () => ({
+    buildAction: (ctx) => ({
       action: "skip",
       label: "Low ICP fit",
       description: "Consider skipping — ICP score below threshold.",
       priority: "low",
+      reason: `ICP score ${ctx.company.icpScore} is below 40 threshold`,
     }),
   },
   {
@@ -132,6 +160,7 @@ const RULES: ActionRule[] = [
       label: "Load contacts first",
       description: "No contacts loaded yet for this company.",
       priority: "medium",
+      reason: "No contacts available to evaluate",
     }),
   },
 ];

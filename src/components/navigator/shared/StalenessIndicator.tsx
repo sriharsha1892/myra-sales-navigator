@@ -31,7 +31,7 @@ function formatTimeAgo(dateStr: string): string {
 export function StalenessIndicator({ lastRefreshed, onRefresh, isRefreshing, className }: StalenessIndicatorProps) {
   return (
     <span className={cn("inline-flex items-center gap-1.5 font-mono text-xs text-text-tertiary", className)}>
-      <span>Last refreshed: {formatTimeAgo(lastRefreshed)}</span>
+      <span>{isRefreshing ? "Refreshing..." : `Last refreshed: ${formatTimeAgo(lastRefreshed)}`}</span>
       {onRefresh && (
         <Tooltip text={isRefreshing ? "Refreshing..." : "Refresh data"}>
           <button

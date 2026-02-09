@@ -43,7 +43,8 @@ export function CreditUsageIndicator() {
   return (
     <div className="flex items-center gap-1.5">
       {sources.map((source) => {
-        const isLow = source.credits.available < 1000;
+        const ratio = source.credits.total > 0 ? source.credits.available / source.credits.total : 1;
+        const isLow = ratio < 0.1;
         const replenishInfo = source.key === "apollo" && data.apolloReplenishDate
           ? ` — Replenishes ${data.apolloReplenishDate}`
           : "";
@@ -54,11 +55,11 @@ export function CreditUsageIndicator() {
             href="/admin"
             title={tooltip}
             className={`cursor-pointer rounded-pill border border-surface-3 px-2 py-0.5 font-mono text-[10px] transition-colors hover:border-accent-primary hover:text-accent-primary ${
-              isLow ? "text-danger" : "text-text-tertiary"
+              isLow ? "text-amber-400 border-amber-400/40" : "text-text-tertiary"
             }`}
             aria-label={tooltip}
           >
-            {source.label} {source.credits.available.toLocaleString()}
+            {source.label} {source.credits.available.toLocaleString()}{isLow ? ' (Low)' : ''}
           </Link>
         );
       })}

@@ -26,6 +26,7 @@ export function CommandPalette() {
   const recentDomains = useStore((s) => s.recentDomains);
   const { history } = useSearchHistory();
   const [search, setSearch] = useState("");
+
   const inputRef = useCallback((node: HTMLInputElement | null) => {
     if (node && open) {
       setSearch("");

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useStore } from "@/lib/navigator/store";
 import { CHANNEL_OPTIONS } from "@/lib/navigator/outreach/channelConfig";
 import type {
   SequenceStep,
@@ -45,7 +46,22 @@ function defaultStep(): SequenceStep {
   return { channel: "email", delayDays: 0 };
 }
 
+/** Returns a channel prerequisite warning message, or null if no issue. */
+function getChannelWarning(
+  channel: OutreachChannel,
+  userConfig: { freshsalesDomain: string | null; hasLinkedinSalesNav: boolean } | null
+): string | null {
+  if (channel === "call" && !userConfig?.freshsalesDomain) {
+    return "Set up Freshsales domain in Settings for call deep-links";
+  }
+  if (channel === "linkedin_inmail" && !userConfig?.hasLinkedinSalesNav) {
+    return "Enable LinkedIn Sales Nav in Settings for InMail";
+  }
+  return null;
+}
+
 export function SequenceBuilder({ sequence, onSave, onCancel }: SequenceBuilderProps) {
+  const userConfig = useStore((s) => s.userConfig);
   const [name, setName] = useState(sequence?.name ?? "");
   const [description, setDescription] = useState(sequence?.description ?? "");
   const [isTemplate, setIsTemplate] = useState(sequence?.isTemplate ?? false);
@@ -165,6 +181,7 @@ export function SequenceBuilder({ sequence, onSave, onCancel }: SequenceBuilderP
               const channelOpt = CHANNEL_OPTIONS.find((o) => o.value === step.channel);
               const color = CHANNEL_COLORS[step.channel];
               const isEditing = editingIndex === index;
+              const channelWarning = getChannelWarning(step.channel, userConfig);
 
               return (
                 <div key={index} className="relative">
@@ -244,6 +261,11 @@ export function SequenceBuilder({ sequence, onSave, onCancel }: SequenceBuilderP
                           </button>
                         </div>
                       </div>
+
+                      {/* Channel prerequisite warning */}
+                      {channelWarning && (
+                        <p className="mt-1 text-[10px] text-amber-400">{channelWarning}</p>
+                      )}
 
                       {/* Edit panel (expanded) */}
                       {isEditing && (

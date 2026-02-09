@@ -33,7 +33,16 @@ export function SlideOverPane() {
   const { executeExport } = useExport();
   const { notify } = useBrowserNotifications();
   const storeCompany = selectedCompany();
-  const company = dossier.company ?? storeCompany;
+
+  // Fix 1: Detect stale dossier — if the selected domain changed but the
+  // dossier still holds data for a previous domain, show skeleton instead of
+  // stale data to prevent flash of wrong company (could copy wrong email).
+  const isDossierStale =
+    selectedCompanyDomain != null &&
+    dossier.company != null &&
+    dossier.company.domain !== selectedCompanyDomain;
+  const company = isDossierStale ? storeCompany : (dossier.company ?? storeCompany);
+  const effectiveLoading = dossier.isLoading || isDossierStale;
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [highlightFlash, setHighlightFlash] = useState(false);
   const prevDossierLoading = useRef(dossier.isLoading);
@@ -87,7 +96,7 @@ export function SlideOverPane() {
     }
   }, [dossierScrollToTop]);
 
-  if (dossier.isLoading && !storeCompany) return <DossierSkeleton />;
+  if ((effectiveLoading && !storeCompany) || isDossierStale) return <DossierSkeleton />;
 
   if (dossier.error && !company) {
     return (
@@ -179,7 +188,7 @@ export function SlideOverPane() {
           />
         ) : (
           <>
-            <DossierHeader key={company.domain} company={company} onRefresh={dossier.refetch} isRefreshing={dossier.isLoading} />
+            <DossierHeader key={company.domain} company={company} onRefresh={dossier.refetch} isRefreshing={effectiveLoading} />
 
             <div className="flex-1 divide-y divide-surface-3">
               <div className="animate-fadeInUp" style={{ animationDelay: "0ms" }}>
@@ -216,10 +225,10 @@ export function SlideOverPane() {
               <button
                 onClick={() => executeExport(dossier.contacts, "clipboard")}
                 disabled={dossier.contacts.length === 0}
-                title={dossier.contacts.length === 0 ? (dossier.isLoading ? "Loading contacts..." : "No contacts available to export") : undefined}
+                title={dossier.contacts.length === 0 ? (effectiveLoading ? "Loading contacts..." : "No contacts available to export") : undefined}
                 className="btn-press rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-text-inverse transition-colors hover:bg-accent-primary-hover disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {dossier.isLoading && dossier.contacts.length === 0
+                {effectiveLoading && dossier.contacts.length === 0
                   ? "Loading..."
                   : `Export Contacts${dossier.contacts.length > 0 ? ` (${dossier.contacts.length})` : ""}`}
               </button>

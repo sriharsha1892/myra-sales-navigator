@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Overlay } from "@/components/primitives/Overlay";
 import { ConfidenceBadge } from "@/components/navigator/badges";
@@ -25,6 +25,7 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
   );
   const [loading, setLoading] = useState(hasDomainsMissingContacts);
   const [fetchError, setFetchError] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch contacts for all selected companies on modal open, populate Zustand
@@ -56,11 +57,18 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
         }).catch(() => { if (!cancelled) setFetchError(true); })
       )
     ).finally(() => {
-      if (!cancelled) setLoading(false);
+      if (!cancelled) { setLoading(false); setTimedOut(false); }
     });
 
     return () => { cancelled = true; };
   }, [selectedCompanyDomains, queryClient]);
+
+  // Fix 6: Timeout if contacts take too long to load
+  useEffect(() => {
+    if (!loading) return;
+    const timer = setTimeout(() => setTimedOut(true), 15000);
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   const allContacts = Object.values(contactsByDomain).flat();
   const relevantContacts = allContacts.filter((c) => contactIds.includes(c.id));
@@ -107,10 +115,23 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
 
         <div className="max-h-80 overflow-y-auto px-5 py-3">
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-surface-3 border-t-accent-primary" />
-              <span className="ml-2 text-xs text-text-tertiary">Loading contacts...</span>
-            </div>
+            timedOut ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <p className="text-sm text-text-secondary">Contacts are taking too long to load</p>
+                <p className="mt-1 text-xs text-text-tertiary">Close and try again.</p>
+                <button
+                  onClick={onCancel}
+                  className="mt-3 rounded-input border border-surface-3 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-2"
+                >
+                  Close
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center py-8">
+                <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-surface-3 border-t-accent-primary" />
+                <span className="ml-2 text-xs text-text-tertiary">Loading contacts...</span>
+              </div>
+            )
           ) : (
           <>
           {fetchError && (
@@ -146,6 +167,23 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
               </button>
             </div>
           )}
+          {/* Fix 1: Empty state when no contacts have email */}
+          {relevantContacts.length > 0 && relevantContacts.every((c) => !c.email) ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <p className="text-sm text-text-secondary">No contacts have email addresses</p>
+              <p className="mt-1 text-xs text-text-tertiary">
+                Try refreshing the company dossier or using &ldquo;Find Email&rdquo; on individual contacts.
+              </p>
+            </div>
+          ) : relevantContacts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <p className="text-sm text-text-secondary">No contacts found</p>
+              <p className="mt-1 text-xs text-text-tertiary">
+                Contacts may still be loading. Close and try again.
+              </p>
+            </div>
+          ) : (
+          <>
           <div className="mb-2 flex items-center gap-2">
             <input
               type="checkbox"
@@ -196,6 +234,8 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
               </div>
             );
           })}
+          </>
+          )}
           </>
           )}
         </div>

@@ -233,14 +233,28 @@ export function ResultsList() {
       )}
 
       {/* ICP criteria banner */}
-      {lastICPCriteria && (
-        <div className="flex flex-shrink-0 items-center gap-2 border-b border-accent-primary/20 bg-accent-primary/5 px-4 py-1.5">
+      {lastICPCriteria && !searchLoading && (
+        <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-accent-primary/20 bg-accent-primary/5 px-4 py-1.5">
           <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-primary">ICP</span>
           <span className="text-xs text-text-secondary">{lastICPCriteria.description}</span>
           {lastICPCriteria.targetVerticals.length > 0 && (
             <div className="flex gap-1">
               {lastICPCriteria.targetVerticals.slice(0, 3).map((v) => (
                 <span key={v} className="rounded-pill bg-accent-primary/10 px-1.5 py-0.5 text-[9px] text-accent-primary">{v}</span>
+              ))}
+            </div>
+          )}
+          {lastICPCriteria.targetRegions.length > 0 && (
+            <div className="flex gap-1">
+              {lastICPCriteria.targetRegions.slice(0, 3).map((r) => (
+                <span key={r} className="rounded-pill bg-accent-secondary/10 px-1.5 py-0.5 text-[9px] text-accent-secondary">{r}</span>
+              ))}
+            </div>
+          )}
+          {lastICPCriteria.buyingSignals.length > 0 && (
+            <div className="flex gap-1">
+              {lastICPCriteria.buyingSignals.slice(0, 2).map((s) => (
+                <span key={s} className="rounded-pill bg-success/10 px-1.5 py-0.5 text-[9px] text-success">{s}</span>
               ))}
             </div>
           )}
@@ -260,9 +274,9 @@ export function ResultsList() {
         </div>
       )}
 
-      {/* Error banner */}
+      {/* Error banner — sticky so it stays visible while scrolling */}
       {searchError && (
-        <div className="flex-shrink-0 border-b border-danger/20 bg-danger-light px-4 py-2">
+        <div className="sticky top-0 z-20 flex-shrink-0 border-b border-danger/20 bg-danger-light px-4 py-2">
           <div className="flex items-center gap-2 text-xs text-danger">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0">
               <circle cx="12" cy="12" r="10" />
@@ -354,7 +368,15 @@ export function ResultsList() {
           <AllContactsView />
         ) : viewMode === "companies" ? (
           companies.length === 0 ? (
-            <NoResultsSuggestions />
+            searchError ? (
+              <EmptyState
+                icon="search"
+                title="Search failed"
+                description="Something went wrong with the search. Check the error above and try again."
+              />
+            ) : (
+              <NoResultsSuggestions />
+            )
           ) : (
             <div
               role="listbox"
