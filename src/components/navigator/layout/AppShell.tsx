@@ -31,7 +31,9 @@ export function AppShell() {
     <div className="relative flex h-full w-full overflow-hidden">
       {/* Main results area */}
       <div className="min-w-0 flex-1">
-        <ResultsList />
+        <ResultsErrorBoundary>
+          <ResultsList />
+        </ResultsErrorBoundary>
       </div>
 
       {/* Collapsible detail column */}
@@ -79,6 +81,37 @@ export function AppShell() {
       )}
     </div>
   );
+}
+
+class ResultsErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex h-full flex-col items-center justify-center gap-3 bg-surface-0 px-6">
+          <p className="text-sm text-text-secondary">Something went wrong loading results.</p>
+          <button
+            onClick={() => this.setState({ hasError: false })}
+            className="rounded-input border border-surface-3 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-2"
+          >
+            Try again
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 class DetailErrorBoundary extends React.Component<

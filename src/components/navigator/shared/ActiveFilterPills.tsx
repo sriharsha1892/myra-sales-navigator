@@ -101,8 +101,8 @@ export function ActiveFilterPills() {
     query: "border-accent-primary/40 bg-accent-primary/10 text-accent-primary",
     vertical: "border-accent-primary/30 bg-accent-primary/5 text-accent-primary",
     region: "border-accent-secondary/30 bg-accent-secondary/5 text-accent-secondary",
-    size: "border-purple-500/30 bg-purple-500/5 text-purple-400",
-    signal: "border-green-500/30 bg-green-500/5 text-green-400",
+    size: "border-accent-primary/30 bg-accent-primary/5 text-accent-primary",
+    signal: "border-success/30 bg-success/5 text-success",
     status: "border-amber-500/30 bg-amber-500/5 text-amber-400",
   };
 

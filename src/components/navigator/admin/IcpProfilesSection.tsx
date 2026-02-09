@@ -104,7 +104,7 @@ function ProfileEditor({
               onClick={() => setDraft({ ...draft, signalTypes: toggleInArray(draft.signalTypes, s) })}
               className={`rounded-pill border px-2 py-0.5 text-xs capitalize transition-colors ${
                 draft.signalTypes.includes(s)
-                  ? "border-green-500 bg-green-500/10 text-green-400"
+                  ? "border-success bg-success/10 text-success"
                   : "border-surface-3 text-text-tertiary hover:text-text-secondary"
               }`}
             >

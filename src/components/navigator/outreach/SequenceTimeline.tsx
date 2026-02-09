@@ -25,7 +25,7 @@ const CHANNEL_COLORS: Record<string, string> = {
 };
 
 const STATUS_COLORS = {
-  completed: { dot: "bg-green-500", ring: "ring-green-500/30", text: "text-green-400" },
+  completed: { dot: "bg-success", ring: "ring-success/30", text: "text-success" },
   current: { dot: "bg-accent-primary", ring: "ring-accent-primary/30", text: "text-accent-primary" },
   pending: { dot: "bg-surface-3", ring: "ring-surface-3/30", text: "text-text-tertiary" },
   skipped: { dot: "bg-text-tertiary", ring: "ring-text-tertiary/30", text: "text-text-tertiary" },
@@ -115,11 +115,11 @@ export function SequenceTimeline({
         <span
           className={`rounded-pill px-1.5 py-0.5 text-[10px] font-medium ${
             enrollment.status === "active"
-              ? "bg-green-500/10 text-green-400"
+              ? "bg-success/10 text-success"
               : enrollment.status === "paused"
-                ? "bg-amber-500/10 text-amber-400"
+                ? "bg-warning/10 text-warning"
                 : enrollment.status === "completed"
-                  ? "bg-green-500/10 text-green-400"
+                  ? "bg-success/10 text-success"
                   : "bg-surface-2 text-text-tertiary"
           }`}
         >
@@ -198,7 +198,7 @@ export function SequenceTimeline({
                     </span>
 
                     {isCompleted && log?.completedAt && (
-                      <span className="text-[10px] text-green-400">
+                      <span className="text-[10px] text-success">
                         {formatShortDate(log.completedAt)}
                       </span>
                     )}
@@ -208,7 +208,7 @@ export function SequenceTimeline({
                     {isCurrent && enrollment.nextStepDueAt && (
                       <span
                         className={`text-[10px] font-medium ${
-                          overdue ? "text-red-400" : "text-accent-primary"
+                          overdue ? "text-danger" : "text-accent-primary"
                         }`}
                       >
                         {overdue ? "Overdue" : `Due ${formatShortDate(enrollment.nextStepDueAt)}`}

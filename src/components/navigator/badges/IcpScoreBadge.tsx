@@ -113,12 +113,12 @@ export function IcpScoreBadge({ score, className, showHelp, breakdown, showBreak
               {breakdown.map((b, i) => (
                 <div key={i} className="flex items-center justify-between gap-3 text-xs">
                   <span className="flex items-center gap-1 text-text-secondary">
-                    <span className={b.matched ? "text-green-400" : "text-red-400"}>
+                    <span className={b.matched ? "text-success" : "text-danger"}>
                       {b.matched ? "✓" : "✕"}
                     </span>
                     {b.factor}
                   </span>
-                  <span className={cn("font-mono", b.points > 0 ? "text-green-400" : b.points < 0 ? "text-red-400" : "text-text-tertiary")}>
+                  <span className={cn("font-mono", b.points > 0 ? "text-success" : b.points < 0 ? "text-danger" : "text-text-tertiary")}>
                     {b.points > 0 ? "+" : ""}{b.points}
                   </span>
                 </div>

@@ -45,10 +45,10 @@ export function DossierHeader({ company, onRefresh, isRefreshing }: DossierHeade
       ? Math.floor((mountTime - new Date(lastAct.date).getTime()) / (1000 * 60 * 60 * 24))
       : null;
     const colorClass = company.freshsalesStatus === "won" || company.freshsalesStatus === "customer"
-      ? "bg-emerald-500/10 text-emerald-400"
+      ? "bg-success/10 text-success"
       : company.freshsalesStatus === "lost"
-        ? "bg-red-500/10 text-red-400"
-        : "bg-amber-500/10 text-amber-400";
+        ? "bg-danger/10 text-danger"
+        : "bg-warning/10 text-warning";
     return { statusText, owner, lastAct, actDaysAgo, colorClass };
   }, [company.freshsalesStatus, company.freshsalesIntel, mountTime]);
 

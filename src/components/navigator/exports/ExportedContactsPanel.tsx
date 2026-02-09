@@ -23,9 +23,9 @@ interface GroupedExport {
 
 function getFollowUpStatus(exportedAt: string): { label: string; color: string } {
   const daysSince = (Date.now() - new Date(exportedAt).getTime()) / (1000 * 60 * 60 * 24);
-  if (daysSince < 3) return { label: "Fresh", color: "bg-emerald-500/15 text-emerald-400" };
-  if (daysSince <= 7) return { label: "Follow up", color: "bg-amber-500/15 text-amber-400" };
-  return { label: "Stale", color: "bg-red-500/15 text-red-400" };
+  if (daysSince < 3) return { label: "Fresh", color: "bg-success/15 text-success" };
+  if (daysSince <= 7) return { label: "Follow up", color: "bg-warning/15 text-warning" };
+  return { label: "Stale", color: "bg-danger/15 text-danger" };
 }
 
 function formatDate(iso: string): string {

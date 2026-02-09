@@ -15,6 +15,7 @@ export function SearchBridge() {
   const setSearchLoading = useStore((s) => s.setSearchLoading);
   const setLastICPCriteria = useStore((s) => s.setLastICPCriteria);
   const setLastSearchQuery = useStore((s) => s.setLastSearchQuery);
+  const setSearchError = useStore((s) => s.setSearchError);
   const filters = useStore((s) => s.filters);
   const { search } = useSearch();
   const { saveToHistory } = useSearchHistory();
@@ -24,6 +25,7 @@ export function SearchBridge() {
     if (pendingFreeTextSearch) {
       const text = pendingFreeTextSearch;
       setSearchLoading(true);
+      setSearchError(null);
       setLastSearchQuery(text);
       setLastICPCriteria(null);
       search(
@@ -41,12 +43,13 @@ export function SearchBridge() {
       );
       setPendingFreeTextSearch(null);
     }
-  }, [pendingFreeTextSearch, search, setPendingFreeTextSearch, setSearchLoading, setLastSearchQuery, setLastICPCriteria, saveToHistory, notify]);
+  }, [pendingFreeTextSearch, search, setPendingFreeTextSearch, setSearchLoading, setSearchError, setLastSearchQuery, setLastICPCriteria, saveToHistory, notify]);
 
   useEffect(() => {
     if (pendingFilterSearch) {
       const currentFilters = filters;
       setSearchLoading(true);
+      setSearchError(null);
       setLastSearchQuery(summarizeFilters(currentFilters));
       setLastICPCriteria(null);
       search(
@@ -64,7 +67,7 @@ export function SearchBridge() {
       );
       setPendingFilterSearch(false);
     }
-  }, [pendingFilterSearch, search, setPendingFilterSearch, setSearchLoading, setLastSearchQuery, setLastICPCriteria, filters, saveToHistory, notify]);
+  }, [pendingFilterSearch, search, setPendingFilterSearch, setSearchLoading, setSearchError, setLastSearchQuery, setLastICPCriteria, filters, saveToHistory, notify]);
 
   return null;
 }

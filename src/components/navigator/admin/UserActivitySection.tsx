@@ -100,7 +100,7 @@ export function UserActivitySection() {
             timeline.map((entry, i) => (
               <div key={i} className="flex items-start gap-2 py-1">
                 <span className={`mt-0.5 inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full ${
-                  entry.type === "search" ? "bg-accent-secondary" : entry.type === "export" ? "bg-green-500" : "bg-accent-primary"
+                  entry.type === "search" ? "bg-accent-secondary" : entry.type === "export" ? "bg-success" : "bg-accent-primary"
                 }`} />
                 <span className="flex-1 text-xs text-text-secondary">{entry.text}</span>
                 <span className="flex-shrink-0 text-xs text-text-tertiary">{timeAgo(entry.at)}</span>

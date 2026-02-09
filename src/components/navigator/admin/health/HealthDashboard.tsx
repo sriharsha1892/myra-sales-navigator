@@ -29,10 +29,10 @@ interface HealthData {
 const ALL_SOURCES = ["exa", "apollo", "hubspot", "freshsales", "clearout", "groq", "gemini"];
 
 const STATUS_COLORS: Record<string, { dot: string; bg: string; text: string }> = {
-  healthy: { dot: "bg-emerald-500", bg: "bg-emerald-500/10", text: "text-emerald-600" },
-  degraded: { dot: "bg-amber-500", bg: "bg-amber-500/10", text: "text-amber-600" },
-  down: { dot: "bg-red-500", bg: "bg-red-500/10", text: "text-red-600" },
-  unknown: { dot: "bg-gray-400", bg: "bg-gray-400/10", text: "text-gray-500" },
+  healthy: { dot: "bg-success", bg: "bg-success/10", text: "text-success" },
+  degraded: { dot: "bg-warning", bg: "bg-warning/10", text: "text-warning" },
+  down: { dot: "bg-danger", bg: "bg-danger/10", text: "text-danger" },
+  unknown: { dot: "bg-text-tertiary", bg: "bg-text-tertiary/10", text: "text-text-tertiary" },
 };
 
 function timeAgo(iso: string): string {
