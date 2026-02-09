@@ -147,7 +147,7 @@ export function BulkActionBar() {
               />
             ) : (
               <div className="flex items-center gap-2">
-                <BulkButton onClick={() => initiateExport("clipboard")} label="Copy" />
+                <BulkButton onClick={() => initiateExport("clipboard")} label="Copy" shortcut="\u2318E" />
                 <BulkButton onClick={() => initiateExport("csv")} label="CSV" />
                 <BulkButton onClick={() => initiateExport("excel")} label="Excel" />
                 {viewMode === "companies" && (
@@ -200,16 +200,18 @@ function BulkButton({
   onClick,
   label,
   variant = "default",
+  shortcut,
 }: {
   onClick: () => void;
   label: string;
   variant?: "default" | "ghost" | "danger";
+  shortcut?: string;
 }) {
   return (
     <button
       onClick={onClick}
       className={cn(
-        "rounded-input px-3 py-1.5 text-sm font-medium transition-all duration-[var(--transition-default)]",
+        "rounded-input px-3 py-1.5 text-sm font-medium transition-all duration-[var(--transition-default)] flex items-center gap-1.5",
         variant === "default"
           ? "bg-accent-primary text-text-inverse hover:bg-accent-primary-hover"
           : variant === "danger"
@@ -218,6 +220,11 @@ function BulkButton({
       )}
     >
       {label}
+      {shortcut && (
+        <kbd className="rounded border border-white/20 bg-white/10 px-1 py-px font-mono text-[10px] leading-none opacity-70">
+          {shortcut}
+        </kbd>
+      )}
     </button>
   );
 }

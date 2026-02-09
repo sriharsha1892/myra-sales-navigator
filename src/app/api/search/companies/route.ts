@@ -203,6 +203,7 @@ export async function POST(request: Request) {
 
     // Apply exclusion filter to Exa results
     const filteredExa = applyExclusionFilter(exaResult.companies, excluded);
+    const excludedCount = exaResult.companies.length - filteredExa.length;
     const exaCompanies = filteredExa.slice(0, 25);
 
     // Apollo structured enrichment — runs in parallel on Exa domains
@@ -343,6 +344,7 @@ export async function POST(request: Request) {
       reformulatedQueries,
       extractedEntities,
       nlIcpCriteria,
+      excludedCount,
     });
   } catch (err) {
     console.error("[Search] search failed:", err);

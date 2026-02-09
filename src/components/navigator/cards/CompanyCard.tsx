@@ -60,7 +60,7 @@ function getVerificationDotColor(contact: Contact): string {
     case "valid": return "bg-success";
     case "valid_risky": return "bg-warning";
     case "invalid": return "bg-danger";
-    default: return "bg-text-tertiary";
+    default: return "bg-surface-3 ring-1 ring-text-tertiary";
   }
 }
 
@@ -251,7 +251,7 @@ export function CompanyCard({
         )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="truncate font-display text-base font-semibold text-text-primary">
+            <h3 className="truncate font-display text-base font-semibold text-text-primary" title={company.name}>
               {company.name}
             </h3>
             <div className="flex items-center gap-1.5">
@@ -324,7 +324,7 @@ export function CompanyCard({
 
           {/* Description */}
           {company.description && (
-            <p className="mt-1 truncate text-xs text-text-tertiary">
+            <p className="mt-1 truncate text-xs text-text-tertiary" title={company.description}>
               <HighlightTerms text={company.description} query={lastSearchQuery} />
             </p>
           )}
@@ -357,7 +357,7 @@ export function CompanyCard({
               >
                 {company.signals[0].type}
               </span>
-              <span className="truncate text-xs text-text-secondary">
+              <span className="truncate text-xs text-text-secondary" title={company.signals[0].title}>
                 {company.signals[0].title}
               </span>
               {company.signals.length > 1 && (
@@ -438,10 +438,10 @@ export function CompanyCard({
                           </svg>
                         )}
                       </button>
-                      <span className="truncate font-medium text-text-primary" style={{ maxWidth: "120px" }}>
+                      <span className="truncate font-medium text-text-primary" style={{ maxWidth: "120px" }} title={`${contact.firstName} ${contact.lastName}`}>
                         {contact.firstName} {contact.lastName}
                       </span>
-                      <span className="truncate text-text-tertiary" style={{ maxWidth: "140px" }}>
+                      <span className="truncate text-text-tertiary" style={{ maxWidth: "140px" }} title={contact.title ?? undefined}>
                         {contact.title}
                       </span>
                       <span className={cn(

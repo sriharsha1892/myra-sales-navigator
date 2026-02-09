@@ -45,7 +45,23 @@ export function SlideOverPane() {
   const effectiveLoading = dossier.isLoading || isDossierStale;
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [highlightFlash, setHighlightFlash] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
   const prevDossierLoading = useRef(dossier.isLoading);
+
+  // M4: Track scroll position for jump-to-top button
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      setShowScrollTop(el.scrollTop > 300);
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const handleScrollToTop = () => {
+    scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   // Auto-retry Apollo enrichment for exa-only companies.
   // Only triggers refetch() through React Query — no raw fetch() to avoid
@@ -133,7 +149,7 @@ export function SlideOverPane() {
 
   return (
     <div
-      className="h-full w-[420px] flex-shrink-0 bg-surface-0"
+      className="relative h-full w-[420px] flex-shrink-0 bg-surface-0"
     >
       <div
         ref={scrollContainerRef}
@@ -236,6 +252,20 @@ export function SlideOverPane() {
           </>
         )}
       </div>
+
+      {/* M4: Jump-to-top floating button */}
+      {showScrollTop && (
+        <button
+          onClick={handleScrollToTop}
+          className="absolute bottom-16 right-4 z-20 flex items-center gap-1 rounded-full border border-surface-3 bg-surface-2 p-2 text-text-tertiary shadow-lg transition-all duration-[180ms] hover:text-text-primary hover:bg-surface-3"
+          aria-label="Scroll to top"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="18 15 12 9 6 15" />
+          </svg>
+          <span className="text-[10px] font-medium">Top</span>
+        </button>
+      )}
     </div>
   );
 }

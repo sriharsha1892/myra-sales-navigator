@@ -92,6 +92,10 @@ interface AppState {
   lastICPCriteria: import("@/lib/navigator/types").NLICPCriteria | null;
   setLastICPCriteria: (criteria: import("@/lib/navigator/types").NLICPCriteria | null) => void;
 
+  // Count of companies excluded by exclusion list in last search
+  lastExcludedCount: number;
+  setLastExcludedCount: (count: number) => void;
+
   // Inline contacts expansion (accordion below company card)
   expandedContactsDomain: string | null;
   setExpandedContactsDomain: (domain: string | null) => void;
@@ -287,6 +291,8 @@ export const useStore = create<AppState>((set, get) => ({
   extractedEntities: null,
   lastICPCriteria: null,
   setLastICPCriteria: (criteria) => set({ lastICPCriteria: criteria }),
+  lastExcludedCount: 0,
+  setLastExcludedCount: (count) => set({ lastExcludedCount: count }),
   expandedContactsDomain: null,
   setExpandedContactsDomain: (domain) => set((state) => ({
     expandedContactsDomain: state.expandedContactsDomain === domain ? null : domain,

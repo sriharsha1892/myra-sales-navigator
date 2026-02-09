@@ -13,6 +13,7 @@ interface SearchResponse {
   companies: CompanyEnriched[];
   extractedEntities?: ExtractedEntities;
   nlIcpCriteria?: NLICPCriteria | null;
+  excludedCount?: number;
 }
 
 async function searchCompanies(params: SearchParams): Promise<SearchResponse> {
@@ -30,6 +31,7 @@ async function searchCompanies(params: SearchParams): Promise<SearchResponse> {
     companies: data.companies ?? [],
     extractedEntities: data.extractedEntities ?? undefined,
     nlIcpCriteria: data.nlIcpCriteria ?? null,
+    excludedCount: data.excludedCount ?? 0,
   };
 }
 
@@ -38,6 +40,7 @@ export function useSearch() {
   const setSearchError = useStore((s) => s.setSearchError);
   const setExtractedEntities = useStore((s) => s.setExtractedEntities);
   const setLastICPCriteria = useStore((s) => s.setLastICPCriteria);
+  const setLastExcludedCount = useStore((s) => s.setLastExcludedCount);
 
   const mutation = useMutation({
     mutationFn: searchCompanies,
@@ -48,6 +51,7 @@ export function useSearch() {
         setExtractedEntities(data.extractedEntities);
       }
       setLastICPCriteria(data.nlIcpCriteria ?? null);
+      setLastExcludedCount(data.excludedCount ?? 0);
     },
     onError: (error: Error) => {
       setSearchResults([]);
@@ -66,6 +70,7 @@ export function useSearch() {
       setSearchError(null);
       setExtractedEntities(null);
       setLastICPCriteria(null);
+      setLastExcludedCount(0);
     },
   };
 }

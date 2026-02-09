@@ -265,12 +265,12 @@ export function ContactCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             {show("name") && (
-              <span className="truncate text-sm font-medium text-text-primary">
+              <span className="truncate text-sm font-medium text-text-primary" title={`${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim()}>
                 {contact.firstName ?? ""} {contact.lastName ?? ""}
               </span>
             )}
             {show("title") && (
-              <span className="hidden truncate text-xs text-text-secondary sm:inline">
+              <span className="hidden truncate text-xs text-text-secondary sm:inline" title={contact.title ?? undefined}>
                 {contact.title ?? ""}
               </span>
             )}
@@ -289,7 +289,7 @@ export function ContactCard({
             )}
           </div>
           {contact.headline && (
-            <p className="truncate text-xs text-text-tertiary">{contact.headline}</p>
+            <p className="truncate text-xs text-text-tertiary" title={contact.headline}>{contact.headline}</p>
           )}
         </div>
 
@@ -362,7 +362,7 @@ export function ContactCard({
               if (verification === "invalid") {
                 return (
                   <>
-                    <span className="truncate font-mono text-sm text-text-tertiary line-through">{displayEmail}</span>
+                    <span className="truncate font-mono text-sm text-text-tertiary line-through" title={displayEmail ?? undefined}>{displayEmail}</span>
                     <VerificationBadge status="invalid" />
                   </>
                 );
@@ -372,7 +372,7 @@ export function ContactCard({
               if (verification === "valid" || verification === "valid_risky") {
                 return (
                   <>
-                    <span className="truncate font-mono text-sm text-text-primary">{displayEmail}</span>
+                    <span className="truncate font-mono text-sm text-text-primary" title={displayEmail ?? undefined}>{displayEmail}</span>
                     <VerificationBadge status={verification} safeToSend={contact.safeToSend} />
                     <Tooltip text="Copy email"><button onClick={handleCopyEmail} className="text-text-tertiary hover:text-accent-primary">
                       {copySuccess ? <CheckIcon /> : <CopyIcon />}
@@ -384,7 +384,7 @@ export function ContactCard({
               // State 3: Unverified (has email, no verification)
               return (
                 <>
-                  <span className="truncate font-mono text-sm text-text-secondary">{displayEmail}</span>
+                  <span className="truncate font-mono text-sm text-text-secondary" title={displayEmail ?? undefined}>{displayEmail}</span>
                   <VerificationBadge status="unverified" />
                   <Tooltip text="Copy email"><button onClick={handleCopyEmail} className="text-text-tertiary hover:text-accent-primary">
                     {copySuccess ? <CheckIcon /> : <CopyIcon />}

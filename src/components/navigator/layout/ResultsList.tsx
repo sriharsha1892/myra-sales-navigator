@@ -58,6 +58,9 @@ export function ResultsList() {
   const allContactsViewActive = useStore((s) => s.allContactsViewActive);
   const setAllContactsViewActive = useStore((s) => s.setAllContactsViewActive);
   const presets = useStore((s) => s.presets);
+  const lastExcludedCount = useStore((s) => s.lastExcludedCount);
+  const deselectAllCompanies = useStore((s) => s.deselectAllCompanies);
+  const activeResultIndex = useStore((s) => s.activeResultIndex);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -145,6 +148,25 @@ export function ResultsList() {
             </button>
           </>
         )}
+        {/* M1: Bulk selection count indicator */}
+        {selectedCompanyDomains.size > 0 && (
+          <>
+            <div className="h-3.5 w-px bg-surface-3" />
+            <span className="flex items-center gap-1.5 rounded-pill bg-accent-primary/10 px-2 py-0.5 text-xs text-accent-primary">
+              {selectedCompanyDomains.size} selected
+              <button
+                onClick={() => deselectAllCompanies()}
+                className="ml-0.5 text-accent-primary/60 transition-colors hover:text-accent-primary"
+                aria-label="Clear selection"
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </span>
+          </>
+        )}
         {viewMode === "companies" && companies.length > 0 && (() => {
           const avg = Math.round(companies.reduce((s, c) => s + c.icpScore, 0) / companies.length);
           const color = avg >= 70 ? "bg-success/15 text-success border-success/30" : avg >= 50 ? "bg-warning/15 text-warning border-warning/30" : "bg-surface-2 text-text-tertiary border-surface-3";
@@ -170,10 +192,10 @@ export function ResultsList() {
                         {i > 0 && <span className="mx-1 text-text-tertiary/40">·</span>}
                         <button
                           onClick={() => handleSortChange(field)}
-                          className={`text-xs transition-colors duration-[180ms] ${
+                          className={`rounded px-1.5 py-0.5 text-xs transition-all duration-[180ms] ${
                             isActive
-                              ? "font-semibold text-text-primary"
-                              : "text-text-secondary hover:text-text-primary"
+                              ? "bg-surface-2 font-semibold text-text-primary"
+                              : "text-text-secondary hover:bg-surface-2 hover:text-text-primary"
                           }`}
                         >
                           <span className="mr-0.5 opacity-60">{sortIcons[field]}</span>{labels[field]}
@@ -202,10 +224,10 @@ export function ResultsList() {
                         {i > 0 && <span className="mx-1 text-text-tertiary/40">·</span>}
                         <button
                           onClick={() => setResultGrouping(g)}
-                          className={`text-xs transition-colors duration-[180ms] ${
+                          className={`rounded px-1.5 py-0.5 text-xs transition-all duration-[180ms] ${
                             isActive
-                              ? "font-semibold text-text-primary"
-                              : "text-text-secondary hover:text-text-primary"
+                              ? "bg-surface-2 font-semibold text-text-primary"
+                              : "text-text-secondary hover:bg-surface-2 hover:text-text-primary"
                           }`}
                         >
                           {labels[g]}
@@ -227,7 +249,9 @@ export function ResultsList() {
           <span className="text-xs text-text-tertiary">Results for</span>
           <span className="font-mono text-xs text-text-secondary">&ldquo;{lastSearchQuery}&rdquo;</span>
           {!searchLoading && companies.length > 0 && (
-            <span className="text-xs text-text-tertiary">({companies.length} companies)</span>
+            <span className="text-xs text-text-tertiary">
+              ({companies.length} companies{lastExcludedCount > 0 ? `, ${lastExcludedCount} excluded` : ""})
+            </span>
           )}
         </div>
       )}
@@ -293,6 +317,13 @@ export function ResultsList() {
         {/* Loading skeletons */}
         {searchLoading ? (
           <div className="space-y-1.5">
+            <div className="flex items-center justify-center gap-3 rounded-card border border-surface-3 bg-surface-1/60 px-4 py-5 mb-3">
+              <svg className="h-5 w-5 animate-spin text-accent-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              <span className="text-sm font-medium text-text-primary">Searching...</span>
+            </div>
             <ContextualLoadingMessage />
             {Array.from({ length: previousResultCount }).map((_, i) => (
               <SkeletonCard key={i} />
@@ -388,25 +419,36 @@ export function ResultsList() {
               className="space-y-1.5 focus:outline-none"
             >
               {(() => {
+                // M2: Build a domain→searchResults index map for data-result-index
+                const domainToResultIndex = new Map<string, number>();
+                if (searchResults) {
+                  searchResults.forEach((c, i) => domainToResultIndex.set(c.domain, i));
+                }
+
                 // Helper: renders a CompanyCard + inline contacts accordion
-                const renderCompanyItem = (company: CompanyEnriched, idx: number) => (
-                  <div
-                    key={company.domain}
-                    className="animate-fadeInUp"
-                    style={{ animationDelay: `${Math.min(idx, 10) * 40}ms` }}
-                  >
-                    <CompanyCard
-                      company={company}
-                      isSelected={selectedCompanyDomain === company.domain}
-                      isChecked={selectedCompanyDomains.has(company.domain)}
-                      onSelect={() => selectCompany(company.domain)}
-                      onToggleCheck={() => toggleCompanySelection(company.domain)}
-                    />
-                    {expandedContactsDomain === company.domain && (
-                      <InlineContacts domain={company.domain} companyName={company.name} />
-                    )}
-                  </div>
-                );
+                const renderCompanyItem = (company: CompanyEnriched, idx: number) => {
+                  const resultIdx = domainToResultIndex.get(company.domain);
+                  const isActiveResult = activeResultIndex != null && resultIdx === activeResultIndex;
+                  return (
+                    <div
+                      key={company.domain}
+                      data-result-index={resultIdx}
+                      className={`animate-fadeInUp${isActiveResult ? " ring-1 ring-accent-secondary/40 rounded-card" : ""}`}
+                      style={{ animationDelay: `${Math.min(idx, 10) * 40}ms` }}
+                    >
+                      <CompanyCard
+                        company={company}
+                        isSelected={selectedCompanyDomain === company.domain}
+                        isChecked={selectedCompanyDomains.has(company.domain)}
+                        onSelect={() => selectCompany(company.domain)}
+                        onToggleCheck={() => toggleCompanySelection(company.domain)}
+                      />
+                      {expandedContactsDomain === company.domain && (
+                        <InlineContacts domain={company.domain} companyName={company.name} />
+                      )}
+                    </div>
+                  );
+                };
 
                 if (resultGrouping === "icp_tier") {
                   const tiers = [
