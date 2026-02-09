@@ -364,6 +364,9 @@ export function ContactCard({
                   <>
                     <span className="truncate font-mono text-sm text-text-tertiary line-through" title={displayEmail ?? undefined}>{displayEmail}</span>
                     <VerificationBadge status="invalid" />
+                    <Tooltip text="Copy email"><button onClick={handleCopyEmail} className="text-text-tertiary hover:text-accent-primary">
+                      {copySuccess ? <CheckIcon /> : <CopyIcon />}
+                    </button></Tooltip>
                   </>
                 );
               }

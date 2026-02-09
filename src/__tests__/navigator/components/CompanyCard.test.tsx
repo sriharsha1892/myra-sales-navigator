@@ -37,6 +37,15 @@ vi.mock("@/lib/navigator/store", async () => {
       adminConfig: { freshsalesSettings: {}, pipelineStages: undefined },
       userName: "TestUser",
       setCompanyStatus: vi.fn(),
+      companyDecisions: {},
+      setCompanyDecision: vi.fn(),
+      prospectList: new Set(),
+      addToProspectList: vi.fn(),
+      removeFromProspectList: vi.fn(),
+      selectedContactIds: new Set(),
+      toggleContactSelection: vi.fn(),
+      setContactsForDomain: vi.fn(),
+      addToast: vi.fn(),
     };
     return selector(mockState);
   };

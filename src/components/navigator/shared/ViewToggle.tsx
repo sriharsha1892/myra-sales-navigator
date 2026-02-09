@@ -9,17 +9,20 @@ interface ViewToggleProps {
   onChange: (mode: ViewMode) => void;
   companyCount?: number;
   exportedCount?: number;
+  prospectCount?: number;
 }
 
-export function ViewToggle({ value, onChange, companyCount = 0, exportedCount }: ViewToggleProps) {
+export function ViewToggle({ value, onChange, companyCount = 0, exportedCount, prospectCount = 0 }: ViewToggleProps) {
   const companiesRef = useRef<HTMLButtonElement>(null);
   const exportedRef = useRef<HTMLButtonElement>(null);
+  const prospectRef = useRef<HTMLButtonElement>(null);
   const [underline, setUnderline] = useState({ left: 0, width: 0 });
 
   useEffect(() => {
     const refMap: Record<ViewMode, React.RefObject<HTMLButtonElement | null>> = {
       companies: companiesRef,
       exported: exportedRef,
+      prospect_list: prospectRef,
     };
     const activeRef = refMap[value];
     if (activeRef?.current) {
@@ -52,6 +55,26 @@ export function ViewToggle({ value, onChange, companyCount = 0, exportedCount }:
       </button>
 
       {/* Thin vertical divider */}
+      <div className="h-3.5 w-px bg-surface-3" />
+
+      <button
+        ref={prospectRef}
+        onClick={() => onChange("prospect_list")}
+        className={cn(
+          "relative flex items-center gap-1.5 px-2.5 py-1.5 text-sm transition-all duration-200",
+          value === "prospect_list"
+            ? "font-semibold text-text-primary"
+            : "text-text-tertiary hover:text-text-secondary"
+        )}
+      >
+        My List
+        {prospectCount > 0 && (
+          <span className="font-mono text-[10px] tabular-nums text-accent-secondary">
+            {prospectCount}
+          </span>
+        )}
+      </button>
+
       <div className="h-3.5 w-px bg-surface-3" />
 
       <button

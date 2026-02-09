@@ -55,6 +55,13 @@ export function useKeyboardShortcuts() {
         return;
       }
 
+      // Cmd+Shift+E — express export (high-fit companies)
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "e") {
+        e.preventDefault();
+        state.setTriggerExpressExport(true);
+        return;
+      }
+
       // Cmd+E — export
       if ((e.metaKey || e.ctrlKey) && e.key === "e") {
         e.preventDefault();

@@ -24,6 +24,8 @@ import type {
   OutreachSequence,
   OutreachEnrollment,
   UserConfig,
+  TriageDecision,
+  TriageFilter,
 } from "./types";
 import { DEFAULT_PIPELINE_STAGES } from "./types";
 import {
@@ -72,6 +74,8 @@ interface AppState {
   userCopyFormat: string;
   exportState: ExportFlowState | null;
   triggerExport: "csv" | "clipboard" | "excel" | null;
+  triggerExpressExport: boolean;
+  setTriggerExpressExport: (v: boolean) => void;
 
   // Cmd+K free-text search
   pendingFreeTextSearch: string | null;
@@ -201,6 +205,18 @@ interface AppState {
   toggleOutreachContact: (contactId: string) => void;
   clearOutreachContacts: () => void;
 
+  // Company triage decisions
+  companyDecisions: Record<string, TriageDecision>;
+  triageFilter: TriageFilter;
+  setCompanyDecision: (domain: string, decision: TriageDecision) => void;
+  setTriageFilter: (filter: TriageFilter) => void;
+
+  // Persistent prospect list
+  prospectList: Set<string>;
+  addToProspectList: (domain: string) => void;
+  removeFromProspectList: (domain: string) => void;
+  clearProspectList: () => void;
+
   // Active result index for arrow key navigation
   activeResultIndex: number | null;
   setActiveResultIndex: (index: number | null) => void;
@@ -231,6 +247,24 @@ import { pick } from "./ui-copy";
 
 let toastCounter = 0;
 const sessionViewedDomains = new Set<string>();
+
+// Load persisted triage decisions from localStorage
+function loadDecisions(): Record<string, TriageDecision> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem("nav_company_decisions");
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+// Load persisted prospect list from localStorage
+function loadProspectList(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem("nav_prospect_list");
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch { return new Set(); }
+}
 
 // Module-level toast timer management
 const toastTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -284,6 +318,8 @@ export const useStore = create<AppState>((set, get) => ({
   userCopyFormat: "name_email",
   exportState: null,
   triggerExport: null,
+  triggerExpressExport: false,
+  setTriggerExpressExport: (v) => set({ triggerExpressExport: v }),
   pendingFreeTextSearch: null,
   pendingFilterSearch: false,
   searchLoading: false,
@@ -337,6 +373,62 @@ export const useStore = create<AppState>((set, get) => ({
     return { selectedContactsForOutreach: next };
   }),
   clearOutreachContacts: () => set({ selectedContactsForOutreach: new Set() }),
+
+  // Company triage decisions
+  companyDecisions: loadDecisions(),
+  triageFilter: "all",
+  setCompanyDecision: (domain, decision) => {
+    const next = { ...get().companyDecisions, [domain]: decision };
+    set({ companyDecisions: next });
+    // Persist to localStorage
+    if (typeof window !== "undefined") {
+      localStorage.setItem("nav_company_decisions", JSON.stringify(next));
+    }
+    // Fire-and-forget to Supabase
+    const userName = get().userName ?? "Unknown";
+    fetch("/api/company-decisions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ domain, decision, decidedBy: userName }),
+    }).catch(() => { /* silent */ });
+  },
+  setTriageFilter: (filter) => set({ triageFilter: filter }),
+
+  // Persistent prospect list
+  prospectList: loadProspectList(),
+  addToProspectList: (domain) => {
+    const next = new Set(get().prospectList);
+    next.add(domain);
+    set({ prospectList: next });
+    if (typeof window !== "undefined") {
+      localStorage.setItem("nav_prospect_list", JSON.stringify([...next]));
+    }
+    const userName = get().userName ?? "Unknown";
+    fetch("/api/prospect-list", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ domain, addedBy: userName }),
+    }).catch(() => { /* silent */ });
+  },
+  removeFromProspectList: (domain) => {
+    const next = new Set(get().prospectList);
+    next.delete(domain);
+    set({ prospectList: next });
+    if (typeof window !== "undefined") {
+      localStorage.setItem("nav_prospect_list", JSON.stringify([...next]));
+    }
+    fetch("/api/prospect-list", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ domain }),
+    }).catch(() => { /* silent */ });
+  },
+  clearProspectList: () => {
+    set({ prospectList: new Set() });
+    if (typeof window !== "undefined") {
+      localStorage.setItem("nav_prospect_list", JSON.stringify([]));
+    }
+  },
 
   // Active result index for arrow key navigation
   activeResultIndex: null,
@@ -1045,6 +1137,15 @@ export const useStore = create<AppState>((set, get) => ({
     }
     if (filters.quickFilters.includes("not_in_freshsales")) {
       result = result.filter((c) => c.freshsalesStatus === "none");
+    }
+
+    // Triage filter
+    const triageFilter = get().triageFilter;
+    const decisions = get().companyDecisions;
+    if (triageFilter === "unreviewed") {
+      result = result.filter((c) => !decisions[c.domain]);
+    } else if (triageFilter === "interested") {
+      result = result.filter((c) => decisions[c.domain] === "interested");
     }
 
     // Sort

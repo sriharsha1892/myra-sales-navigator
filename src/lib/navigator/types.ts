@@ -92,7 +92,11 @@ export type SignalType = "hiring" | "funding" | "expansion" | "news";
 
 export type ConfidenceLevel = "high" | "medium" | "low" | "none";
 
-export type ViewMode = "companies" | "exported";
+export type ViewMode = "companies" | "exported" | "prospect_list";
+
+export type TriageDecision = "interested" | "pass" | "skip";
+
+export type TriageFilter = "all" | "unreviewed" | "interested";
 
 export type SortField = "icp_score" | "name" | "employee_count" | "relevance";
 

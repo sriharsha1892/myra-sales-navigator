@@ -11,6 +11,7 @@ import { ContactPreviewPopover } from "./ContactPreviewPopover";
 import { HighlightTerms } from "@/components/navigator/shared/HighlightTerms";
 import { pick } from "@/lib/navigator/ui-copy";
 import { Tooltip } from "@/components/navigator/shared/Tooltip";
+import { useInlineFeedback } from "@/hooks/navigator/useInlineFeedback";
 import type { Contact } from "@/lib/navigator/types";
 
 interface CompanyCardProps {
@@ -106,10 +107,17 @@ export function CompanyCard({
   const toggleContactSelection = useStore((s) => s.toggleContactSelection);
   const setContactsForDomain = useStore((s) => s.setContactsForDomain);
   const lastSearchQuery = useStore((s) => s.lastSearchQuery);
+  const companyDecision = useStore((s) => s.companyDecisions?.[company.domain]);
+  const setCompanyDecision = useStore((s) => s.setCompanyDecision);
+  const isInProspectList = useStore((s) => s.prospectList?.has(company.domain) ?? false);
+  const addToProspectList = useStore((s) => s.addToProspectList);
+  const removeFromProspectList = useStore((s) => s.removeFromProspectList);
+  const addToast = useStore((s) => s.addToast);
   const [logoError, setLogoError] = useState(false);
   const [inlineContactsLoading, setInlineContactsLoading] = useState(false);
   const [showMoreContacts, setShowMoreContacts] = useState(false);
   const [isPrefetching, setIsPrefetching] = useState(false);
+  const [copiedContactId, setCopiedContactId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -202,7 +210,10 @@ export function CompanyCard({
           : "bg-surface-1 border-surface-3 shadow-sm",
         hasIntel && !isSelected && "border-intel/20 shadow-md",
         isChecked && "ring-1 ring-accent-highlight/30",
-        isPrefetching && "ring-1 ring-accent-secondary/20 animate-pulse"
+        isPrefetching && "ring-1 ring-accent-secondary/20 animate-pulse",
+        companyDecision === "interested" && !isSelected && "border-success/30",
+        companyDecision === "pass" && "opacity-50",
+        isInProspectList && !isSelected && "border-l-accent-secondary/50"
       )}
     >
       {/* Top row: checkbox + logo + name + signal bar */}
@@ -401,6 +412,67 @@ export function CompanyCard({
             >
               Similar
             </button>
+            {/* Triage buttons */}
+            <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+              <Tooltip text="Interested">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setCompanyDecision(company.domain, "interested"); }}
+                  className={cn(
+                    "rounded p-0.5 transition-colors",
+                    companyDecision === "interested"
+                      ? "bg-success/20 text-success"
+                      : "text-text-tertiary hover:bg-success/10 hover:text-success"
+                  )}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </button>
+              </Tooltip>
+              <Tooltip text="Pass">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setCompanyDecision(company.domain, "pass"); }}
+                  className={cn(
+                    "rounded p-0.5 transition-colors",
+                    companyDecision === "pass"
+                      ? "bg-danger/20 text-danger"
+                      : "text-text-tertiary hover:bg-danger/10 hover:text-danger"
+                  )}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </Tooltip>
+              <Tooltip text={isInProspectList ? "Remove from list" : "Add to list"}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (isInProspectList) removeFromProspectList(company.domain);
+                    else addToProspectList(company.domain);
+                  }}
+                  className={cn(
+                    "rounded p-0.5 transition-colors",
+                    isInProspectList
+                      ? "bg-accent-secondary/20 text-accent-secondary"
+                      : "text-text-tertiary hover:bg-accent-secondary/10 hover:text-accent-secondary"
+                  )}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill={isInProspectList ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                  </svg>
+                </button>
+              </Tooltip>
+            </div>
+            {/* Decision badge (visible when not hovering) */}
+            {companyDecision && (
+              <span className={cn(
+                "rounded-pill px-1 py-0.5 text-[8px] font-medium group-hover:hidden",
+                companyDecision === "interested" ? "bg-success/15 text-success" : "bg-surface-2 text-text-tertiary"
+              )}>
+                {companyDecision === "interested" ? "Interested" : "Pass"}
+              </span>
+            )}
             <div className="group/contacts relative ml-auto">
               <button
                 onClick={(e) => { e.stopPropagation(); setExpandedContactsDomain(company.domain); }}
@@ -451,6 +523,32 @@ export function CompanyCard({
                         {SENIORITY_LABELS[contact.seniority] ?? contact.seniority}
                       </span>
                       <span className={cn("h-1.5 w-1.5 flex-shrink-0 rounded-full", getVerificationDotColor(contact))} />
+                      {contact.email && (
+                        <Tooltip text="Copy email">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(contact.email!).then(() => {
+                                setCopiedContactId(contact.id);
+                                addToast({ message: `Copied ${contact.email}`, type: "success", duration: 1500, dedupKey: "inline-copy" });
+                                setTimeout(() => setCopiedContactId(null), 1500);
+                              });
+                            }}
+                            className="flex-shrink-0 text-text-tertiary transition-colors hover:text-accent-primary"
+                          >
+                            {copiedContactId === contact.id ? (
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-success">
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            ) : (
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                              </svg>
+                            )}
+                          </button>
+                        </Tooltip>
+                      )}
                       {contact.sources.includes("freshsales" as import("@/lib/navigator/types").ResultSource) && (
                         <span className="flex-shrink-0 rounded-pill bg-[#d4a012]/15 px-1 py-px text-[8px] font-semibold text-[#d4a012]">
                           Warm
