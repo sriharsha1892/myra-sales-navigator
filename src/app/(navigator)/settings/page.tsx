@@ -53,12 +53,18 @@ export default function SettingsPage() {
 
   const [freshsalesDomain, setFreshsalesDomain] = useState("");
   const [hasLinkedinSalesNav, setHasLinkedinSalesNav] = useState(false);
+  const [teamsWebhookUrl, setTeamsWebhookUrl] = useState("");
+  const [teamsNotifEnabled, setTeamsNotifEnabled] = useState(true);
+  const [teamsTestStatus, setTeamsTestStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
+  const [teamsTestMessage, setTeamsTestMessage] = useState("");
   const [configSynced, setConfigSynced] = useState(false);
 
   // Sync query data to local state once (not synchronous setState in effect body)
   if (userConfigData && !configSynced) {
     setFreshsalesDomain(userConfigData.freshsalesDomain ?? "");
     setHasLinkedinSalesNav(userConfigData.hasLinkedinSalesNav ?? false);
+    setTeamsWebhookUrl(userConfigData.preferences?.teamsWebhookUrl ?? "");
+    setTeamsNotifEnabled(userConfigData.preferences?.teamsNotificationsEnabled ?? true);
     setUserConfig(userConfigData);
     setConfigSynced(true);
   }
@@ -74,6 +80,50 @@ export default function SettingsPage() {
       setUserConfig({ userName: userName ?? "", ...cfg });
     } catch { /* silent */ }
   }, [userName, setUserConfig]);
+
+  const saveTeamsConfig = useCallback(async (webhookUrl: string, enabled: boolean) => {
+    const cfg = {
+      freshsalesDomain: freshsalesDomain || null,
+      hasLinkedinSalesNav,
+      preferences: {
+        ...(userConfigData?.preferences ?? {}),
+        teamsWebhookUrl: webhookUrl || null,
+        teamsNotificationsEnabled: enabled,
+      },
+    };
+    try {
+      await fetch("/api/user/config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cfg),
+      });
+      setUserConfig({ userName: userName ?? "", ...cfg });
+    } catch { /* silent */ }
+  }, [userName, setUserConfig, freshsalesDomain, hasLinkedinSalesNav, userConfigData]);
+
+  const sendTeamsTestPersonal = async () => {
+    if (!teamsWebhookUrl) return;
+    setTeamsTestStatus("sending");
+    setTeamsTestMessage("");
+    try {
+      const res = await fetch("/api/teams/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ webhookUrl: teamsWebhookUrl, type: "personal" }),
+      });
+      if (res.ok) {
+        setTeamsTestStatus("success");
+        setTeamsTestMessage("Test card sent successfully.");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setTeamsTestStatus("error");
+        setTeamsTestMessage(data.error || "Failed to send test card.");
+      }
+    } catch {
+      setTeamsTestStatus("error");
+      setTeamsTestMessage("Network error sending test card.");
+    }
+  };
 
   if (isLoading) {
     return (
@@ -285,6 +335,73 @@ export default function SettingsPage() {
                   </p>
                 </div>
               </label>
+            </div>
+          )}
+        </Section>
+
+        {/* Teams Notifications */}
+        <Section title="Teams Notifications">
+          {!outreachConfigLoaded ? (
+            <div className="shimmer h-16 w-full rounded-input" />
+          ) : (
+            <div className="space-y-4">
+              <label className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={teamsNotifEnabled}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    setTeamsNotifEnabled(on);
+                    saveTeamsConfig(teamsWebhookUrl, on);
+                  }}
+                  className="mt-0.5 h-4 w-4 rounded border-surface-3 bg-surface-2 accent-accent-primary"
+                />
+                <div>
+                  <span className="text-sm font-medium text-text-primary">Enable Teams Notifications</span>
+                  <p className="mt-0.5 text-[11px] text-text-tertiary">
+                    Receive personal notifications (due steps, export confirmations) via Microsoft Teams.
+                  </p>
+                </div>
+              </label>
+
+              <SettingField label="Personal Webhook URL" hint="Your personal Teams incoming webhook for DM-style notifications.">
+                <input
+                  type="text"
+                  value={teamsWebhookUrl}
+                  onChange={(e) => setTeamsWebhookUrl(e.target.value)}
+                  onBlur={() => saveTeamsConfig(teamsWebhookUrl, teamsNotifEnabled)}
+                  placeholder="https://prod-XX.westus.logic.azure.com:443/workflows/..."
+                  className="w-full rounded-input border border-surface-3 bg-surface-2 px-2.5 py-2 font-mono text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
+                />
+              </SettingField>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={sendTeamsTestPersonal}
+                  disabled={!teamsWebhookUrl || teamsTestStatus === "sending"}
+                  className="rounded-input border border-surface-3 bg-surface-2 px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover disabled:opacity-50"
+                >
+                  {teamsTestStatus === "sending" ? "Sending..." : "Send Test Card"}
+                </button>
+                {teamsTestMessage && (
+                  <span className={`text-[11px] ${teamsTestStatus === "success" ? "text-success" : "text-danger"}`}>
+                    {teamsTestMessage}
+                  </span>
+                )}
+              </div>
+
+              <details className="rounded-input border border-surface-3 bg-surface-1 px-3 py-2">
+                <summary className="cursor-pointer text-xs font-medium text-text-secondary">
+                  How to set up Teams Workflow
+                </summary>
+                <ol className="mt-2 space-y-1.5 text-[11px] text-text-tertiary list-decimal list-inside">
+                  <li>Open Microsoft Teams</li>
+                  <li>Go to a chat or channel where you want notifications</li>
+                  <li>Click &ldquo;...&rdquo; &rarr; &ldquo;Workflows&rdquo; &rarr; &ldquo;Post to a chat when a webhook request is received&rdquo;</li>
+                  <li>Follow the prompts to create the workflow</li>
+                  <li>Copy the webhook URL and paste it above</li>
+                </ol>
+              </details>
             </div>
           )}
         </Section>

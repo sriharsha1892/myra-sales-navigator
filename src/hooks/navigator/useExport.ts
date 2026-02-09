@@ -247,6 +247,23 @@ export function useExport() {
       }
     } catch { /* silent */ }
 
+    // Teams notification (fire-and-forget)
+    try {
+      fetch("/api/teams/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "export",
+          payload: {
+            userName,
+            contactCount: contacts.length,
+            companyDomain: companyDomain ?? "multiple",
+            format: mode,
+          },
+        }),
+      }).catch(() => { /* silent */ });
+    } catch { /* silent */ }
+
     setExportState(null);
   }, [adminConfig, userCopyFormat, addProgressToast, addToast, setExportState, notify]);
 
