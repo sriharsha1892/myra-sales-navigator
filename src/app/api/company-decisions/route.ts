@@ -28,6 +28,31 @@ export async function POST(request: Request) {
   }
 }
 
+export async function DELETE(request: Request) {
+  try {
+    const { domain } = await request.json();
+    if (!domain) {
+      return NextResponse.json({ error: "Missing domain" }, { status: 400 });
+    }
+
+    const supabase = createServerClient();
+    const { error } = await supabase
+      .from("company_decisions")
+      .delete()
+      .eq("domain", domain);
+
+    if (error) {
+      console.error("[company-decisions] delete error:", error.message);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ deleted: true });
+  } catch (err) {
+    console.error("[company-decisions] error:", err);
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+  }
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
