@@ -21,6 +21,45 @@ export function SearchBridge() {
   const { saveToHistory } = useSearchHistory();
   const { notify } = useBrowserNotifications();
 
+  // Post-search CRM enrichment — batch fetch Freshsales + HubSpot status
+  const crmAbortRef = useRef<AbortController | null>(null);
+  const enrichCrmStatus = (companies: import("@/lib/navigator/types").CompanyEnriched[]) => {
+    crmAbortRef.current?.abort();
+    const controller = new AbortController();
+    crmAbortRef.current = controller;
+
+    const limit = pLimit(3);
+    for (const company of companies) {
+      // Skip if already has CRM data
+      if (company.freshsalesStatus !== "none" || company.hubspotStatus !== "none") continue;
+
+      limit(async () => {
+        if (controller.signal.aborted) return;
+        try {
+          const nameParam = company.name && company.name !== company.domain
+            ? `&name=${encodeURIComponent(company.name)}`
+            : "";
+          const res = await fetch(
+            `/api/company/${encodeURIComponent(company.domain)}?crmOnly=true${nameParam}`,
+            { signal: controller.signal }
+          );
+          if (!res.ok) return;
+          const data = await res.json();
+          if (data.freshsalesStatus !== "none" || data.hubspotStatus !== "none") {
+            useStore.getState().updateCompanyCrmStatus(
+              company.domain,
+              data.freshsalesStatus,
+              data.freshsalesIntel,
+              data.hubspotStatus
+            );
+          }
+        } catch {
+          // Silent — CRM enrichment is best-effort
+        }
+      });
+    }
+  };
+
   // Pre-warm contacts for top companies after search completes
   const preWarmAbortRef = useRef<AbortController | null>(null);
   const preWarmContacts = (companies: import("@/lib/navigator/types").CompanyEnriched[]) => {
@@ -76,6 +115,7 @@ export function SearchBridge() {
             saveToHistory(text, {}, data.companies.length);
             notify("Search complete", `${data.companies.length} companies found`);
             preWarmContacts(data.companies);
+            enrichCrmStatus(data.companies);
             useStore.getState().incrementSessionSearchCount();
           },
           onError: () => {
@@ -102,6 +142,7 @@ export function SearchBridge() {
             saveToHistory(summarizeFilters(currentFilters), currentFilters, data.companies.length);
             notify("Search complete", `${data.companies.length} companies found`);
             preWarmContacts(data.companies);
+            enrichCrmStatus(data.companies);
             useStore.getState().incrementSessionSearchCount();
           },
           onError: () => {

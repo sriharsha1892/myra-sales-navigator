@@ -22,17 +22,18 @@ vi.mock("@tanstack/react-query", async (importOriginal) => {
 // Mock store
 // ---------------------------------------------------------------------------
 
-const mockSearchSimilar = vi.fn();
 const mockSetExpandedContactsDomain = vi.fn();
+const mockSelectCompany = vi.fn();
+const mockSetScrollToContactId = vi.fn();
 
 vi.mock("@/lib/navigator/store", async () => {
   const { create } = await import("zustand");
   const store = create(() => ({}));
   const useStore = (selector: (s: Record<string, unknown>) => unknown) => {
     const mockState: Record<string, unknown> = {
-      searchSimilar: mockSearchSimilar,
       setExpandedContactsDomain: mockSetExpandedContactsDomain,
-      lastSearchQuery: null,
+      selectCompany: mockSelectCompany,
+      setScrollToContactId: mockSetScrollToContactId,
       contactsByDomain: {},
       adminConfig: { freshsalesSettings: {}, pipelineStages: undefined },
       userName: "TestUser",
@@ -275,19 +276,6 @@ describe("CompanyCard", () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
-  it("'Similar' button click does not fire onSelect (stopPropagation)", () => {
-    const onSelect = vi.fn();
-    render(
-      <CompanyCard company={makeCompany()} {...defaultProps} onSelect={onSelect} />
-    );
-
-    const similarBtn = screen.getByText("Similar");
-    fireEvent.click(similarBtn);
-
-    expect(onSelect).not.toHaveBeenCalled();
-    expect(mockSearchSimilar).toHaveBeenCalledTimes(1);
-  });
-
   it("contacts count button click does not fire onSelect (stopPropagation)", () => {
     const onSelect = vi.fn();
     render(
@@ -388,17 +376,6 @@ describe("CompanyCard", () => {
   // Description and signals
   // -----------------------------------------------------------------------
 
-  it("renders description when present", () => {
-    render(
-      <CompanyCard
-        company={makeCompany({ description: "Enterprise SaaS platform" })}
-        {...defaultProps}
-      />
-    );
-
-    expect(screen.getByText("Enterprise SaaS platform")).toBeInTheDocument();
-  });
-
   it("shows +N more when multiple signals exist", () => {
     const signals = [
       makeSignal({ id: "s1", type: "hiring", title: "Hiring engineers" }),
@@ -410,18 +387,6 @@ describe("CompanyCard", () => {
     );
 
     expect(screen.getByText("+2 more")).toBeInTheDocument();
-  });
-
-  it("shows empty signal message when no signals", () => {
-    render(
-      <CompanyCard company={makeCompany({ signals: [] })} {...defaultProps} />
-    );
-
-    // The component calls pick("empty_card_signals") which returns one of
-    // ["No signals yet", "Quiet on the wire", "Nothing detected"]
-    const card = screen.getByRole("option");
-    const emptyMsg = card.querySelector("p.italic");
-    expect(emptyMsg).not.toBeNull();
   });
 
   // -----------------------------------------------------------------------
@@ -476,37 +441,4 @@ describe("CompanyCard", () => {
     vi.useRealTimers();
   });
 
-  // -----------------------------------------------------------------------
-  // Data completeness indicator
-  // -----------------------------------------------------------------------
-
-  it("shows data completeness fraction when fewer than 5 fields filled", () => {
-    // CompanyEnriched with minimal data — no revenue, founded, website, phone, aiSummary, logoUrl
-    render(
-      <CompanyCard
-        company={makeCompany({
-          revenue: undefined,
-          founded: undefined,
-          website: undefined,
-          phone: undefined,
-          aiSummary: undefined,
-          logoUrl: undefined,
-        })}
-        {...defaultProps}
-      />
-    );
-
-    expect(screen.getByText("0/6")).toBeInTheDocument();
-  });
-
-  it("shows 'Limited data' label for exa-only companies", () => {
-    render(
-      <CompanyCard
-        company={makeCompany({ sources: ["exa"] })}
-        {...defaultProps}
-      />
-    );
-
-    expect(screen.getByText("Limited data")).toBeInTheDocument();
-  });
 });

@@ -211,6 +211,13 @@ interface AppState {
   setCompanyDecision: (domain: string, decision: TriageDecision) => void;
   setTriageFilter: (filter: TriageFilter) => void;
 
+  // Scroll-to-contact (set when user clicks inline contact on card)
+  scrollToContactId: string | null;
+  setScrollToContactId: (id: string | null) => void;
+
+  // CRM enrichment (batch post-search)
+  updateCompanyCrmStatus: (domain: string, freshsalesStatus: string, freshsalesIntel: unknown, hubspotStatus: string) => void;
+
   // Persistent prospect list
   prospectList: Set<string>;
   addToProspectList: (domain: string) => void;
@@ -383,7 +390,14 @@ export const useStore = create<AppState>((set, get) => ({
   companyDecisions: loadDecisions(),
   triageFilter: "all",
   setCompanyDecision: (domain, decision) => {
-    const next = { ...get().companyDecisions, [domain]: decision };
+    const current = get().companyDecisions[domain];
+    // Toggle off: clicking the same decision again clears it
+    const next = { ...get().companyDecisions };
+    if (current === decision) {
+      delete next[domain];
+    } else {
+      next[domain] = decision;
+    }
     set({ companyDecisions: next, sessionTriageCount: get().sessionTriageCount + 1 });
     // Persist to localStorage
     if (typeof window !== "undefined") {
@@ -394,10 +408,26 @@ export const useStore = create<AppState>((set, get) => ({
     fetch("/api/company-decisions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ domain, decision, decidedBy: userName }),
+      body: JSON.stringify({ domain, decision: current === decision ? null : decision, decidedBy: userName }),
     }).catch(() => { /* silent */ });
   },
   setTriageFilter: (filter) => set({ triageFilter: filter }),
+
+  // Scroll-to-contact
+  scrollToContactId: null,
+  setScrollToContactId: (id) => set({ scrollToContactId: id }),
+
+  // CRM enrichment
+  updateCompanyCrmStatus: (domain, freshsalesStatus, freshsalesIntel, hubspotStatus) => {
+    const updateFn = (c: CompanyEnriched) =>
+      c.domain === domain
+        ? { ...c, freshsalesStatus: freshsalesStatus as CompanyEnriched["freshsalesStatus"], freshsalesIntel: freshsalesIntel as CompanyEnriched["freshsalesIntel"], hubspotStatus: hubspotStatus as CompanyEnriched["hubspotStatus"] }
+        : c;
+    set((state) => ({
+      companies: state.companies.map(updateFn),
+      searchResults: state.searchResults?.map(updateFn) ?? null,
+    }));
+  },
 
   // Persistent prospect list
   prospectList: loadProspectList(),

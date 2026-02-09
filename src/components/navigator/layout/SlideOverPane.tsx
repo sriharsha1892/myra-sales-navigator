@@ -29,6 +29,8 @@ export function SlideOverPane() {
   const addUndoToast = useStore((s) => s.addUndoToast);
   const setSlideOverMode = useStore((s) => s.setSlideOverMode);
   const dossierScrollToTop = useStore((s) => s.dossierScrollToTop);
+  const scrollToContactId = useStore((s) => s.scrollToContactId);
+  const setScrollToContactId = useStore((s) => s.setScrollToContactId);
   const dossier = useCompanyDossier(selectedCompanyDomain);
   const { executeExport } = useExport();
   const { notify } = useBrowserNotifications();
@@ -100,6 +102,25 @@ export function SlideOverPane() {
       addToast({ message: "Failed to refresh dossier data", type: "error" });
     }
   }, [dossier.error, dossier.isLoading, addToast]);
+
+  // Scroll to a specific contact when clicked from inline contacts on a card
+  useEffect(() => {
+    if (scrollToContactId && selectedCompanyDomain) {
+      // Switch to contacts mode so the contact is visible
+      setSlideOverMode("contacts");
+      // Wait for contacts panel to render, then scroll to the contact element
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`contact-${scrollToContactId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.classList.add("ring-1", "ring-accent-secondary/40");
+          setTimeout(() => el.classList.remove("ring-1", "ring-accent-secondary/40"), 2000);
+        }
+        setScrollToContactId(null);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [scrollToContactId, selectedCompanyDomain, setSlideOverMode, setScrollToContactId]);
 
   // Scroll to top + flash highlight when dossierScrollToTop changes
   useEffect(() => {

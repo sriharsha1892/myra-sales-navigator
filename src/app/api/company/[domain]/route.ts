@@ -18,7 +18,21 @@ export async function GET(
     const decoded = decodeURIComponent(domain);
     const normalized = normalizeDomain(decoded);
     const companyName = request.nextUrl.searchParams.get("name") || undefined;
+    const crmOnly = request.nextUrl.searchParams.get("crmOnly") === "true";
     const forceRegenSummary = request.nextUrl.searchParams.get("regenerateSummary") === "true";
+
+    // Fast path: only fetch CRM status (Freshsales + HubSpot), skip everything else
+    if (crmOnly) {
+      const [hubspotStatus, freshsalesIntel] = await Promise.all([
+        getHubSpotStatus(normalized),
+        getFreshsalesIntel(getRootDomain(normalized), companyName),
+      ]);
+      return NextResponse.json({
+        freshsalesStatus: freshsalesIntel?.status ?? "none",
+        freshsalesIntel: freshsalesIntel ?? null,
+        hubspotStatus: hubspotStatus?.status ?? "none",
+      });
+    }
 
     // Get viewer name from cookie for anchor tracking
     const cookieStore = await cookies();

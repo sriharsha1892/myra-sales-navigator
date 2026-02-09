@@ -1,26 +1,22 @@
 "use client";
 
-import { cn } from "@/lib/cn";
 import { useStore } from "@/lib/navigator/store";
 import { CompanyCard } from "@/components/navigator/cards/CompanyCard";
 import { InlineContacts } from "@/components/navigator/cards/InlineContacts";
 import { SkeletonCard } from "@/components/navigator/cards/SkeletonCard";
-import { ViewToggle, QuickFilterChips, ResultFilterChips, EmptyState } from "@/components/navigator/shared";
+import { ViewToggle, EmptyState } from "@/components/navigator/shared";
 import { ActiveFilterPills } from "@/components/navigator/shared/ActiveFilterPills";
-import type { SortField, CompanyEnriched, ResultSource } from "@/lib/navigator/types";
+import type { SortField, CompanyEnriched } from "@/lib/navigator/types";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useSearchHistory } from "@/hooks/navigator/useSearchHistory";
-import { useExport } from "@/hooks/navigator/useExport";
 import { MyProspects } from "./MyProspects";
 import { pick } from "@/lib/navigator/ui-copy";
-import { pLimit } from "@/lib/utils";
 import { ExportedContactsPanel } from "@/components/navigator/exports/ExportedContactsPanel";
 import { AllContactsView } from "./AllContactsView";
 import { SessionStarterCard } from "@/components/navigator/home/SessionStarterCard";
 import { FollowUpNudges } from "@/components/navigator/shared/FollowUpNudges";
 import { CreditUsageIndicator } from "@/components/navigator/CreditUsageIndicator";
 import { DueStepsWidget } from "@/components/navigator/outreach/DueStepsWidget";
-import { Tooltip } from "@/components/navigator/shared/Tooltip";
 
 const exampleQueries = [
   "chemicals in Europe",
@@ -42,13 +38,9 @@ export function ResultsList() {
   const searchResults = useStore((s) => s.searchResults);
   const searchLoading = useStore((s) => s.searchLoading);
   const setPendingFreeTextSearch = useStore((s) => s.setPendingFreeTextSearch);
-  const resultGrouping = useStore((s) => s.resultGrouping);
-  const setResultGrouping = useStore((s) => s.setResultGrouping);
-
   const setFilters = useStore((s) => s.setFilters);
   const setPendingFilterSearch = useStore((s) => s.setPendingFilterSearch);
   const lastSearchQuery = useStore((s) => s.lastSearchQuery);
-  const lastICPCriteria = useStore((s) => s.lastICPCriteria);
   const { history } = useSearchHistory();
 
   const filteredCompanies = useStore((s) => s.filteredCompanies);
@@ -65,102 +57,27 @@ export function ResultsList() {
   const lastExcludedCount = useStore((s) => s.lastExcludedCount);
   const deselectAllCompanies = useStore((s) => s.deselectAllCompanies);
   const activeResultIndex = useStore((s) => s.activeResultIndex);
-  const triageFilter = useStore((s) => s.triageFilter);
-  const setTriageFilter = useStore((s) => s.setTriageFilter);
-  const companyDecisions = useStore((s) => s.companyDecisions);
   const prospectList = useStore((s) => s.prospectList);
-  const contactsByDomain = useStore((s) => s.contactsByDomain);
-  const setContactsForDomain = useStore((s) => s.setContactsForDomain);
-  const triggerExpressExport = useStore((s) => s.triggerExpressExport);
-  const setTriggerExpressExport = useStore((s) => s.setTriggerExpressExport);
-  const addToast = useStore((s) => s.addToast);
-  const { executeExport } = useExport();
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(
+    () => typeof window !== "undefined" && !localStorage.getItem("nav_onboarded")
+  );
   const [relatedCollapsed, setRelatedCollapsed] = useState(true);
   const [previousResultCount, setPreviousResultCount] = useState(6);
 
   const companies = filteredCompanies();
 
-  const highFitCompanies = useMemo(
-    () => companies.filter((c) => c.icpScore >= 70),
-    [companies]
-  );
-
-  const handleExpressExport = useCallback(async () => {
-    if (highFitCompanies.length === 0) {
-      addToast({ message: "No high-fit companies (ICP 70+) to export", type: "warning" });
-      return;
-    }
-
-    // Gather contacts — fetch missing ones first
-    const missingDomains = highFitCompanies.filter(
-      (c) => !contactsByDomain[c.domain]?.length
-    );
-
-    if (missingDomains.length > 0) {
-      const handle = useStore.getState().addProgressToast(`Loading contacts for ${missingDomains.length} companies...`);
-      const limit = pLimit(3);
-      await Promise.all(
-        missingDomains.map((company) =>
-          limit(async () => {
-            try {
-              const nameParam = company.name && company.name !== company.domain
-                ? `?name=${encodeURIComponent(company.name)}`
-                : "";
-              const res = await fetch(
-                `/api/company/${encodeURIComponent(company.domain)}/contacts${nameParam}`
-              );
-              if (!res.ok) return;
-              const data = await res.json();
-              if (data.contacts?.length) {
-                useStore.getState().setContactsForDomain(company.domain, data.contacts);
-              }
-            } catch { /* silent */ }
-          })
-        )
-      );
-      handle.resolve("Contacts loaded");
-    }
-
-    // Re-read contacts from store (may have been updated by fetches above)
-    const currentStore = useStore.getState();
-    const allContacts = highFitCompanies.flatMap(
-      (c) => currentStore.contactsByDomain[c.domain] ?? []
-    );
-    const contactsWithEmail = allContacts.filter((c) => c.email);
-
-    if (contactsWithEmail.length === 0) {
-      addToast({ message: "No contacts with email found for high-fit companies", type: "warning" });
-      return;
-    }
-
-    executeExport(contactsWithEmail, "clipboard");
-  }, [highFitCompanies, contactsByDomain, addToast, executeExport]);
-
-  // Watch for Cmd+Shift+E trigger
-  useEffect(() => {
-    if (triggerExpressExport) {
-      setTriggerExpressExport(false);
-      handleExpressExport();
-    }
-  }, [triggerExpressExport, setTriggerExpressExport, handleExpressExport]);
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && !localStorage.getItem("nav_onboarded")) {
-      setShowOnboarding(true);
-    }
-  }, []);
-
-
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-    setRelatedCollapsed(true); // Reset collapsed state on new search
-    if (searchResults && searchResults.length > 0) {
-      setPreviousResultCount(Math.min(searchResults.length, 10));
-    }
+    // Defer setState to avoid synchronous setState-in-effect lint error
+    requestAnimationFrame(() => {
+      setRelatedCollapsed(true);
+      if (searchResults && searchResults.length > 0) {
+        setPreviousResultCount(Math.min(searchResults.length, 10));
+      }
+    });
   }, [searchResults]);
 
   const dismissOnboarding = () => {
@@ -212,57 +129,7 @@ export function ResultsList() {
           companyCount={companies.length}
           prospectCount={prospectList.size}
         />
-        {viewMode === "companies" && hasSearched && !searchLoading && (
-          <>
-            <div className="h-3.5 w-px bg-surface-3" />
-            <button
-              onClick={() => setAllContactsViewActive(!allContactsViewActive)}
-              className={`flex items-center gap-1.5 rounded-pill border px-2.5 py-1 text-xs transition-all duration-[180ms] ${
-                allContactsViewActive
-                  ? "border-accent-secondary/40 bg-accent-secondary/10 font-semibold text-accent-secondary"
-                  : "border-surface-3 text-text-tertiary hover:border-accent-secondary/30 hover:text-text-secondary"
-              }`}
-            >
-              All Contacts
-            </button>
-          </>
-        )}
-        {viewMode === "companies" && hasSearched && !searchLoading && highFitCompanies.length > 0 && (
-          <>
-            <div className="h-3.5 w-px bg-surface-3" />
-            <Tooltip text="Export all contacts from ICP 70+ companies (Cmd+Shift+E)">
-              <button
-                onClick={handleExpressExport}
-                className="flex items-center gap-1.5 rounded-pill border border-accent-primary/30 bg-accent-primary/10 px-2.5 py-1 text-xs font-medium text-accent-primary transition-all duration-[180ms] hover:bg-accent-primary/20 hover:border-accent-primary/50"
-              >
-                Export &#x2605;70+ ({highFitCompanies.length})
-              </button>
-            </Tooltip>
-          </>
-        )}
-        {/* Triage filter chips */}
-        {viewMode === "companies" && hasSearched && !searchLoading && Object.keys(companyDecisions).length > 0 && (
-          <>
-            <div className="h-3.5 w-px bg-surface-3" />
-            <div className="flex items-center gap-1">
-              {(["all", "unreviewed", "interested"] as const).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setTriageFilter(f)}
-                  className={cn(
-                    "rounded-pill px-2 py-0.5 text-[10px] font-medium transition-all duration-[180ms]",
-                    triageFilter === f
-                      ? "bg-surface-2 text-text-primary"
-                      : "text-text-tertiary hover:text-text-secondary"
-                  )}
-                >
-                  {f === "all" ? "All" : f === "unreviewed" ? "Unreviewed" : "Interested"}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-        {/* M1: Bulk selection count indicator */}
+        {/* Bulk selection count indicator */}
         {selectedCompanyDomains.size > 0 && (
           <>
             <div className="h-3.5 w-px bg-surface-3" />
@@ -281,15 +148,6 @@ export function ResultsList() {
             </span>
           </>
         )}
-        {viewMode === "companies" && companies.length > 0 && (() => {
-          const avg = Math.round(companies.reduce((s, c) => s + c.icpScore, 0) / companies.length);
-          const color = avg >= 70 ? "bg-success/15 text-success border-success/30" : avg >= 50 ? "bg-warning/15 text-warning border-warning/30" : "bg-surface-2 text-text-tertiary border-surface-3";
-          return (
-            <span className={`rounded-pill border px-2.5 py-1 font-mono text-xs font-semibold ${color}`}>
-              Avg: {avg}
-            </span>
-          );
-        })()}
         <div className="ml-auto flex items-center gap-3">
           {viewMode === "companies" && (
             <>
@@ -326,31 +184,6 @@ export function ResultsList() {
                   {sortDirection === "desc" ? "\u2193" : "\u2191"}
                 </button>
               </div>
-              {/* Group — dot-separated text links */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs uppercase tracking-[0.06em] text-text-secondary">Group</span>
-                <div className="flex items-center">
-                  {(["icp_tier", "source", "none"] as const).map((g, i) => {
-                    const labels = { icp_tier: "Tier", source: "Source", none: "Flat" };
-                    const isActive = resultGrouping === g;
-                    return (
-                      <span key={g} className="flex items-center">
-                        {i > 0 && <span className="mx-1 text-text-tertiary/40">·</span>}
-                        <button
-                          onClick={() => setResultGrouping(g)}
-                          className={`rounded px-1.5 py-0.5 text-xs transition-all duration-[180ms] ${
-                            isActive
-                              ? "bg-surface-2 font-semibold text-text-primary"
-                              : "text-text-secondary hover:bg-surface-2 hover:text-text-primary"
-                          }`}
-                        >
-                          {labels[g]}
-                        </button>
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
             </>
           )}
           <CreditUsageIndicator />
@@ -370,45 +203,10 @@ export function ResultsList() {
         </div>
       )}
 
-      {/* ICP criteria banner */}
-      {lastICPCriteria && !searchLoading && (
-        <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-accent-primary/20 bg-accent-primary/5 px-4 py-1.5">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-primary">ICP</span>
-          <span className="text-xs text-text-secondary">{lastICPCriteria.description}</span>
-          {lastICPCriteria.targetVerticals.length > 0 && (
-            <div className="flex gap-1">
-              {lastICPCriteria.targetVerticals.slice(0, 3).map((v) => (
-                <span key={v} className="rounded-pill bg-accent-primary/10 px-1.5 py-0.5 text-[9px] text-accent-primary">{v}</span>
-              ))}
-            </div>
-          )}
-          {lastICPCriteria.targetRegions.length > 0 && (
-            <div className="flex gap-1">
-              {lastICPCriteria.targetRegions.slice(0, 3).map((r) => (
-                <span key={r} className="rounded-pill bg-accent-secondary/10 px-1.5 py-0.5 text-[9px] text-accent-secondary">{r}</span>
-              ))}
-            </div>
-          )}
-          {lastICPCriteria.buyingSignals.length > 0 && (
-            <div className="flex gap-1">
-              {lastICPCriteria.buyingSignals.slice(0, 2).map((s) => (
-                <span key={s} className="rounded-pill bg-success/10 px-1.5 py-0.5 text-[9px] text-success">{s}</span>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Sticky filter pill bar — visible on both tabs after search */}
+      {/* Sticky active filter pills — visible after search */}
       {(hasSearched || searchLoading) && (
-        <div className="sticky top-0 z-10 flex flex-shrink-0 flex-col gap-1 border-b border-surface-3 bg-surface-0 px-4 py-2">
+        <div className="sticky top-0 z-10 flex flex-shrink-0 border-b border-surface-3 bg-surface-0 px-4 py-2">
           <ActiveFilterPills />
-          {viewMode === "companies" && !searchLoading && (
-            <div className="flex flex-wrap gap-1.5">
-              <QuickFilterChips />
-              <ResultFilterChips />
-            </div>
-          )}
         </div>
       )}
 
@@ -536,7 +334,7 @@ export function ResultsList() {
               className="space-y-1.5 focus:outline-none"
             >
               {(() => {
-                // M2: Build a domain→searchResults index map for data-result-index
+                // Build a domain→searchResults index map for data-result-index
                 const domainToResultIndex = new Map<string, number>();
                 if (searchResults) {
                   searchResults.forEach((c, i) => domainToResultIndex.set(c.domain, i));
@@ -567,78 +365,7 @@ export function ResultsList() {
                   );
                 };
 
-                if (resultGrouping === "icp_tier") {
-                  const tiers = [
-                    { label: "Strong fit", min: 80, max: 100, color: "text-accent-highlight" },
-                    { label: "Good fit", min: 60, max: 79, color: "text-accent-primary" },
-                    { label: "Possible", min: 40, max: 59, color: "text-warning" },
-                    { label: "Review", min: 0, max: 39, color: "text-text-tertiary" },
-                  ] as const;
-                  let globalIdx = 0;
-                  return tiers.map((tier) => {
-                    const tierCompanies = companies.filter(
-                      (c) => c.icpScore >= tier.min && c.icpScore <= tier.max
-                    );
-                    if (tierCompanies.length === 0) return null;
-                    return (
-                      <div key={tier.label}>
-                        <div className="sticky top-0 z-10 rounded bg-surface-0 px-1 py-1.5">
-                          <span className={`text-sm font-semibold uppercase tracking-wide ${tier.color}`}>
-                            {tier.label}
-                          </span>
-                          <span className="ml-1.5 font-mono text-[10px] text-text-tertiary">
-                            {tier.min}–{tier.max} ({tierCompanies.length})
-                          </span>
-                        </div>
-                        <div className="space-y-1.5">
-                          {tierCompanies.map((company) => renderCompanyItem(company, globalIdx++))}
-                        </div>
-                      </div>
-                    );
-                  });
-                }
-
-                if (resultGrouping === "source") {
-                  const exaCompanies = companies.filter((c) => c.sources.includes("exa" as ResultSource));
-                  const apolloOnly = companies.filter((c) => !c.sources.includes("exa" as ResultSource));
-                  let globalIdx = 0;
-                  return (
-                    <>
-                      {exaCompanies.length > 0 && (
-                        <div>
-                          <div className="sticky top-0 z-10 rounded bg-surface-0 px-1 py-1.5">
-                            <span className="text-sm font-semibold uppercase tracking-wide" style={{ color: "var(--color-source-exa)" }}>
-                              Discovered via Exa
-                            </span>
-                            <span className="ml-1.5 font-mono text-[10px] text-text-tertiary">
-                              ({exaCompanies.length})
-                            </span>
-                          </div>
-                          <div className="space-y-1.5">
-                            {exaCompanies.map((company) => renderCompanyItem(company, globalIdx++))}
-                          </div>
-                        </div>
-                      )}
-                      {apolloOnly.length > 0 && (
-                        <div>
-                          <div className="sticky top-0 z-10 rounded bg-surface-0 px-1 py-1.5">
-                            <span className="text-sm font-semibold uppercase tracking-wide" style={{ color: "var(--color-source-apollo)" }}>
-                              Enriched via Apollo
-                            </span>
-                            <span className="ml-1.5 font-mono text-[10px] text-text-tertiary">
-                              ({apolloOnly.length})
-                            </span>
-                          </div>
-                          <div className="space-y-1.5">
-                            {apolloOnly.map((company) => renderCompanyItem(company, globalIdx++))}
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  );
-                }
-
-                // Flat / "none" grouping
+                // Flat list — exact match pinned at top when present
                 const exactMatch = companies.find((c) => c.exactMatch);
                 const related = exactMatch ? companies.filter((c) => !c.exactMatch) : [];
                 const showExactMatchSection = !!exactMatch && related.length > 0;

@@ -4,14 +4,11 @@ import { useState, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/cn";
 import type { CompanyEnriched } from "@/lib/navigator/types";
-import { SourceBadge, IntelBadge, SignalStrengthBar, IcpScoreBadge } from "@/components/navigator/badges";
+import { IcpScoreBadge } from "@/components/navigator/badges";
 import { CompanyStatusBadge } from "@/components/navigator/dossier/CompanyStatusBadge";
 import { useStore } from "@/lib/navigator/store";
 import { ContactPreviewPopover } from "./ContactPreviewPopover";
-import { HighlightTerms } from "@/components/navigator/shared/HighlightTerms";
-import { pick } from "@/lib/navigator/ui-copy";
 import { Tooltip } from "@/components/navigator/shared/Tooltip";
-import { useInlineFeedback } from "@/hooks/navigator/useInlineFeedback";
 import type { Contact } from "@/lib/navigator/types";
 import { logEmailCopy } from "@/lib/navigator/logEmailCopy";
 
@@ -67,19 +64,15 @@ function getVerificationDotColor(contact: Contact): string {
 }
 
 const crmStatusColors: Record<string, { bg: string; text: string }> = {
-  // Active deals / opportunities
   open: { bg: "rgba(34, 197, 94, 0.12)", text: "#22c55e" },
   in_progress: { bg: "rgba(34, 197, 94, 0.12)", text: "#22c55e" },
   negotiation: { bg: "rgba(34, 197, 94, 0.12)", text: "#22c55e" },
-  // Leads / prospects
   new: { bg: "rgba(59, 130, 246, 0.12)", text: "#3b82f6" },
   new_lead: { bg: "rgba(59, 130, 246, 0.12)", text: "#3b82f6" },
   contacted: { bg: "rgba(59, 130, 246, 0.12)", text: "#3b82f6" },
-  // Won / customer
   closed_won: { bg: "rgba(249, 115, 22, 0.12)", text: "#f97316" },
   won: { bg: "rgba(249, 115, 22, 0.12)", text: "#f97316" },
   customer: { bg: "rgba(249, 115, 22, 0.12)", text: "#f97316" },
-  // Lost
   closed_lost: { bg: "rgba(239, 68, 68, 0.12)", text: "#ef4444" },
   lost: { bg: "rgba(239, 68, 68, 0.12)", text: "#ef4444" },
 };
@@ -101,19 +94,19 @@ export function CompanyCard({
   onSelect,
   onToggleCheck,
 }: CompanyCardProps) {
-  const searchSimilar = useStore((s) => s.searchSimilar);
   const setExpandedContactsDomain = useStore((s) => s.setExpandedContactsDomain);
   const contactsForDomain = useStore((s) => s.contactsByDomain[company.domain]);
   const selectedContactIds = useStore((s) => s.selectedContactIds);
   const toggleContactSelection = useStore((s) => s.toggleContactSelection);
   const setContactsForDomain = useStore((s) => s.setContactsForDomain);
-  const lastSearchQuery = useStore((s) => s.lastSearchQuery);
   const companyDecision = useStore((s) => s.companyDecisions?.[company.domain]);
   const setCompanyDecision = useStore((s) => s.setCompanyDecision);
   const isInProspectList = useStore((s) => s.prospectList?.has(company.domain) ?? false);
   const addToProspectList = useStore((s) => s.addToProspectList);
   const removeFromProspectList = useStore((s) => s.removeFromProspectList);
   const addToast = useStore((s) => s.addToast);
+  const selectCompany = useStore((s) => s.selectCompany);
+  const setScrollToContactId = useStore((s) => s.setScrollToContactId);
   const [logoError, setLogoError] = useState(false);
   const [inlineContactsLoading, setInlineContactsLoading] = useState(false);
   const [showMoreContacts, setShowMoreContacts] = useState(false);
@@ -125,7 +118,6 @@ export function CompanyCard({
   const handleMouseEnter = useCallback(() => {
     hoverTimerRef.current = setTimeout(() => {
       setIsPrefetching(true);
-      // Prefetch company dossier (includes Freshsales status)
       const p1 = queryClient.prefetchQuery({
         queryKey: ["company", company.domain],
         queryFn: async () => {
@@ -135,7 +127,6 @@ export function CompanyCard({
         },
         staleTime: 5 * 60 * 1000,
       });
-      // Prefetch contacts
       const p2 = queryClient.prefetchQuery({
         queryKey: ["company-contacts", company.domain],
         queryFn: async () => {
@@ -157,11 +148,7 @@ export function CompanyCard({
     }
   }, []);
 
-  const filledCount = [company.revenue, company.founded, company.website, company.phone, company.aiSummary, company.logoUrl]
-    .filter(Boolean).length;
-
   const logoSrc = company.logoUrl ?? (company.domain ? `https://www.google.com/s2/favicons?domain=${company.domain}&sz=40` : null);
-  const hasIntel = Array.isArray(company.sources) && company.sources.includes("mordor");
 
   // Compute top 3 contacts for inline display
   const inlineContacts = (() => {
@@ -195,6 +182,12 @@ export function CompanyCard({
       .finally(() => setInlineContactsLoading(false));
   };
 
+  const handleContactClick = (e: React.MouseEvent, contactId: string) => {
+    e.stopPropagation();
+    selectCompany(company.domain);
+    setScrollToContactId(contactId);
+  };
+
   return (
     <div
       id={`company-${company.domain}`}
@@ -209,15 +202,13 @@ export function CompanyCard({
         isSelected
           ? "border-accent-primary bg-accent-primary-light shadow-sm"
           : "bg-surface-1 border-surface-3 shadow-sm",
-        hasIntel && !isSelected && "border-intel/20 shadow-md",
         isChecked && "ring-1 ring-accent-highlight/30",
         isPrefetching && "ring-1 ring-accent-secondary/20 animate-pulse",
         companyDecision === "interested" && !isSelected && "border-success/30",
-        companyDecision === "pass" && "opacity-50",
         isInProspectList && !isSelected && "border-l-accent-secondary/50"
       )}
     >
-      {/* Top row: checkbox + logo + name + signal bar */}
+      {/* Top row: checkbox + logo + name */}
       <div className="flex items-start gap-2.5">
         <div className="mt-1 flex flex-col items-center gap-1">
           <button
@@ -273,7 +264,6 @@ export function CompanyCard({
                   {company.nlIcpReasoning}
                 </span>
               )}
-              <SignalStrengthBar signalCount={company.signals.length} signalTypes={[...new Set(company.signals.map((s) => s.type))]} />
             </div>
           </div>
 
@@ -311,11 +301,6 @@ export function CompanyCard({
                   &middot; {company.freshsalesIntel.account.owner.name}
                 </span>
               )}
-              {(!company.freshsalesStatus || company.freshsalesStatus === "none") && (company.hubspotStatus === "none" || !company.hubspotStatus) && (
-                <span className="rounded-pill bg-surface-2 px-1.5 py-0.5 text-xs text-text-tertiary">
-                  Net new
-                </span>
-              )}
             </div>
           )}
 
@@ -334,33 +319,9 @@ export function CompanyCard({
             <span>{company.location}</span>
           </div>
 
-          {/* Description */}
-          {company.description && (
-            <p className="mt-1 truncate text-xs text-text-tertiary" title={company.description}>
-              <HighlightTerms text={company.description} query={lastSearchQuery} />
-            </p>
-          )}
-
-          {/* ICP breakdown — top 2 positive factors */}
-          {company.icpBreakdown && company.icpBreakdown.filter((b) => b.matched && b.points > 0).length > 0 && (
-            <div className="mt-1 flex items-center gap-1">
-              {company.icpBreakdown
-                .filter((b) => b.matched && b.points > 0)
-                .slice(0, 2)
-                .map((b) => (
-                  <span
-                    key={b.factor}
-                    className="rounded-pill bg-success-light px-1.5 py-0.5 text-[9px] font-medium text-success"
-                  >
-                    {b.factor}
-                  </span>
-                ))}
-            </div>
-          )}
-
-          {/* Signals — reworked */}
-          {company.signals.length > 0 ? (
-            <div className="mt-2 flex items-center gap-1.5">
+          {/* Signal headline */}
+          {company.signals.length > 0 && (
+            <div className="mt-1.5 flex items-center gap-1.5">
               <span
                 className={cn(
                   "rounded-pill px-2 py-0.5 text-[10px] font-medium capitalize",
@@ -378,41 +339,10 @@ export function CompanyCard({
                 </span>
               )}
             </div>
-          ) : (
-            <p className="mt-2 text-[10px] italic text-text-tertiary">
-              {pick("empty_card_signals")}
-            </p>
           )}
 
-          {/* Bottom row: sources + hubspot + completeness + similar + contact count */}
+          {/* Bottom row: triage + contact count */}
           <div className="mt-2 flex items-center gap-2">
-            <div className="flex items-center gap-0.5">
-              {(Array.isArray(company.sources) ? company.sources : []).map((src) => (
-                <SourceBadge key={src} source={src} />
-              ))}
-              {hasIntel && <IntelBadge className="ml-1" />}
-            </div>
-            {filledCount <= 4 && (
-              <Tooltip text="Data completeness — fields populated out of 6">
-                <span
-                  className={cn(
-                    "font-mono text-[10px]",
-                    filledCount <= 2 ? "text-danger" : "text-warning"
-                  )}
-                >
-                  {filledCount}/6
-                </span>
-              </Tooltip>
-            )}
-            {company.sources.length === 1 && company.sources[0] === "exa" && (
-              <span className="text-[10px] italic text-warning">Limited data</span>
-            )}
-            <button
-              onClick={(e) => { e.stopPropagation(); searchSimilar(company); }}
-              className="rounded px-1.5 py-0.5 text-[10px] text-accent-primary opacity-50 transition-opacity group-hover:opacity-100 hover:bg-accent-primary-light"
-            >
-              Similar
-            </button>
             {/* Triage buttons */}
             <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
               <Tooltip text="Interested">
@@ -511,12 +441,17 @@ export function CompanyCard({
                           </svg>
                         )}
                       </button>
-                      <span className="truncate font-medium text-text-primary" style={{ maxWidth: "120px" }} title={`${contact.firstName} ${contact.lastName}`}>
-                        {contact.firstName} {contact.lastName}
-                      </span>
-                      <span className="truncate text-text-tertiary" style={{ maxWidth: "140px" }} title={contact.title ?? undefined}>
-                        {contact.title}
-                      </span>
+                      <button
+                        onClick={(e) => handleContactClick(e, contact.id)}
+                        className="flex min-w-0 cursor-pointer items-center gap-1.5 hover:underline"
+                      >
+                        <span className="truncate font-medium text-text-primary" style={{ maxWidth: "120px" }} title={`${contact.firstName} ${contact.lastName}`}>
+                          {contact.firstName} {contact.lastName}
+                        </span>
+                        <span className="truncate text-text-tertiary" style={{ maxWidth: "140px" }} title={contact.title ?? undefined}>
+                          {contact.title}
+                        </span>
+                      </button>
                       <span className={cn(
                         "flex-shrink-0 rounded-pill border px-1 py-px text-[9px] font-medium",
                         SENIORITY_CHIP_COLORS[contact.seniority] ?? SENIORITY_CHIP_COLORS.staff
