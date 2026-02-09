@@ -6,7 +6,7 @@ const secret = new TextEncoder().encode(
   process.env.MAGIC_LINK_SECRET || "dev-fallback-secret-not-for-production"
 );
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   // GTM-only mode: detect by hostname or env var
   const host = request.headers.get("host") ?? "";
