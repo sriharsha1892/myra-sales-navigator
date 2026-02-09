@@ -65,27 +65,30 @@ All architecture and UX decisions resolved during the Jan 30, 2026 planning sess
 | Hosting | Vercel (new project) | Serverless functions, independent from dashboard |
 | Auth | Password gate + name cookie | Simple for 8-10 users, upgrade path to Supabase Auth in Phase 2 |
 
-### The Three-Panel Layout (1440px baseline)
+### The Two-Panel Layout (1440px baseline)
+
+FilterPanel was removed in the Feb 2026 rehaul. Search bar is the sole discovery entry point.
 
 ```
-┌──────────────┬────────────────────────┬──────────────────────┐
-│ FILTER PANEL │    RESULTS LIST        │   DETAIL PANE        │
-│ (280px)      │    (flexible)          │   (400px)            │
-│              │                        │                      │
-│ Sources      │  [Companies ●][Contacts○] │  Company header   │
-│ Vertical     │                        │  Last refreshed [↻]  │
-│ Region       │  ── Semantic (Exa) ──  │  Source badges (E/A/H)│
-│ Size         │  Company cards         │  Signals             │
-│ Exclusions   │  ── Structured (Apollo)── │  Contacts         │
-│ Signals      │  Company cards         │  HubSpot status      │
-│              │                        │  Actions             │
-└──────────────┴────────────────────────┴──────────────────────┘
-              [Cmd+K: Command Palette / Free-text Exa Search]
+┌────────────────────────────┬──────────────────────┐
+│    RESULTS LIST            │   DETAIL PANE        │
+│    (flexible)              │   (420px)             │
+│                            │                      │
+│  [Cmd+K Search Bar]        │  Company header      │
+│  [Entity chips]            │  NL ICP reasoning    │
+│                            │  Contacts (inline)   │
+│  [Companies ●][Contacts○]  │  CRM (FS + HS)      │
+│                            │  Outreach sequences  │
+│  Company cards w/ inline   │  Peer companies      │
+│  contacts (top 3-5)        │  Signals             │
+│                            │  Actions             │
+└────────────────────────────┴──────────────────────┘
 ```
 
 **Results toggle:**
-- **Companies view** (default): Company cards grouped by source (Exa semantic matches vs Apollo structured matches)
-- **Contacts view**: Smart list sorted by relevance/seniority. Each contact row has an expandable company chip — hover for company details without leaving the view. Not grouped by company; flat and scannable.
+- **Companies view** (default): Company cards with inline contact drawers (top 3-5 by seniority). Discovery searches grouped by ICP tier (High/Good/Low Fit). Company-name searches show exact match + CRM Peers + Discovered sections.
+- **Contacts view**: Grouped by company with sticky headers, expandable rows. Sorted by seniority.
+- **All Contacts toggle**: Flat view of contacts across all companies, checkable for batch outreach.
 
 ### Data Flow
 
@@ -138,6 +141,15 @@ function buildExaQuery(filters: SearchFilters): string {
 /api/admin/config          GET/PUT — ICP weights, scoring formula, system config
 /api/presets               GET/POST/DELETE — Shared search presets (team-wide)
 /api/settings/user         GET/PUT — Per-user settings (copy format, preferences)
+/api/icp/score             POST  — NL ICP scoring (Groq extraction + Gemini batch scoring)
+/api/company/:domain/peers GET   — Peer companies (Freshsales + Exa)
+/api/user/config           GET/PUT — Per-user outreach config (Freshsales domain, LinkedIn Sales Nav)
+/api/outreach/call-log     POST/GET — Call outcome logging
+/api/outreach/sequences    GET/POST — Sequence CRUD
+/api/outreach/sequences/:id GET/PUT/DELETE — Single sequence ops
+/api/outreach/enrollments  GET/POST — Enrollment CRUD (filter by contact/status/dueBy)
+/api/outreach/enrollments/:id GET/PUT — Enrollment management (pause/resume/unenroll/advance)
+/api/outreach/enrollments/:id/execute POST — Step execution (channel-specific: email draft, call talking points, LinkedIn note)
 ```
 
 ### Conflict Resolution (When Sources Disagree)
@@ -199,8 +211,9 @@ USER_SETTINGS: user_name, copy_format_default, preferences (JSON)
 
 ---
 
-## ICP Scoring (MVP — Rule-Based, Admin-Configurable)
+## ICP Scoring (Dual System)
 
+### Rule-Based (Static, Admin-Configurable)
 Default weights (configurable via /admin):
 
 | Signal | Default Points | Admin Editable |
@@ -214,13 +227,19 @@ Default weights (configurable via /admin):
 | HubSpot: already a lead/opportunity | +15 | Yes |
 | HubSpot: already a customer | -50 | Yes |
 
-Score 0–100. Badge on company cards. Verticals are not hardcoded — admin configures which verticals count as "match" per search context.
+### NL ICP (Per-Search, LLM-Powered)
+For discovery searches only (not company-name lookups):
+1. **Criteria extraction** (Groq `llama-3.1-8b-instant`, ~200ms): Parse query → `NLICPCriteria` (verticals, regions, size range, buying/negative signals, qualitative factors)
+2. **Batch scoring** (Gemini `gemini-2.0-flash`, ~500ms/batch of 5): Hybrid rule-based + LLM qualitative scoring → 0-100 score + 1-2 sentence reasoning per company
+3. Results grouped by ICP tier: High Fit (≥70) / Good Fit (40-69) / Low Fit (<40)
+4. Admin can configure "always apply" rules (e.g., "Penalize existing customers by -40")
 
 **Admin page at /admin** (restricted to Adi + JVS):
-- Edit ICP weight formula
+- Edit ICP weight formula + NL ICP overrides
 - Configure vertical match lists
 - Set size "sweet spot" ranges
 - Toggle signal types on/off
+- Toggle outreach suggestion rules on/off
 - View and edit exclusion list
 - All other configurable parameters
 
@@ -301,11 +320,9 @@ Built from spec (no external HTML reference file).
 - Skeleton shimmer loading states
 - Cinematic dark UI per design spec
 
-**Out of scope (Phase 2+):**
+**Out of scope (future):**
 - Push to HubSpot (create/update contacts)
-- Sequence creation
 - Research tool detection (complex technographics)
-- LinkedIn integration (needs Sales Nav API)
 - Analytics dashboard
 - Team activity feed
 - Ownership / prospect claiming
@@ -349,12 +366,10 @@ User visits app
 ## Anti-Requirements (What This Tool Does NOT Do)
 
 1. Does not replace Apollo — we aggregate, not duplicate
-2. Does not send emails — ends at contact data
-3. Does not track sequences — that's Apollo/HubSpot territory
-4. Does not do social selling — no LinkedIn messaging
-5. Does not have a mobile app — desktop power users
-6. Does not gamify — no leaderboards, no points
-7. Does not use AI for personalization — they write the emails
+2. Does not send emails — drafts outreach copy, user sends manually
+3. Does not auto-send LinkedIn messages — copy-paste only (no API)
+4. Does not have a mobile app — desktop power users
+5. Does not gamify — no leaderboards, no points
 
 ---
 
@@ -420,6 +435,16 @@ KV_REST_API_TOKEN=xxx
 # Auth
 SHARED_AUTH_PASSWORD=xxx
 ADMIN_USERS=adi,jvs
+
+# Groq (NL ICP criteria extraction — llama-3.1-8b-instant)
+GROQ_API_KEY=xxx
+
+# Gemini (NL ICP batch scoring — gemini-2.0-flash)
+GEMINI_API_KEY=xxx
+
+# Freshsales (CRM contacts, deals, activities)
+FRESHSALES_API_KEY=xxx
+FRESHSALES_DOMAIN=xxx
 ```
 
 ---
@@ -477,6 +502,60 @@ ADMIN_USERS=adi,jvs
 - **Export picker:** Fetches contacts on demand (fetchQuery + Zustand write), shows spinner until loaded.
 - **Browser notifications:** Native `Notification` API fires when tab is backgrounded (`document.hidden`) and a long-running op completes. Hook: `useBrowserNotifications` (`src/hooks/navigator/useBrowserNotifications.ts`). Wired into 5 locations: search complete/error (SearchBridge), export complete/fail (useExport), verification done (useExport → exportPickedContacts), contacts tab loaded (useContactsTab), dossier refresh (SlideOverPane). Gated by localStorage flag `nav_notifications_enabled` + granted permission. Auto-close 5s, click focuses tab. Toggle in Settings → Notifications; disabled state when browser has blocked.
 - **Workflow preferences (Settings page):** Two toggles under Settings → Workflow. (1) Skip email reveal confirm (`nav_skip_reveal_confirm`) — "Find email" reveals immediately, already wired in ContactCard. (2) Auto-export / skip picker (`nav_auto_export`) — Cmd+E in companies view calls `executeExport` directly, bypassing the contact picker modal. Invalid-email warning toast still fires. Both read/write localStorage directly.
+
+---
+
+## Rehaul (Feb 2026) — Implemented Features
+
+### Phase 1: Layout + Inline Contacts
+- **2-panel layout**: FilterPanel + all filter components deleted. Search bar is sole discovery entry point.
+- **Clearout auto-verify**: Contacts auto-verified on load (useCompanyDossier useEffect). Capped at 50/batch.
+- **Inline contacts on company cards**: Top 3-5 contacts by seniority (c_level > vp > director > manager). Low-seniority filtered out (intern/coordinator/assistant).
+- **All Contacts toggle**: Flat contact view across all search result companies. Store: `allContactsViewActive`, `selectedContactsForOutreach`.
+
+### Phase 2: NL ICP Scoring
+- **Groq extraction** (`llama-3.1-8b-instant`): Parses search query → `NLICPCriteria` (verticals, regions, size range, signals, qualitative factors).
+- **Gemini scoring** (`gemini-2.0-flash`): Batches of 5 companies → 0-100 score + reasoning.
+- Discovery searches grouped by ICP tier. Company-name searches skip scoring.
+- Files: `src/lib/navigator/llm/icpPrompts.ts`, `src/app/api/icp/score/route.ts`.
+
+### Phase 3: Peer Companies
+- **Freshsales peers**: `getFreshsalesPeers(industry, excludeDomain)` via `paginatedFilteredSearch` on `industry_type`.
+- **Exa peers**: Semantic similarity via existing Exa search.
+- Company-name searches show: exact match → CRM Peers → Discovered sections.
+- Dossier: `DossierSimilarCompanies.tsx` component. API: `/api/company/[domain]/peers`.
+
+### Phase 4: Multi-Channel Outreach + Sequences
+- **Channels**: Email, Call, LinkedIn Connect, LinkedIn InMail, WhatsApp. `OutreachChannel` type updated.
+- **Call channel**: Talking points via LLM. Deep-link to Freshsales contact page (`https://{domain}.freshsales.io/contacts/{id}`). `CallOutcomeModal` for logging (connected/voicemail/no_answer/busy/wrong_number).
+- **LinkedIn**: Opens profile URL + draft connection note or InMail (copy-paste only, no API). Gated by per-user `hasLinkedinSalesNav` toggle.
+- **Sequence builder**: `SequenceBuilder.tsx` — visual vertical timeline, connected nodes, channel color-coding, reorder, inline editing.
+- **Enrollment flow**: `SequenceEnrollModal.tsx` — pick existing sequence or create ad-hoc, batch enroll contacts.
+- **Progress tracking**: `SequenceTimeline.tsx` — step status (completed/current/pending/skipped), due dates, pause/resume/unenroll.
+- **Due steps widget**: `DueStepsWidget.tsx` on home screen (pre-search empty state). Shows today's due steps grouped by contact.
+- **Per-user config**: Settings → Outreach. Freshsales domain input + LinkedIn Sales Nav checkbox. Stored in `user_config` Supabase table.
+- **Outreach modal redesign**: Tab bar "One-Shot" | "Sequence". One-shot = existing draft flow + call channel. Sequence = pick/create sequence + enroll.
+- **Suggestion engine**: `warm_contact_call` rule added — warm CRM contact with phone → suggest call.
+- **Store additions**: `activeSequences`, `activeEnrollments`, `userConfig`, `selectedContactsForOutreach`.
+
+### Phase 5: Freshsales Prominence + Export
+- **Freshsales section elevated** in dossier (right after overview, before signals).
+- **"In Freshsales" column** added to both CSV and clipboard exports.
+- Excel primary, CSV secondary.
+
+### Phase 6: Credit Awareness
+- `CreditUsageIndicator` always visible in ResultsList top bar.
+- Shows Apollo (X/4K) + Clearout (X/50K) counts.
+- Apollo replenish date tooltip on hover.
+
+### Supabase Tables (added in rehaul)
+- `outreach_drafts` — draft logging (fire-and-forget)
+- `user_config` — per-user settings (PK: user_name)
+- `call_logs` — call outcome tracking
+- `outreach_sequences` — sequence definitions (JSONB steps)
+- `outreach_enrollments` — contact-sequence enrollments
+- `outreach_step_logs` — step execution records
+- Migration: `supabase/migrations/20260209_outreach_sequences.sql`
 
 ---
 

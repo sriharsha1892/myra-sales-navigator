@@ -12,6 +12,7 @@ interface ContactPayload {
   linkedinUrl?: string | null;
   seniority?: string;
   emailConfidence?: number;
+  sources?: string[];
 }
 
 function escapeCsv(field: string | undefined | null): string {
@@ -33,6 +34,7 @@ const ALL_COLUMNS: { key: string; header: string; extract: (c: ContactPayload) =
   { key: "linkedin", header: "LinkedIn", extract: (c) => c.linkedinUrl ?? "" },
   { key: "seniority", header: "Seniority", extract: (c) => c.seniority ?? "" },
   { key: "confidence", header: "Email Confidence", extract: (c) => String(c.emailConfidence ?? "") },
+  { key: "freshsales", header: "In Freshsales", extract: (c) => (c.sources ?? []).includes("freshsales") ? "Yes" : "No" },
 ];
 
 export async function POST(request: NextRequest) {

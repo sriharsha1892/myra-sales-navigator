@@ -190,8 +190,32 @@ export interface CompanyEnriched {
   exactMatch?: boolean;
   icpBreakdown?: { factor: string; points: number; matched: boolean }[];
   exaRelevanceScore?: number;
+  nlIcpScore?: number;
+  nlIcpReasoning?: string;
+  peerSource?: "freshsales" | "exa" | null;
 }
 
+
+// ---------------------------------------------------------------------------
+// NL ICP — per-search scoring via LLM
+// ---------------------------------------------------------------------------
+
+export interface NLICPCriteria {
+  description: string;
+  targetVerticals: string[];
+  targetRegions: string[];
+  targetSizeRange: { min: number; max: number } | null;
+  buyingSignals: string[];
+  negativeSignals: string[];
+  qualitativeFactors: string[];
+}
+
+export interface NLICPScore {
+  domain: string;
+  score: number; // 0-100
+  reasoning: string; // 1-2 sentences
+  scoringFailed?: boolean;
+}
 
 /**
  * @deprecated Use CompanyEnriched instead. Kept as alias during migration.
@@ -652,7 +676,7 @@ export interface EmailDraftResponse {
 // Multi-Channel Outreach
 // ---------------------------------------------------------------------------
 
-export type OutreachChannel = "email" | "linkedin_connect" | "linkedin_inmail" | "whatsapp";
+export type OutreachChannel = "email" | "linkedin_connect" | "linkedin_inmail" | "whatsapp" | "call";
 
 export interface ChannelConstraints {
   maxChars: number | null; // null = no limit
@@ -760,4 +784,70 @@ export interface ExtractedEntities {
   verticals: string[];
   regions: string[];
   signals: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Outreach Sequences & Cadences
+// ---------------------------------------------------------------------------
+
+export interface SequenceStep {
+  channel: OutreachChannel;
+  delayDays: number;
+  template?: EmailTemplate;
+  tone?: EmailTone;
+  notes?: string;
+}
+
+export interface OutreachSequence {
+  id: string;
+  name: string;
+  description?: string;
+  createdBy: string;
+  isTemplate: boolean;
+  steps: SequenceStep[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OutreachEnrollment {
+  id: string;
+  sequenceId: string;
+  contactId: string;
+  companyDomain: string;
+  enrolledBy: string;
+  currentStep: number;
+  status: "active" | "paused" | "completed" | "failed" | "unenrolled";
+  nextStepDueAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OutreachStepLog {
+  id: string;
+  enrollmentId: string;
+  stepIndex: number;
+  channel: string;
+  status: "pending" | "completed" | "skipped";
+  completedAt: string | null;
+  outcome: string | null;
+  notes: string | null;
+  draftContent: string | null;
+}
+
+export interface CallLog {
+  id: string;
+  contactId: string;
+  companyDomain: string;
+  userName: string;
+  outcome: "connected" | "voicemail" | "no_answer" | "busy" | "wrong_number";
+  notes: string | null;
+  durationSeconds: number | null;
+  createdAt: string;
+}
+
+export interface UserConfig {
+  userName: string;
+  freshsalesDomain: string | null;
+  hasLinkedinSalesNav: boolean;
+  preferences: Record<string, unknown>;
 }

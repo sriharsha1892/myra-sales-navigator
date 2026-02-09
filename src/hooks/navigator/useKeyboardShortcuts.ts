@@ -90,6 +90,52 @@ export function useKeyboardShortcuts() {
         searchInput?.focus();
         return;
       }
+
+      // ArrowDown — move to next result
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        const results = state.searchResults ?? [];
+        if (results.length === 0) return;
+        const currentIndex = state.activeResultIndex ?? -1;
+        const nextIndex = Math.min(currentIndex + 1, results.length - 1);
+        state.setActiveResultIndex(nextIndex);
+        const el = document.querySelector(`[data-result-index="${nextIndex}"]`);
+        el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        return;
+      }
+
+      // ArrowUp — move to previous result
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        const currentIndex = state.activeResultIndex ?? 0;
+        const prevIndex = Math.max(currentIndex - 1, 0);
+        state.setActiveResultIndex(prevIndex);
+        const el = document.querySelector(`[data-result-index="${prevIndex}"]`);
+        el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        return;
+      }
+
+      // Enter — select active result
+      if (e.key === "Enter") {
+        const results = state.searchResults ?? [];
+        const idx = state.activeResultIndex;
+        if (idx != null && idx >= 0 && idx < results.length) {
+          e.preventDefault();
+          state.selectCompany(results[idx].domain);
+        }
+        return;
+      }
+
+      // Space — toggle checkbox on active result
+      if (e.key === " ") {
+        const results = state.searchResults ?? [];
+        const idx = state.activeResultIndex;
+        if (idx != null && idx >= 0 && idx < results.length) {
+          e.preventDefault();
+          state.toggleCompanySelection(results[idx].domain);
+        }
+        return;
+      }
     };
 
     window.addEventListener("keydown", handler);

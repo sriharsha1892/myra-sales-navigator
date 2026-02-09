@@ -12,8 +12,11 @@ import { useSearchHistory } from "@/hooks/navigator/useSearchHistory";
 import { MyProspects } from "./MyProspects";
 import { pick } from "@/lib/navigator/ui-copy";
 import { ExportedContactsPanel } from "@/components/navigator/exports/ExportedContactsPanel";
+import { AllContactsView } from "./AllContactsView";
 import { SessionStarterCard } from "@/components/navigator/home/SessionStarterCard";
 import { FollowUpNudges } from "@/components/navigator/shared/FollowUpNudges";
+import { CreditUsageIndicator } from "@/components/navigator/CreditUsageIndicator";
+import { DueStepsWidget } from "@/components/navigator/outreach/DueStepsWidget";
 
 const exampleQueries = [
   "chemicals in Europe",
@@ -41,6 +44,7 @@ export function ResultsList() {
   const setFilters = useStore((s) => s.setFilters);
   const setPendingFilterSearch = useStore((s) => s.setPendingFilterSearch);
   const lastSearchQuery = useStore((s) => s.lastSearchQuery);
+  const lastICPCriteria = useStore((s) => s.lastICPCriteria);
   const { history } = useSearchHistory();
 
   const filteredCompanies = useStore((s) => s.filteredCompanies);
@@ -51,6 +55,9 @@ export function ResultsList() {
   const sessionCompaniesReviewed = useStore((s) => s.sessionCompaniesReviewed);
   const sessionContactsExported = useStore((s) => s.sessionContactsExported);
   const expandedContactsDomain = useStore((s) => s.expandedContactsDomain);
+  const allContactsViewActive = useStore((s) => s.allContactsViewActive);
+  const setAllContactsViewActive = useStore((s) => s.setAllContactsViewActive);
+  const presets = useStore((s) => s.presets);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -120,9 +127,24 @@ export function ResultsList() {
         )}
         <ViewToggle
           value={viewMode}
-          onChange={setViewMode}
+          onChange={(mode) => { setViewMode(mode); if (mode !== "companies") setAllContactsViewActive(false); }}
           companyCount={companies.length}
         />
+        {viewMode === "companies" && hasSearched && !searchLoading && (
+          <>
+            <div className="h-3.5 w-px bg-surface-3" />
+            <button
+              onClick={() => setAllContactsViewActive(!allContactsViewActive)}
+              className={`flex items-center gap-1.5 rounded-pill border px-2.5 py-1 text-xs transition-all duration-[180ms] ${
+                allContactsViewActive
+                  ? "border-accent-secondary/40 bg-accent-secondary/10 font-semibold text-accent-secondary"
+                  : "border-surface-3 text-text-tertiary hover:border-accent-secondary/30 hover:text-text-secondary"
+              }`}
+            >
+              All Contacts
+            </button>
+          </>
+        )}
         {viewMode === "companies" && companies.length > 0 && (() => {
           const avg = Math.round(companies.reduce((s, c) => s + c.icpScore, 0) / companies.length);
           const color = avg >= 70 ? "bg-success/15 text-success border-success/30" : avg >= 50 ? "bg-warning/15 text-warning border-warning/30" : "bg-surface-2 text-text-tertiary border-surface-3";
@@ -195,6 +217,7 @@ export function ResultsList() {
               </div>
             </>
           )}
+          <CreditUsageIndicator />
         </div>
       </div>
 
@@ -205,6 +228,21 @@ export function ResultsList() {
           <span className="font-mono text-xs text-text-secondary">&ldquo;{lastSearchQuery}&rdquo;</span>
           {!searchLoading && companies.length > 0 && (
             <span className="text-xs text-text-tertiary">({companies.length} companies)</span>
+          )}
+        </div>
+      )}
+
+      {/* ICP criteria banner */}
+      {lastICPCriteria && (
+        <div className="flex flex-shrink-0 items-center gap-2 border-b border-accent-primary/20 bg-accent-primary/5 px-4 py-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-primary">ICP</span>
+          <span className="text-xs text-text-secondary">{lastICPCriteria.description}</span>
+          {lastICPCriteria.targetVerticals.length > 0 && (
+            <div className="flex gap-1">
+              {lastICPCriteria.targetVerticals.slice(0, 3).map((v) => (
+                <span key={v} className="rounded-pill bg-accent-primary/10 px-1.5 py-0.5 text-[9px] text-accent-primary">{v}</span>
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -282,10 +320,38 @@ export function ResultsList() {
                 </button>
               ))}
             </div>
+
+            {/* Team presets */}
+            {presets.length > 0 && (
+              <div className="mt-6 w-full max-w-lg animate-fadeInUp" style={{ animationDelay: "400ms" }}>
+                <p className="mb-2 text-center text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">Team Presets</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {presets.slice(0, 6).map((preset) => (
+                    <button
+                      key={preset.id}
+                      onClick={() => {
+                        setFilters(preset.filters);
+                        setPendingFilterSearch(true);
+                      }}
+                      className="rounded-pill border border-accent-primary/20 bg-accent-primary/5 px-3 py-1.5 text-xs text-accent-primary transition-colors hover:bg-accent-primary/10 hover:border-accent-primary/40"
+                    >
+                      {preset.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Steps due today */}
+            <div className="mt-6 w-full max-w-lg animate-fadeInUp" style={{ animationDelay: "460ms" }}>
+              <DueStepsWidget />
+            </div>
             <div className="mt-8 flex w-full justify-center">
               <MyProspects />
             </div>
           </div>
+        ) : allContactsViewActive && viewMode === "companies" ? (
+          <AllContactsView />
         ) : viewMode === "companies" ? (
           companies.length === 0 ? (
             <NoResultsSuggestions />
@@ -467,7 +533,7 @@ function OnboardingTour({ onDismiss }: { onDismiss: () => void }) {
   const [step, setStep] = useState(0);
   const steps = [
     { title: "Search", body: "Type a company name, industry, or description in the search bar above. Or press \u2318K for a powerful free-text search." },
-    { title: "Filter", body: "Use the filter panel on the left to narrow results by vertical, region, company size, and buying signals." },
+    { title: "Filter", body: "Use the filter pills above the results to narrow by vertical, region, company size, and buying signals. Or press ⌘K to refine your search." },
     { title: "Export", body: "Select companies with checkboxes, then use Copy/CSV/Excel from the action bar at the bottom. Contacts are verified on export." },
   ];
 

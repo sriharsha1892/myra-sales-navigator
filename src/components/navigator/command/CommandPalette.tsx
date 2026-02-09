@@ -21,6 +21,9 @@ export function CommandPalette() {
 
   const setFilters = useStore((s) => s.setFilters);
   const setPendingFilterSearch = useStore((s) => s.setPendingFilterSearch);
+  const presets = useStore((s) => s.presets);
+  const loadPreset = useStore((s) => s.loadPreset);
+  const recentDomains = useStore((s) => s.recentDomains);
   const { history } = useSearchHistory();
   const [search, setSearch] = useState("");
   const inputRef = useCallback((node: HTMLInputElement | null) => {
@@ -114,6 +117,43 @@ export function CommandPalette() {
                     <span className="ml-auto font-mono text-[10px] text-text-tertiary">
                       {entry.resultCount} &middot; {timeAgo(entry.timestamp)}
                     </span>
+                  </CommandItem>
+                ))}
+              </Command.Group>
+            )}
+
+            {/* Saved Presets */}
+            {presets.length > 0 && (
+              <Command.Group heading="Saved Presets" className="mb-2">
+                {presets.map((p) => (
+                  <CommandItem
+                    key={p.id}
+                    onSelect={() => {
+                      loadPreset(p.id);
+                      setOpen(false);
+                    }}
+                  >
+                    <span className="truncate">{p.name}</span>
+                    <span className="ml-auto text-[10px] text-text-tertiary">
+                      by {p.createdBy}
+                    </span>
+                  </CommandItem>
+                ))}
+              </Command.Group>
+            )}
+
+            {/* Recent Companies */}
+            {recentDomains.length > 0 && (
+              <Command.Group heading="Recent Companies" className="mb-2">
+                {recentDomains.slice(0, 5).map((domain) => (
+                  <CommandItem
+                    key={domain}
+                    onSelect={() => {
+                      selectCompany(domain);
+                      setOpen(false);
+                    }}
+                  >
+                    <span className="truncate">{domain}</span>
                   </CommandItem>
                 ))}
               </Command.Group>

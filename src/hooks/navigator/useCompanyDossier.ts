@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useStore } from "@/lib/navigator/store";
-import type { CompanyEnriched, Contact, Signal } from "@/lib/navigator/types";
+import type { CompanyEnriched, Contact, Signal, VerificationResult } from "@/lib/navigator/types";
 
 async function fetchCompany(domain: string, companyName?: string): Promise<CompanyEnriched> {
   const nameParam = companyName ? `?name=${encodeURIComponent(companyName)}` : "";
@@ -100,7 +100,16 @@ async function fetchSignals(domain: string): Promise<Signal[]> {
   return data.signals ?? [];
 }
 
+/** Map Clearout status to Contact verificationStatus */
+function mapClearoutStatus(status: VerificationResult["status"]): NonNullable<Contact["verificationStatus"]> {
+  if (status === "valid") return "valid";
+  if (status === "invalid") return "invalid";
+  return "unknown";
+}
+
 export function useCompanyDossier(domain: string | null) {
+  const queryClient = useQueryClient();
+
   // Look up company name from search results for Freshsales name-based search.
   // Stabilize with useRef so that once companyName resolves, it doesn't revert
   // to undefined (which would cause React Query key churn and double-fetches).
@@ -155,6 +164,82 @@ export function useCompanyDossier(domain: string | null) {
       }
     }
   }, [domain, contactsData]);
+
+  // Auto-verify emails via Clearout when contacts load
+  const verifiedDomainsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!domain || !contactsData || contactsData.length === 0) return;
+    if (verifiedDomainsRef.current.has(domain)) return;
+
+    const needsVerification = contactsData.filter(
+      (c) =>
+        c.email &&
+        c.verificationStatus !== "valid" &&
+        c.verificationStatus !== "valid_risky" &&
+        c.verificationStatus !== "invalid"
+    );
+    if (needsVerification.length === 0) return;
+
+    verifiedDomainsRef.current.add(domain);
+    const batch = needsVerification.slice(0, 50);
+    const emails = batch.map((c) => c.email!);
+
+    (async () => {
+      try {
+        const res = await fetch("/api/contact/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ emails }),
+        });
+        if (!res.ok) return;
+        const data: { results: VerificationResult[] } = await res.json();
+        if (!data.results || data.results.length === 0) return;
+
+        const resultMap = new Map<string, VerificationResult>();
+        for (const r of data.results) resultMap.set(r.email.toLowerCase().trim(), r);
+
+        const now = new Date().toISOString();
+        const state = useStore.getState();
+        const currentContacts = state.contactsByDomain[domain] ?? [];
+        const updatedContacts = currentContacts.map((c) => {
+          if (!c.email) return c;
+          const result = resultMap.get(c.email.toLowerCase().trim());
+          if (!result) return c;
+          const vs = mapClearoutStatus(result.status);
+          const sts = result.status === "valid" && result.score >= 90;
+          return { ...c, emailConfidence: result.score, verificationStatus: vs, safeToSend: sts, lastVerified: now };
+        });
+        state.setContactsForDomain(domain, updatedContacts);
+
+        const verifiedCount = data.results.filter(r => r.status === "valid" || r.status === "invalid").length;
+        if (verifiedCount > 0) {
+          state.addToast({
+            message: `Verified ${verifiedCount} email${verifiedCount !== 1 ? "s" : ""}`,
+            type: "info",
+            duration: 3000,
+          });
+        }
+
+        queryClient.setQueriesData<Contact[]>(
+          { queryKey: ["company-contacts", domain] },
+          (old) => {
+            if (!old) return old;
+            return old.map((c) => {
+              if (!c.email) return c;
+              const result = resultMap.get(c.email.toLowerCase().trim());
+              if (!result) return c;
+              const vs = mapClearoutStatus(result.status);
+              const sts = result.status === "valid" && result.score >= 90;
+              return { ...c, emailConfidence: result.score, verificationStatus: vs, safeToSend: sts, lastVerified: now };
+            });
+          },
+        );
+      } catch {
+        // Silent failure — verification is best-effort
+      }
+    })();
+  }, [domain, contactsData, queryClient]);
 
   const company = companyQuery.data ?? null;
   const contacts = contactsQuery.data ?? [];

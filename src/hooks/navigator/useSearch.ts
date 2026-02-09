@@ -2,7 +2,7 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { useStore } from "@/lib/navigator/store";
-import type { CompanyEnriched, FilterState, ExtractedEntities } from "@/lib/navigator/types";
+import type { CompanyEnriched, FilterState, ExtractedEntities, NLICPCriteria } from "@/lib/navigator/types";
 
 interface SearchParams {
   filters?: FilterState;
@@ -12,6 +12,7 @@ interface SearchParams {
 interface SearchResponse {
   companies: CompanyEnriched[];
   extractedEntities?: ExtractedEntities;
+  nlIcpCriteria?: NLICPCriteria | null;
 }
 
 async function searchCompanies(params: SearchParams): Promise<SearchResponse> {
@@ -28,6 +29,7 @@ async function searchCompanies(params: SearchParams): Promise<SearchResponse> {
   return {
     companies: data.companies ?? [],
     extractedEntities: data.extractedEntities ?? undefined,
+    nlIcpCriteria: data.nlIcpCriteria ?? null,
   };
 }
 
@@ -35,6 +37,7 @@ export function useSearch() {
   const setSearchResults = useStore((s) => s.setSearchResults);
   const setSearchError = useStore((s) => s.setSearchError);
   const setExtractedEntities = useStore((s) => s.setExtractedEntities);
+  const setLastICPCriteria = useStore((s) => s.setLastICPCriteria);
 
   const mutation = useMutation({
     mutationFn: searchCompanies,
@@ -44,6 +47,7 @@ export function useSearch() {
       if (data.extractedEntities) {
         setExtractedEntities(data.extractedEntities);
       }
+      setLastICPCriteria(data.nlIcpCriteria ?? null);
     },
     onError: (error: Error) => {
       setSearchResults([]);
@@ -61,6 +65,7 @@ export function useSearch() {
       setSearchResults(null);
       setSearchError(null);
       setExtractedEntities(null);
+      setLastICPCriteria(null);
     },
   };
 }

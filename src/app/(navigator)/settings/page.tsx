@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useAuth } from "@/providers/AuthProvider";
 import { useStore } from "@/lib/navigator/store";
@@ -36,6 +37,41 @@ export default function SettingsPage() {
   const [autoExport, setAutoExport] = useState(() =>
     typeof window !== "undefined" ? localStorage.getItem("nav_auto_export") === "1" : false
   );
+
+  // Outreach: per-user config
+  const setUserConfig = useStore((s) => s.setUserConfig);
+  const [freshsalesDomain, setFreshsalesDomain] = useState("");
+  const [hasLinkedinSalesNav, setHasLinkedinSalesNav] = useState(false);
+
+  const { data: userConfigData, isFetched: outreachConfigLoaded } = useQuery({
+    queryKey: ["user-config"],
+    queryFn: async () => {
+      const res = await fetch("/api/user/config");
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+
+  useEffect(() => {
+    if (userConfigData) {
+      setFreshsalesDomain(userConfigData.freshsalesDomain ?? "");
+      setHasLinkedinSalesNav(userConfigData.hasLinkedinSalesNav ?? false);
+      setUserConfig(userConfigData);
+    }
+  }, [userConfigData, setUserConfig]);
+
+  const saveOutreachConfig = useCallback(async (fsDomain: string, linkedinSalesNav: boolean) => {
+    const cfg = { freshsalesDomain: fsDomain || null, hasLinkedinSalesNav: linkedinSalesNav, preferences: {} };
+    try {
+      await fetch("/api/user/config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cfg),
+      });
+      setUserConfig({ userName: userName ?? "", ...cfg });
+    } catch { /* silent */ }
+  }, [userName, setUserConfig]);
 
   if (isLoading) {
     return (
@@ -206,6 +242,49 @@ export default function SettingsPage() {
               </div>
             </label>
           </div>
+        </Section>
+
+        {/* Outreach */}
+        <Section title="Outreach">
+          {!outreachConfigLoaded ? (
+            <div className="shimmer h-16 w-full rounded-input" />
+          ) : (
+            <div className="space-y-4">
+              <SettingField label="Freshsales Domain" hint="Your Freshsales subdomain (e.g., mycompany). Used for call deep-links.">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-text-tertiary">https://</span>
+                  <input
+                    type="text"
+                    value={freshsalesDomain}
+                    onChange={(e) => setFreshsalesDomain(e.target.value)}
+                    onBlur={() => saveOutreachConfig(freshsalesDomain, hasLinkedinSalesNav)}
+                    placeholder="mycompany"
+                    className="flex-1 rounded-input border border-surface-3 bg-surface-2 px-2.5 py-2 text-sm text-text-primary focus:border-accent-primary focus:outline-none"
+                  />
+                  <span className="text-xs text-text-tertiary">.freshsales.io</span>
+                </div>
+              </SettingField>
+
+              <label className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={hasLinkedinSalesNav}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    setHasLinkedinSalesNav(on);
+                    saveOutreachConfig(freshsalesDomain, on);
+                  }}
+                  className="mt-0.5 h-4 w-4 rounded border-surface-3 bg-surface-2 accent-accent-primary"
+                />
+                <div>
+                  <span className="text-sm font-medium text-text-primary">LinkedIn Sales Navigator</span>
+                  <p className="mt-0.5 text-[11px] text-text-tertiary">
+                    Enable InMail drafting for LinkedIn outreach steps. Without Sales Nav, only connection request notes are available.
+                  </p>
+                </div>
+              </label>
+            </div>
+          )}
         </Section>
 
         {/* Keyboard shortcuts */}

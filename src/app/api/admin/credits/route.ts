@@ -47,7 +47,21 @@ export async function GET() {
       },
     };
 
-    return NextResponse.json({ providers });
+    // Compute next Apollo replenish date (11th of current or next month)
+    let apolloReplenishDate: string | undefined;
+    if (isApolloAvailable()) {
+      const now = new Date();
+      const replenishDay = 11;
+      let replenish: Date;
+      if (now.getDate() < replenishDay) {
+        replenish = new Date(now.getFullYear(), now.getMonth(), replenishDay);
+      } else {
+        replenish = new Date(now.getFullYear(), now.getMonth() + 1, replenishDay);
+      }
+      apolloReplenishDate = replenish.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    }
+
+    return NextResponse.json({ providers, apolloReplenishDate });
   } catch (err) {
     console.error("[Credits] GET error:", err);
     return NextResponse.json(

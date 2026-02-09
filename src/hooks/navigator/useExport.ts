@@ -35,6 +35,7 @@ function buildContactPayload(c: Contact) {
     linkedinUrl: c.linkedinUrl,
     seniority: c.seniority,
     emailConfidence: c.emailConfidence,
+    sources: c.sources,
   };
 }
 
@@ -126,7 +127,7 @@ export function useExport() {
           const ExcelJS = (await import("exceljs")).default;
           const workbook = new ExcelJS.Workbook();
           const sheet = workbook.addWorksheet("Contacts");
-          sheet.columns = [
+          const allExcelColumns = [
             { header: "First Name", key: "firstName", width: 15 },
             { header: "Last Name", key: "lastName", width: 15 },
             { header: "Email", key: "email", width: 30 },
@@ -136,7 +137,12 @@ export function useExport() {
             { header: "Seniority", key: "seniority", width: 12 },
             { header: "Confidence", key: "confidence", width: 12 },
             { header: "Sources", key: "sources", width: 15 },
+            { header: "In Freshsales", key: "inFreshsales", width: 14 },
           ];
+          const csvColumns = adminConfig.exportSettings?.csvColumns;
+          sheet.columns = csvColumns?.length
+            ? allExcelColumns.filter((col) => csvColumns.includes(col.key))
+            : allExcelColumns;
           for (const c of contacts) {
             sheet.addRow({
               firstName: c.firstName,
@@ -148,6 +154,7 @@ export function useExport() {
               seniority: c.seniority,
               confidence: c.emailConfidence,
               sources: (c.sources ?? []).join(", "),
+              inFreshsales: c.sources?.includes("freshsales") ? "Yes" : "No",
             });
           }
           const buffer = await workbook.xlsx.writeBuffer();
@@ -193,9 +200,9 @@ export function useExport() {
           addToast({ message: pick("export_fallback"), type: "info", duration: 3000 });
           // Fallback: client-side CSV generation
           const csvRows = [
-            ["First Name", "Last Name", "Email", "Title", "Company", "Phone", "Confidence"].join(","),
+            ["First Name", "Last Name", "Email", "Title", "Company", "Phone", "Confidence", "In Freshsales"].join(","),
             ...contacts.map((c) =>
-              [c.firstName, c.lastName, c.email ?? "", c.title, c.companyName, c.phone ?? "", String(c.emailConfidence)].map(escapeCsvField).join(",")
+              [c.firstName, c.lastName, c.email ?? "", c.title, c.companyName, c.phone ?? "", String(c.emailConfidence), c.sources?.includes("freshsales") ? "Yes" : "No"].map(escapeCsvField).join(",")
             ),
           ];
           const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });

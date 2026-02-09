@@ -143,7 +143,7 @@ export default function Home() {
         </div>
 
         {/* Centered search bar */}
-        <div className="relative flex w-full max-w-2xl items-center mx-4">
+        <div className="relative flex w-full max-w-3xl items-center mx-4">
           {searchLoading ? (
             <svg className="pointer-events-none absolute left-3 h-3.5 w-3.5 text-text-tertiary animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
@@ -170,7 +170,7 @@ export default function Home() {
               }
             }}
             placeholder={placeholder}
-            className={`w-full rounded-pill border border-surface-3 bg-surface-2 py-2 pl-9 pr-16 text-sm text-text-primary placeholder:text-text-tertiary transition-all duration-[180ms] focus:border-accent-primary focus:shadow-[0_0_0_3px_var(--color-accent-primary-light)] focus:outline-none${showGlow ? " animate-[searchGlow_2s_ease-in-out_3]" : ""}`}
+            className={`w-full rounded-pill border border-surface-3 bg-surface-2 py-2.5 pl-9 pr-16 text-base text-text-primary placeholder:text-text-tertiary transition-all duration-[180ms] focus:border-accent-primary focus:shadow-[0_0_0_3px_var(--color-accent-primary-light)] focus:outline-none${showGlow ? " animate-[searchGlow_2s_ease-in-out_3]" : ""}`}
           />
           <kbd
             onClick={() => useStore.getState().setCommandPaletteOpen(true)}

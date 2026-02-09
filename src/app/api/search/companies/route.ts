@@ -9,7 +9,8 @@ import {
 import { createServerClient } from "@/lib/supabase/server";
 import { calculateIcpScore } from "@/lib/navigator/scoring";
 import { getCached, setCached, getRootDomain } from "@/lib/cache";
-import type { Company, FilterState, IcpWeights } from "@/lib/navigator/types";
+import { extractICPCriteria, scoreCompaniesAgainstICP } from "@/lib/navigator/llm/icpPrompts";
+import type { Company, FilterState, IcpWeights, NLICPCriteria } from "@/lib/navigator/types";
 
 // ---------------------------------------------------------------------------
 // Apollo structured search — enrich Exa domains + find contacts in parallel
@@ -268,6 +269,27 @@ export async function POST(request: Request) {
       c.icpBreakdown = breakdown;
     }
 
+    // NL ICP scoring — only for discovery queries, not company name lookups
+    let nlIcpCriteria: NLICPCriteria | null = null;
+    if (!isNameQuery && freeText) {
+      try {
+        nlIcpCriteria = await extractICPCriteria(freeText);
+        const nlScores = await scoreCompaniesAgainstICP(nlIcpCriteria, companies);
+        const scoreMap = new Map(nlScores.map((s) => [s.domain, s]));
+        for (const c of companies) {
+          const nlScore = scoreMap.get(c.domain);
+          if (nlScore) {
+            c.nlIcpScore = nlScore.score;
+            c.nlIcpReasoning = nlScore.reasoning;
+            // Blend: NL ICP score takes priority for sorting
+            c.icpScore = nlScore.score;
+          }
+        }
+      } catch (err) {
+        console.warn("[Search] NL ICP scoring failed, using rule-based:", err);
+      }
+    }
+
     // Sort by ICP score descending — best results first
     companies.sort((a, b) => b.icpScore - a.icpScore);
 
@@ -320,6 +342,7 @@ export async function POST(request: Request) {
       signals: exaResult.signals,
       reformulatedQueries,
       extractedEntities,
+      nlIcpCriteria,
     });
   } catch (err) {
     console.error("[Search] search failed:", err);

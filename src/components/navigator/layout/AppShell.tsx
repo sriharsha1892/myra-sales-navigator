@@ -2,7 +2,6 @@
 
 import React, { useEffect } from "react";
 import { useStore } from "@/lib/navigator/store";
-import { FilterPanel } from "./FilterPanel";
 import { ResultsList } from "./ResultsList";
 import { SlideOverPane } from "./SlideOverPane";
 import { DetailPlaceholder } from "./DetailPlaceholder";
@@ -30,11 +29,6 @@ export function AppShell() {
 
   return (
     <div className="relative flex h-full w-full overflow-hidden">
-      {/* Sidebar / Filter Panel */}
-      <div className="w-[220px] flex-shrink-0 overflow-hidden border-r border-surface-3">
-        <FilterPanel />
-      </div>
-
       {/* Main results area */}
       <div className="min-w-0 flex-1">
         <ResultsList />
@@ -73,9 +67,9 @@ export function AppShell() {
           {!detailPaneCollapsed && (
             <div style={{ animation: "columnReveal 250ms ease-out" }}>
               {selectedCompanyDomain ? (
-                <DossierErrorBoundary key={selectedCompanyDomain}>
+                <DetailErrorBoundary key={selectedCompanyDomain}>
                   <SlideOverPane />
-                </DossierErrorBoundary>
+                </DetailErrorBoundary>
               ) : (
                 <DetailPlaceholder />
               )}
@@ -87,7 +81,7 @@ export function AppShell() {
   );
 }
 
-class DossierErrorBoundary extends React.Component<
+class DetailErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { hasError: boolean }
 > {
@@ -104,7 +98,7 @@ class DossierErrorBoundary extends React.Component<
     if (this.state.hasError) {
       return (
         <div className="flex h-full w-[420px] flex-col items-center justify-center gap-3 bg-surface-0 px-6">
-          <p className="text-sm text-text-secondary">Something went wrong loading the dossier.</p>
+          <p className="text-sm text-text-secondary">Something went wrong loading company details.</p>
           <button
             onClick={() => this.setState({ hasError: false })}
             className="rounded-input border border-surface-3 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-2"

@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach, vi, beforeEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // ---------------------------------------------------------------------------
 // Mock useBrowserNotifications
@@ -37,6 +38,7 @@ vi.mock("@/providers/AuthProvider", () => ({
 const mockSetViewMode = vi.fn();
 const mockSetSortField = vi.fn();
 const mockSetUserCopyFormat = vi.fn();
+const mockSetUserConfig = vi.fn();
 
 vi.mock("@/lib/navigator/store", async () => {
   const { create } = await import("zustand");
@@ -55,6 +57,7 @@ vi.mock("@/lib/navigator/store", async () => {
       setSortField: mockSetSortField,
       userCopyFormat: "default",
       setUserCopyFormat: mockSetUserCopyFormat,
+      setUserConfig: mockSetUserConfig,
     };
     return selector(mockState);
   };
@@ -79,12 +82,17 @@ vi.mock("next/link", () => ({
 // ---------------------------------------------------------------------------
 
 let lsStore: Record<string, string> = {};
+let queryClient: QueryClient;
 
 beforeEach(() => {
   lsStore = {};
   vi.clearAllMocks();
   mockNotifEnabled = false;
   mockNotifPermission = "default";
+
+  queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
 
   vi.stubGlobal("localStorage", {
     getItem: vi.fn((key: string) => lsStore[key] ?? null),
@@ -105,23 +113,35 @@ afterEach(() => {
 import SettingsPage from "@/app/(navigator)/settings/page";
 
 // ---------------------------------------------------------------------------
+// Helper — wrap SettingsPage with QueryClientProvider
+// ---------------------------------------------------------------------------
+
+function renderPage() {
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <SettingsPage />
+    </QueryClientProvider>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 describe("SettingsPage — Notifications section", () => {
   it("renders the Notifications section heading", () => {
-    render(<SettingsPage />);
+    renderPage();
     expect(screen.getByText("Notifications")).toBeInTheDocument();
   });
 
   it("renders the Browser Notifications checkbox", () => {
-    render(<SettingsPage />);
+    renderPage();
     expect(screen.getByText("Browser Notifications")).toBeInTheDocument();
   });
 
   it("checkbox reflects enabled state (unchecked)", () => {
     mockNotifEnabled = false;
-    render(<SettingsPage />);
+    renderPage();
 
     const checkboxes = screen.getAllByRole("checkbox");
     // The notifications checkbox is the first one after the defaults section
@@ -134,7 +154,7 @@ describe("SettingsPage — Notifications section", () => {
 
   it("checkbox reflects enabled state (checked)", () => {
     mockNotifEnabled = true;
-    render(<SettingsPage />);
+    renderPage();
 
     const checkboxes = screen.getAllByRole("checkbox");
     const notifCheckbox = checkboxes.find((cb) => {
@@ -146,7 +166,7 @@ describe("SettingsPage — Notifications section", () => {
 
   it("calls toggleEnabled when checkbox is toggled", () => {
     mockNotifEnabled = false;
-    render(<SettingsPage />);
+    renderPage();
 
     const checkboxes = screen.getAllByRole("checkbox");
     const notifCheckbox = checkboxes.find((cb) => {
@@ -160,21 +180,21 @@ describe("SettingsPage — Notifications section", () => {
 
   it("shows blocked hint when permission is denied", () => {
     mockNotifPermission = "denied";
-    render(<SettingsPage />);
+    renderPage();
 
     expect(screen.getByText(/Notifications are blocked/)).toBeInTheDocument();
   });
 
   it("shows standard hint when permission is not denied", () => {
     mockNotifPermission = "default";
-    render(<SettingsPage />);
+    renderPage();
 
     expect(screen.getByText(/Get notified when searches/)).toBeInTheDocument();
   });
 
   it("checkbox is disabled when permission is denied", () => {
     mockNotifPermission = "denied";
-    render(<SettingsPage />);
+    renderPage();
 
     const checkboxes = screen.getAllByRole("checkbox");
     const notifCheckbox = checkboxes.find((cb) => {
@@ -186,7 +206,7 @@ describe("SettingsPage — Notifications section", () => {
 
   it("checkbox is enabled when permission is default", () => {
     mockNotifPermission = "default";
-    render(<SettingsPage />);
+    renderPage();
 
     const checkboxes = screen.getAllByRole("checkbox");
     const notifCheckbox = checkboxes.find((cb) => {
@@ -199,23 +219,23 @@ describe("SettingsPage — Notifications section", () => {
 
 describe("SettingsPage — Workflow section", () => {
   it("renders the Workflow section heading", () => {
-    render(<SettingsPage />);
+    renderPage();
     expect(screen.getByText("Workflow")).toBeInTheDocument();
   });
 
   it("renders skip reveal confirmation toggle", () => {
-    render(<SettingsPage />);
+    renderPage();
     expect(screen.getByText("Skip email reveal confirmation")).toBeInTheDocument();
   });
 
   it("renders auto-export toggle", () => {
-    render(<SettingsPage />);
+    renderPage();
     expect(screen.getByText("Auto-export (skip contact picker)")).toBeInTheDocument();
   });
 
   it("skip reveal checkbox reads initial value from localStorage", () => {
     lsStore["nav_skip_reveal_confirm"] = "1";
-    render(<SettingsPage />);
+    renderPage();
 
     const checkboxes = screen.getAllByRole("checkbox");
     const skipRevealCb = checkboxes.find((cb) => {
@@ -227,7 +247,7 @@ describe("SettingsPage — Workflow section", () => {
 
   it("auto-export checkbox reads initial value from localStorage", () => {
     lsStore["nav_auto_export"] = "1";
-    render(<SettingsPage />);
+    renderPage();
 
     const checkboxes = screen.getAllByRole("checkbox");
     const autoExportCb = checkboxes.find((cb) => {
@@ -238,7 +258,7 @@ describe("SettingsPage — Workflow section", () => {
   });
 
   it("toggling skip reveal ON writes to localStorage", () => {
-    render(<SettingsPage />);
+    renderPage();
 
     const checkboxes = screen.getAllByRole("checkbox");
     const skipRevealCb = checkboxes.find((cb) => {
@@ -252,7 +272,7 @@ describe("SettingsPage — Workflow section", () => {
 
   it("toggling skip reveal OFF removes from localStorage", () => {
     lsStore["nav_skip_reveal_confirm"] = "1";
-    render(<SettingsPage />);
+    renderPage();
 
     const checkboxes = screen.getAllByRole("checkbox");
     const skipRevealCb = checkboxes.find((cb) => {
@@ -266,7 +286,7 @@ describe("SettingsPage — Workflow section", () => {
   });
 
   it("toggling auto-export ON writes to localStorage", () => {
-    render(<SettingsPage />);
+    renderPage();
 
     const checkboxes = screen.getAllByRole("checkbox");
     const autoExportCb = checkboxes.find((cb) => {
@@ -280,7 +300,7 @@ describe("SettingsPage — Workflow section", () => {
 
   it("toggling auto-export OFF removes from localStorage", () => {
     lsStore["nav_auto_export"] = "1";
-    render(<SettingsPage />);
+    renderPage();
 
     const checkboxes = screen.getAllByRole("checkbox");
     const autoExportCb = checkboxes.find((cb) => {
@@ -293,7 +313,7 @@ describe("SettingsPage — Workflow section", () => {
   });
 
   it("both checkboxes start unchecked when localStorage is empty", () => {
-    render(<SettingsPage />);
+    renderPage();
 
     const checkboxes = screen.getAllByRole("checkbox");
     const skipRevealCb = checkboxes.find((cb) => {
@@ -310,19 +330,19 @@ describe("SettingsPage — Workflow section", () => {
   });
 
   it("shows hint text for skip reveal", () => {
-    render(<SettingsPage />);
+    renderPage();
     expect(screen.getByText(/reveals immediately without a confirmation/)).toBeInTheDocument();
   });
 
   it("shows hint text for auto-export", () => {
-    render(<SettingsPage />);
+    renderPage();
     expect(screen.getByText(/exports all contacts directly without opening the picker/)).toBeInTheDocument();
   });
 });
 
 describe("SettingsPage — section ordering", () => {
   it("renders Notifications before Workflow before Keyboard Shortcuts", () => {
-    render(<SettingsPage />);
+    renderPage();
 
     const headings = screen.getAllByRole("heading", { level: 2 });
     const headingTexts = headings.map((h) => h.textContent);

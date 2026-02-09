@@ -40,7 +40,7 @@ export function RecommendedActionBar({ company, contacts }: RecommendedActionBar
 
   const suggestion = useOutreachSuggestion(company, draftContact, draftOpen);
 
-  if (dismissed || !action) return null;
+  if (dismissed || !action || contacts.length === 0) return null;
 
   const priorityColors = {
     high: "border-accent-primary/30 bg-accent-primary/5",

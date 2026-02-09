@@ -705,3 +705,60 @@ export async function getFreshsalesStatus(domain: string, companyName?: string):
   const intel = await getFreshsalesIntel(domain, companyName);
   return intel.status;
 }
+
+// ---------------------------------------------------------------------------
+// Peer companies — find accounts in the same industry
+// ---------------------------------------------------------------------------
+
+export async function getFreshsalesPeers(
+  industry: string,
+  excludeDomain: string,
+  limit: number = 10
+): Promise<FreshsalesIntel[]> {
+  const settings = await getFreshsalesConfig();
+  if (!isFreshsalesAvailable(settings)) return [];
+
+  const baseUrl = getBaseUrl(settings);
+  try {
+    const filterRule = [
+      { attribute: "industry_type", operator: "contains", value: industry },
+    ];
+    const accounts = await paginatedFilteredSearch(baseUrl, "sales_account", filterRule, 2);
+
+    // Filter out the source company and limit results
+    const excludeNorm = normalizeDomain(excludeDomain);
+    const filtered = accounts
+      .filter((acc) => {
+        const website = (acc.website as string) || "";
+        const accDomain = normalizeDomain(website.replace(/^https?:\/\//, "").replace(/\/.*$/, ""));
+        return accDomain !== excludeNorm;
+      })
+      .slice(0, limit);
+
+    // Convert to lightweight FreshsalesIntel (no contacts/deals/activities fetch)
+    return filtered.map((acc) => {
+      const website = (acc.website as string) || "";
+      const domain = getRootDomain(website.replace(/^https?:\/\//, "").replace(/\/.*$/, "")) || "";
+      return {
+        domain,
+        status: "new_lead" as FreshsalesStatus,
+        account: {
+          id: acc.id as number,
+          name: (acc.name as string) || "",
+          website: website || null,
+          industry: (acc.industry_type as string) || industry,
+          employees: (acc.number_of_employees as number) || null,
+          owner: null,
+          lastContacted: null,
+        },
+        contacts: [],
+        deals: [],
+        recentActivity: [],
+        lastContactDate: null,
+      };
+    });
+  } catch (err) {
+    console.error("[Freshsales] getFreshsalesPeers error:", err);
+    return [];
+  }
+}

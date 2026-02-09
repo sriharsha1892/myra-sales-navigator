@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useStore } from "@/lib/navigator/store";
 import { Overlay } from "@/components/primitives/Overlay";
 import { useInlineFeedback } from "@/hooks/navigator/useInlineFeedback";
@@ -14,6 +15,7 @@ import type {
   EmailTemplate,
   OutreachChannel,
   OutreachDraftResponse,
+  OutreachSequence,
   HubSpotStatus,
   CustomEmailTemplate,
 } from "@/lib/navigator/types";
@@ -65,9 +67,12 @@ export function OutreachDraftModal({
     return outreachConfig.enabledChannels;
   }, [outreachConfig]);
 
-  // WhatsApp disabled if no CRM relationship
+  // WhatsApp disabled if no CRM relationship or no phone number
   const whatsappDisabled =
-    company.hubspotStatus === "none" && company.freshsalesStatus === "none";
+    (company.hubspotStatus === "none" && company.freshsalesStatus === "none") || !contact.phone;
+
+  // LinkedIn disabled if no LinkedIn URL
+  const linkedinDisabled = !contact.linkedinUrl;
 
   const defaultChannel = suggestedChannel ?? outreachConfig?.defaultChannel ?? "email";
   const [channel, setChannel] = useState<OutreachChannel>(
@@ -89,6 +94,86 @@ export function OutreachDraftModal({
     writingRulesSession || outreachConfig?.writingRulesDefault || ""
   );
   const [showSuggestion, setShowSuggestion] = useState(!!suggestionReason);
+  const [modalTab, setModalTab] = useState<"one-shot" | "sequence">("one-shot");
+  const [showCallOutcome, setShowCallOutcome] = useState(false);
+  const [selectedSequenceId, setSelectedSequenceId] = useState<string | null>(null);
+  const [isEnrolling, setIsEnrolling] = useState(false);
+
+  const userConfig = useStore((s) => s.userConfig);
+
+  // Fetch available sequences for sequence tab
+  const { data: sequencesData, isError: sequencesFetchError } = useQuery({
+    queryKey: ["outreach-sequences"],
+    queryFn: async () => {
+      const res = await fetch("/api/outreach/sequences");
+      if (!res.ok) throw new Error("Failed to fetch sequences");
+      return res.json() as Promise<{ sequences: OutreachSequence[] }>;
+    },
+    enabled: modalTab === "sequence",
+    staleTime: 60_000,
+    retry: 1,
+  });
+
+  const handleEnroll = useCallback(async () => {
+    if (!selectedSequenceId) return;
+    setIsEnrolling(true);
+    try {
+      const res = await fetch("/api/outreach/enrollments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sequenceId: selectedSequenceId,
+          contactId: contact.id,
+          companyDomain: company.domain,
+        }),
+      });
+      if (!res.ok) throw new Error("Enrollment failed");
+      addToast({ message: `Enrolled ${contact.firstName} in sequence`, type: "success" });
+      onClose();
+    } catch {
+      addToast({ message: "Failed to enroll in sequence", type: "error" });
+    } finally {
+      setIsEnrolling(false);
+    }
+  }, [selectedSequenceId, contact, company, addToast, onClose]);
+
+  const handleOpenFreshsales = useCallback(() => {
+    const fsDomain = userConfig?.freshsalesDomain;
+    const fsContactId = contact.freshsalesOwnerId;
+    let url = "";
+    if (fsDomain && fsContactId) {
+      url = `https://${fsDomain}.freshsales.io/contacts/${fsContactId}`;
+    } else if (fsDomain) {
+      url = `https://${fsDomain}.freshsales.io`;
+    }
+    if (url) {
+      const win = window.open(url, "_blank");
+      if (!win) {
+        addToast({ message: "Popup blocked — allow popups for this site", type: "error" });
+      }
+    }
+    setShowCallOutcome(true);
+  }, [userConfig, contact, addToast]);
+
+  const handleLogCallOutcome = useCallback(async (outcome: string, notes: string, durationSeconds: number | null) => {
+    try {
+      await fetch("/api/outreach/call-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contactId: contact.id,
+          companyDomain: company.domain,
+          outcome,
+          notes: notes || null,
+          durationSeconds,
+        }),
+      });
+      addToast({ message: "Call outcome logged", type: "success" });
+      setShowCallOutcome(false);
+    } catch {
+      addToast({ message: "Failed to log call outcome", type: "error" });
+    }
+  }, [contact, company, addToast]);
 
   // Context placeholders
   const [showPlaceholders, setShowPlaceholders] = useState(false);
@@ -225,7 +310,7 @@ export function OutreachDraftModal({
             <h3 className="font-display text-base font-medium text-text-primary">
               Draft Outreach
             </h3>
-            <p className="mt-0.5 text-xs text-text-tertiary">
+            <p className="mt-0.5 max-w-[400px] truncate text-xs text-text-tertiary">
               {contact.firstName} {contact.lastName} at {company.name}
             </p>
           </div>
@@ -240,8 +325,25 @@ export function OutreachDraftModal({
           </button>
         </div>
 
+        {/* Tab bar: One-Shot | Sequence */}
+        <div className="flex border-b border-surface-3">
+          {(["one-shot", "sequence"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setModalTab(tab)}
+              className={`flex-1 py-2 text-xs font-medium transition-colors ${
+                modalTab === tab
+                  ? "border-b-2 border-accent-primary text-accent-primary"
+                  : "text-text-secondary hover:text-text-primary"
+              }`}
+            >
+              {tab === "one-shot" ? "One-Shot" : "Sequence"}
+            </button>
+          ))}
+        </div>
+
         {/* Suggestion pill */}
-        {showSuggestion && suggestionReason && (
+        {modalTab === "one-shot" && showSuggestion && suggestionReason && (
           <div className="flex items-center gap-2 border-b border-surface-3 bg-accent-primary/5 px-5 py-2">
             <span className="text-xs text-accent-primary">Suggested:</span>
             <span className="text-xs text-text-secondary">{suggestionReason}</span>
@@ -257,10 +359,75 @@ export function OutreachDraftModal({
           </div>
         )}
 
+        {modalTab === "sequence" ? (
+          /* ---- Sequence enrollment tab ---- */
+          <div className="px-5 py-4">
+            <p className="mb-3 text-xs text-text-secondary">
+              Enroll {contact.firstName} in a multi-step outreach sequence.
+            </p>
+            {sequencesFetchError ? (
+              <div className="py-6 text-center text-xs text-danger">
+                Failed to load sequences. Check your connection and try again.
+              </div>
+            ) : !sequencesData?.sequences?.length ? (
+              <div className="py-6 text-center text-xs text-text-tertiary">
+                No sequences created yet. Create one from the Sequences page.
+              </div>
+            ) : (
+              <div className="max-h-[300px] space-y-1.5 overflow-y-auto">
+                {sequencesData.sequences.map((seq) => (
+                  <button
+                    key={seq.id}
+                    onClick={() => setSelectedSequenceId(seq.id === selectedSequenceId ? null : seq.id)}
+                    className={`flex w-full items-start gap-3 rounded-input border px-3 py-2.5 text-left transition-all duration-[180ms] ${
+                      selectedSequenceId === seq.id
+                        ? "border-accent-primary/40 bg-accent-primary/5"
+                        : "border-surface-3 bg-surface-0 hover:border-surface-3/80 hover:bg-surface-2/50"
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="block text-xs font-medium text-text-primary">{seq.name}</span>
+                      {seq.description && (
+                        <span className="block mt-0.5 text-[10px] text-text-tertiary truncate">{seq.description}</span>
+                      )}
+                      <span className="block mt-1 text-[10px] text-text-tertiary">
+                        {seq.steps.length} step{seq.steps.length !== 1 ? "s" : ""}: {seq.steps.map((s) => s.channel.replace("_", " ")).join(" → ")}
+                      </span>
+                    </div>
+                    {seq.isTemplate && (
+                      <span className="flex-shrink-0 rounded-pill bg-accent-secondary/10 px-2 py-0.5 text-[9px] font-medium text-accent-secondary">
+                        Template
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+            {/* Enroll footer */}
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                onClick={onClose}
+                className="rounded-input px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-surface-2"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEnroll}
+                disabled={!selectedSequenceId || isEnrolling}
+                className="rounded-input bg-accent-primary px-4 py-1.5 text-xs font-medium text-surface-0 transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {isEnrolling ? "Enrolling..." : "Enroll"}
+              </button>
+            </div>
+          </div>
+        ) : (
+        <>
         {/* Channel selector */}
         <div className="flex gap-1 border-b border-surface-3 px-5 py-2.5">
           {CHANNEL_OPTIONS.filter((opt) => enabledChannels.includes(opt.value)).map((opt) => {
-            const isDisabled = opt.value === "whatsapp" && whatsappDisabled;
+            const isDisabled =
+              (opt.value === "whatsapp" && whatsappDisabled) ||
+              ((opt.value === "linkedin_connect" || opt.value === "linkedin_inmail") && linkedinDisabled);
             const isActive = channel === opt.value;
             const btn = (
               <button
@@ -279,7 +446,11 @@ export function OutreachDraftModal({
               </button>
             );
             return isDisabled ? (
-              <Tooltip key={opt.value} text="Requires prior CRM contact">{btn}</Tooltip>
+              <Tooltip key={opt.value} text={
+                opt.value === "whatsapp"
+                  ? (contact.phone ? "Requires prior CRM contact" : "No phone number available")
+                  : "No LinkedIn URL available"
+              }>{btn}</Tooltip>
             ) : btn;
           })}
         </div>
@@ -498,16 +669,121 @@ export function OutreachDraftModal({
               >
                 Cancel
               </button>
-              <button
-                onClick={handleCopy}
-                className="rounded-lg bg-accent-primary px-4 py-1.5 text-xs font-medium text-surface-0 transition-opacity hover:opacity-90"
-              >
-                Copy to Clipboard
-              </button>
+              {channel === "call" ? (
+                <>
+                  <button
+                    onClick={handleCopy}
+                    className="rounded-lg px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-surface-2"
+                  >
+                    Copy Talking Points
+                  </button>
+                  <button
+                    onClick={handleOpenFreshsales}
+                    className="rounded-lg bg-accent-secondary px-4 py-1.5 text-xs font-medium text-surface-0 transition-opacity hover:opacity-90"
+                  >
+                    Open in Freshsales
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={handleCopy}
+                  className="rounded-lg bg-accent-primary px-4 py-1.5 text-xs font-medium text-surface-0 transition-opacity hover:opacity-90"
+                >
+                  Copy to Clipboard
+                </button>
+              )}
             </div>
           </div>
         )}
+
+        {/* Call outcome inline form */}
+        {showCallOutcome && (
+          <CallOutcomeInline
+            onLog={handleLogCallOutcome}
+            onDismiss={() => setShowCallOutcome(false)}
+          />
+        )}
+        </>
+        )}
       </div>
     </Overlay>
+  );
+}
+
+const CALL_OUTCOMES = [
+  { value: "connected", label: "Connected" },
+  { value: "voicemail", label: "Voicemail" },
+  { value: "no_answer", label: "No Answer" },
+  { value: "busy", label: "Busy" },
+  { value: "wrong_number", label: "Wrong Number" },
+] as const;
+
+function CallOutcomeInline({
+  onLog,
+  onDismiss,
+}: {
+  onLog: (outcome: string, notes: string, durationSeconds: number | null) => void;
+  onDismiss: () => void;
+}) {
+  const [outcome, setOutcome] = useState("connected");
+  const [notes, setNotes] = useState("");
+  const [durationMin, setDurationMin] = useState("");
+
+  return (
+    <div className="border-t border-accent-secondary/20 bg-accent-secondary/5 px-5 py-3">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-accent-secondary">
+        Log Call Outcome
+      </p>
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {CALL_OUTCOMES.map((o) => (
+          <button
+            key={o.value}
+            onClick={() => setOutcome(o.value)}
+            className={`rounded-pill px-2.5 py-1 text-xs transition-colors ${
+              outcome === o.value
+                ? "bg-accent-secondary/15 text-accent-secondary font-medium"
+                : "text-text-secondary hover:bg-surface-2"
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-2 mb-2">
+        <input
+          type="text"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Notes (optional)"
+          className="flex-1 rounded-input border border-surface-3 bg-surface-0 px-2.5 py-1.5 text-xs text-text-primary outline-none focus:border-accent-secondary"
+        />
+        <input
+          type="number"
+          value={durationMin}
+          onChange={(e) => setDurationMin(e.target.value)}
+          placeholder="Min"
+          min="0"
+          className="w-16 rounded-input border border-surface-3 bg-surface-0 px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-secondary"
+        />
+      </div>
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={onDismiss}
+          className="rounded-input px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-surface-2"
+        >
+          Skip
+        </button>
+        <button
+          onClick={() => {
+            const parsed = durationMin ? parseFloat(durationMin) : NaN;
+            const seconds = !isNaN(parsed) && parsed >= 0 ? Math.round(parsed * 60) : null;
+            onLog(outcome, notes, seconds);
+          }}
+          className="rounded-input bg-accent-secondary px-3 py-1.5 text-xs font-medium text-surface-0 transition-opacity hover:opacity-90"
+        >
+          Log Outcome
+        </button>
+      </div>
+    </div>
   );
 }

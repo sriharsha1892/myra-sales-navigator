@@ -11,6 +11,7 @@ interface ProviderStatus {
 
 interface CreditsResponse {
   providers: Record<string, ProviderStatus>;
+  apolloReplenishDate?: string;
 }
 
 async function fetchCredits(): Promise<CreditsResponse> {
@@ -43,14 +44,19 @@ export function CreditUsageIndicator() {
     <div className="flex items-center gap-1.5">
       {sources.map((source) => {
         const isLow = source.credits.available < 1000;
+        const replenishInfo = source.key === "apollo" && data.apolloReplenishDate
+          ? ` — Replenishes ${data.apolloReplenishDate}`
+          : "";
+        const tooltip = `${source.label}: ${source.credits.available.toLocaleString()} credits remaining${replenishInfo}`;
         return (
           <Link
             key={source.key}
             href="/admin"
+            title={tooltip}
             className={`cursor-pointer rounded-pill border border-surface-3 px-2 py-0.5 font-mono text-[10px] transition-colors hover:border-accent-primary hover:text-accent-primary ${
               isLow ? "text-danger" : "text-text-tertiary"
             }`}
-            aria-label={`${source.label}: ${source.credits.available.toLocaleString()} credits remaining`}
+            aria-label={tooltip}
           >
             {source.label} {source.credits.available.toLocaleString()}
           </Link>

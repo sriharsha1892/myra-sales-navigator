@@ -89,7 +89,7 @@ describe("POST /api/export/csv", () => {
     const headerLine = text.split("\n")[0];
 
     expect(headerLine).toBe(
-      "First Name,Last Name,Email,Title,Company,Domain,Phone,LinkedIn,Seniority,Email Confidence"
+      "First Name,Last Name,Email,Title,Company,Domain,Phone,LinkedIn,Seniority,Email Confidence,In Freshsales"
     );
   });
 
@@ -102,7 +102,7 @@ describe("POST /api/export/csv", () => {
     const dataRow = lines[1];
 
     expect(dataRow).toBe(
-      "Jane,Doe,jane@acme.com,VP Sales,Acme Corp,acme.com,+1-555-0100,https://linkedin.com/in/janedoe,VP,92"
+      "Jane,Doe,jane@acme.com,VP Sales,Acme Corp,acme.com,+1-555-0100,https://linkedin.com/in/janedoe,VP,92,No"
     );
   });
 

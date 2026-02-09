@@ -12,6 +12,7 @@ import {
   DossierSkeleton,
 } from "@/components/navigator/dossier";
 import { CompanyNotes } from "@/components/navigator/notes/CompanyNotes";
+import { DossierSimilarCompanies } from "@/components/navigator/dossier/DossierSimilarCompanies";
 import { ContactsPanel } from "@/components/navigator/contacts/ContactsPanel";
 import { useCompanyDossier } from "@/hooks/navigator/useCompanyDossier";
 import { useExport } from "@/hooks/navigator/useExport";
@@ -61,6 +62,19 @@ export function SlideOverPane() {
     }
     prevDossierLoading.current = dossier.isLoading;
   }, [dossier.isLoading, company, notify]);
+
+  // Show toast on dossier refresh failure (not initial load)
+  const addToast = useStore((s) => s.addToast);
+  const hadDataRef = useRef(false);
+  useEffect(() => {
+    if (company) hadDataRef.current = true;
+  }, [company]);
+
+  useEffect(() => {
+    if (dossier.error && hadDataRef.current && !dossier.isLoading) {
+      addToast({ message: "Failed to refresh dossier data", type: "error" });
+    }
+  }, [dossier.error, dossier.isLoading, addToast]);
 
   // Scroll to top + flash highlight when dossierScrollToTop changes
   useEffect(() => {
@@ -165,17 +179,17 @@ export function SlideOverPane() {
           />
         ) : (
           <>
-            <DossierHeader key={company.domain} company={company} onRefresh={dossier.refetch} />
+            <DossierHeader key={company.domain} company={company} onRefresh={dossier.refetch} isRefreshing={dossier.isLoading} />
 
             <div className="flex-1 divide-y divide-surface-3">
               <div className="animate-fadeInUp" style={{ animationDelay: "0ms" }}>
                 <DossierOverview company={company} />
               </div>
               <div className="animate-fadeInUp" style={{ animationDelay: "60ms" }}>
-                <DossierSignals signals={dossier.signals.length > 0 ? dossier.signals : (company.signals ?? [])} />
+                <DossierFreshsales company={company} />
               </div>
               <div className="animate-fadeInUp" style={{ animationDelay: "120ms" }}>
-                <DossierFreshsales company={company} />
+                <DossierSignals signals={dossier.signals.length > 0 ? dossier.signals : (company.signals ?? [])} />
               </div>
               <div className="animate-fadeInUp" style={{ animationDelay: "180ms" }}>
                 <DossierContacts key={company.domain} companyDomain={company.domain} contacts={dossier.contacts} />
@@ -185,6 +199,9 @@ export function SlideOverPane() {
               </div>
               <div className="animate-fadeInUp" style={{ animationDelay: "270ms" }}>
                 <CompanyNotes companyDomain={company.domain} />
+              </div>
+              <div className="animate-fadeInUp" style={{ animationDelay: "330ms" }}>
+                <DossierSimilarCompanies domain={company.domain} />
               </div>
             </div>
 
@@ -199,9 +216,12 @@ export function SlideOverPane() {
               <button
                 onClick={() => executeExport(dossier.contacts, "clipboard")}
                 disabled={dossier.contacts.length === 0}
+                title={dossier.contacts.length === 0 ? (dossier.isLoading ? "Loading contacts..." : "No contacts available to export") : undefined}
                 className="btn-press rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-text-inverse transition-colors hover:bg-accent-primary-hover disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Export Contacts{dossier.contacts.length > 0 ? ` (${dossier.contacts.length})` : ""}
+                {dossier.isLoading && dossier.contacts.length === 0
+                  ? "Loading..."
+                  : `Export Contacts${dossier.contacts.length > 0 ? ` (${dossier.contacts.length})` : ""}`}
               </button>
             </div>
           </>

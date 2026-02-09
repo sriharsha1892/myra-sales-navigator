@@ -21,6 +21,9 @@ import type {
   ProgressToastHandle,
   ExportFlowState,
   ExtractedEntities,
+  OutreachSequence,
+  OutreachEnrollment,
+  UserConfig,
 } from "./types";
 import { DEFAULT_PIPELINE_STAGES } from "./types";
 import {
@@ -84,6 +87,10 @@ interface AppState {
 
   // Extracted entities from NL search (for editable chips)
   extractedEntities: ExtractedEntities | null;
+
+  // NL ICP criteria from last search (for display banner)
+  lastICPCriteria: import("@/lib/navigator/types").NLICPCriteria | null;
+  setLastICPCriteria: (criteria: import("@/lib/navigator/types").NLICPCriteria | null) => void;
 
   // Inline contacts expansion (accordion below company card)
   expandedContactsDomain: string | null;
@@ -175,6 +182,25 @@ interface AppState {
   writingRulesSession: string;
   setWritingRules: (rules: string) => void;
 
+  // All contacts view (flat list across all companies)
+  allContactsViewActive: boolean;
+  setAllContactsViewActive: (active: boolean) => void;
+
+  // Outreach sequences
+  activeSequences: OutreachSequence[];
+  setActiveSequences: (sequences: OutreachSequence[]) => void;
+  activeEnrollments: OutreachEnrollment[];
+  setActiveEnrollments: (enrollments: OutreachEnrollment[]) => void;
+  userConfig: UserConfig | null;
+  setUserConfig: (config: UserConfig | null) => void;
+  selectedContactsForOutreach: Set<string>;
+  toggleOutreachContact: (contactId: string) => void;
+  clearOutreachContacts: () => void;
+
+  // Active result index for arrow key navigation
+  activeResultIndex: number | null;
+  setActiveResultIndex: (index: number | null) => void;
+
   // Follow-up nudges
   followUpNudgesDismissed: boolean;
   dismissFollowUpNudges: () => void;
@@ -259,6 +285,8 @@ export const useStore = create<AppState>((set, get) => ({
   searchLoading: false,
   lastSearchQuery: null,
   extractedEntities: null,
+  lastICPCriteria: null,
+  setLastICPCriteria: (criteria) => set({ lastICPCriteria: criteria }),
   expandedContactsDomain: null,
   setExpandedContactsDomain: (domain) => set((state) => ({
     expandedContactsDomain: state.expandedContactsDomain === domain ? null : domain,
@@ -284,6 +312,29 @@ export const useStore = create<AppState>((set, get) => ({
   // Outreach session state
   writingRulesSession: "",
   setWritingRules: (rules) => set({ writingRulesSession: rules }),
+
+  // All contacts view
+  allContactsViewActive: false,
+  setAllContactsViewActive: (active) => set({ allContactsViewActive: active }),
+
+  // Outreach sequences
+  activeSequences: [],
+  setActiveSequences: (sequences) => set({ activeSequences: sequences }),
+  activeEnrollments: [],
+  setActiveEnrollments: (enrollments) => set({ activeEnrollments: enrollments }),
+  userConfig: null,
+  setUserConfig: (config) => set({ userConfig: config }),
+  selectedContactsForOutreach: new Set(),
+  toggleOutreachContact: (contactId) => set((state) => {
+    const next = new Set(state.selectedContactsForOutreach);
+    if (next.has(contactId)) next.delete(contactId); else next.add(contactId);
+    return { selectedContactsForOutreach: next };
+  }),
+  clearOutreachContacts: () => set({ selectedContactsForOutreach: new Set() }),
+
+  // Active result index for arrow key navigation
+  activeResultIndex: null,
+  setActiveResultIndex: (index) => set({ activeResultIndex: index }),
 
   // Follow-up nudges
   followUpNudgesDismissed: false,

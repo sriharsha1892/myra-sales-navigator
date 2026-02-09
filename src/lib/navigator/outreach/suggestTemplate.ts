@@ -110,6 +110,22 @@ const RULES: SuggestionRule[] = [
     },
   },
   {
+    id: "warm_contact_call",
+    name: "Warm CRM contact with phone → Call",
+    checkFn: (ctx) =>
+      !!ctx.contact.phone &&
+      (ctx.company.freshsalesStatus === "contacted" ||
+        ctx.company.freshsalesStatus === "negotiation" ||
+        ctx.company.freshsalesStatus === "customer") &&
+      !ctx.existingDraftChannels.includes("call"),
+    suggestion: {
+      channel: "call",
+      template: "intro",
+      tone: "direct",
+      reason: "Warm CRM contact — call recommended",
+    },
+  },
+  {
     id: "fallback",
     name: "Default → Email intro",
     checkFn: () => true,

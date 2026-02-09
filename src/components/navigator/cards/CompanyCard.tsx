@@ -11,6 +11,7 @@ import { ContactPreviewPopover } from "./ContactPreviewPopover";
 import { HighlightTerms } from "@/components/navigator/shared/HighlightTerms";
 import { pick } from "@/lib/navigator/ui-copy";
 import { Tooltip } from "@/components/navigator/shared/Tooltip";
+import type { Contact } from "@/lib/navigator/types";
 
 interface CompanyCardProps {
   company: CompanyEnriched;
@@ -35,6 +36,33 @@ const hubspotLabels: Record<string, string> = {
   closed_lost: "CRM: Lost",
   none: "",
 };
+
+const SENIORITY_ORDER: Record<string, number> = {
+  c_level: 0, vp: 1, director: 2, manager: 3, staff: 4,
+};
+
+const SENIORITY_CHIP_COLORS: Record<string, string> = {
+  c_level: "bg-[#d4a012]/15 text-[#d4a012] border-[#d4a012]/30",
+  vp: "bg-[#22d3ee]/15 text-[#22d3ee] border-[#22d3ee]/30",
+  director: "bg-[#3b82f6]/15 text-[#3b82f6] border-[#3b82f6]/30",
+  manager: "bg-surface-2 text-text-secondary border-surface-3",
+  staff: "bg-surface-2 text-text-tertiary border-surface-3",
+};
+
+const SENIORITY_LABELS: Record<string, string> = {
+  c_level: "C-Level", vp: "VP", director: "Director", manager: "Manager", staff: "Staff",
+};
+
+const TITLE_FILTER_RE = /intern|coordinator|assistant|trainee|apprentice/i;
+
+function getVerificationDotColor(contact: Contact): string {
+  switch (contact.verificationStatus) {
+    case "valid": return "bg-success";
+    case "valid_risky": return "bg-warning";
+    case "invalid": return "bg-danger";
+    default: return "bg-text-tertiary";
+  }
+}
 
 const crmStatusColors: Record<string, { bg: string; text: string }> = {
   // Active deals / opportunities
@@ -73,8 +101,14 @@ export function CompanyCard({
 }: CompanyCardProps) {
   const searchSimilar = useStore((s) => s.searchSimilar);
   const setExpandedContactsDomain = useStore((s) => s.setExpandedContactsDomain);
+  const contactsForDomain = useStore((s) => s.contactsByDomain[company.domain]);
+  const selectedContactIds = useStore((s) => s.selectedContactIds);
+  const toggleContactSelection = useStore((s) => s.toggleContactSelection);
+  const setContactsForDomain = useStore((s) => s.setContactsForDomain);
   const lastSearchQuery = useStore((s) => s.lastSearchQuery);
   const [logoError, setLogoError] = useState(false);
+  const [inlineContactsLoading, setInlineContactsLoading] = useState(false);
+  const [showMoreContacts, setShowMoreContacts] = useState(false);
   const [isPrefetching, setIsPrefetching] = useState(false);
   const queryClient = useQueryClient();
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -119,6 +153,38 @@ export function CompanyCard({
 
   const logoSrc = company.logoUrl ?? (company.domain ? `https://www.google.com/s2/favicons?domain=${company.domain}&sz=40` : null);
   const hasIntel = Array.isArray(company.sources) && company.sources.includes("mordor");
+
+  // Compute top 3 contacts for inline display
+  const inlineContacts = (() => {
+    if (!contactsForDomain || contactsForDomain.length === 0) return [];
+    return [...contactsForDomain]
+      .filter((c) => !TITLE_FILTER_RE.test(c.title ?? ""))
+      .sort((a, b) => {
+        const sa = SENIORITY_ORDER[a.seniority] ?? 5;
+        const sb = SENIORITY_ORDER[b.seniority] ?? 5;
+        if (sa !== sb) return sa - sb;
+        return b.emailConfidence - a.emailConfidence;
+      })
+      .slice(0, showMoreContacts ? 10 : 3);
+  })();
+
+  const hasContactsLoaded = !!contactsForDomain;
+  const totalContactsCount = contactsForDomain?.length ?? 0;
+
+  const handleLoadContacts = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (inlineContactsLoading || hasContactsLoaded) return;
+    setInlineContactsLoading(true);
+    const nameParam = company.name && company.name !== company.domain ? `?name=${encodeURIComponent(company.name)}` : "";
+    fetch(`/api/company/${encodeURIComponent(company.domain)}/contacts${nameParam}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`${res.status}`);
+        const data = await res.json();
+        setContactsForDomain(company.domain, data.contacts ?? []);
+      })
+      .catch(() => { /* silent */ })
+      .finally(() => setInlineContactsLoading(false));
+  };
 
   return (
     <div
@@ -190,6 +256,11 @@ export function CompanyCard({
             </h3>
             <div className="flex items-center gap-1.5">
               <IcpScoreBadge score={company.icpScore} breakdown={company.icpBreakdown} showBreakdown />
+              {company.nlIcpReasoning && (
+                <span className="truncate text-[10px] text-text-tertiary italic" style={{ maxWidth: "200px" }} title={company.nlIcpReasoning}>
+                  {company.nlIcpReasoning}
+                </span>
+              )}
               <SignalStrengthBar signalCount={company.signals.length} signalTypes={[...new Set(company.signals.map((s) => s.type))]} />
             </div>
           </div>
@@ -340,6 +411,101 @@ export function CompanyCard({
               <ContactPreviewPopover domain={company.domain} />
             </div>
           </div>
+
+          {/* Inline contacts section */}
+          {hasContactsLoaded ? (
+            inlineContacts.length > 0 ? (
+              <div className="mt-2 border-t border-surface-3 pt-2">
+                <div className="space-y-1">
+                  {inlineContacts.map((contact) => (
+                    <div
+                      key={contact.id}
+                      className="flex items-center gap-2 rounded px-1 py-0.5 text-[11px] transition-colors hover:bg-surface-2/50"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleContactSelection(contact.id); }}
+                        className={cn(
+                          "flex h-3 w-3 flex-shrink-0 items-center justify-center rounded transition-all duration-150",
+                          selectedContactIds.has(contact.id)
+                            ? "bg-accent-primary text-white"
+                            : "border border-surface-3 hover:border-accent-primary"
+                        )}
+                      >
+                        {selectedContactIds.has(contact.id) && (
+                          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        )}
+                      </button>
+                      <span className="truncate font-medium text-text-primary" style={{ maxWidth: "120px" }}>
+                        {contact.firstName} {contact.lastName}
+                      </span>
+                      <span className="truncate text-text-tertiary" style={{ maxWidth: "140px" }}>
+                        {contact.title}
+                      </span>
+                      <span className={cn(
+                        "flex-shrink-0 rounded-pill border px-1 py-px text-[9px] font-medium",
+                        SENIORITY_CHIP_COLORS[contact.seniority] ?? SENIORITY_CHIP_COLORS.staff
+                      )}>
+                        {SENIORITY_LABELS[contact.seniority] ?? contact.seniority}
+                      </span>
+                      <span className={cn("h-1.5 w-1.5 flex-shrink-0 rounded-full", getVerificationDotColor(contact))} />
+                      {contact.sources.includes("freshsales" as import("@/lib/navigator/types").ResultSource) && (
+                        <span className="flex-shrink-0 rounded-pill bg-[#d4a012]/15 px-1 py-px text-[8px] font-semibold text-[#d4a012]">
+                          Warm
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {totalContactsCount > 3 && !showMoreContacts && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setShowMoreContacts(true); }}
+                    className="mt-1 text-[10px] text-accent-secondary hover:underline"
+                  >
+                    Show more ({totalContactsCount - 3} more)
+                  </button>
+                )}
+                {showMoreContacts && totalContactsCount > 10 && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setExpandedContactsDomain(company.domain); }}
+                    className="mt-1 text-[10px] text-accent-secondary hover:underline"
+                  >
+                    Show all {totalContactsCount} in expanded view
+                  </button>
+                )}
+                {showMoreContacts && totalContactsCount <= 10 && totalContactsCount > 3 && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setShowMoreContacts(false); }}
+                    className="mt-1 text-[10px] text-text-tertiary hover:text-text-secondary"
+                  >
+                    Show fewer
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="mt-2 border-t border-surface-3 pt-1.5">
+                <span className="text-[10px] italic text-text-tertiary">No contacts found</span>
+              </div>
+            )
+          ) : (
+            <div className="mt-2 border-t border-surface-3 pt-1.5">
+              {inlineContactsLoading ? (
+                <div className="flex items-center gap-2">
+                  <span className="inline-block h-2.5 w-2.5 animate-spin rounded-full border border-accent-secondary/30 border-t-accent-secondary" />
+                  <span className="text-[10px] text-text-tertiary">Loading contacts...</span>
+                </div>
+              ) : (
+                <button
+                  onClick={handleLoadContacts}
+                  className="text-[10px] text-accent-secondary/70 transition-colors hover:text-accent-secondary hover:underline"
+                >
+                  Load contacts
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -33,6 +33,14 @@ export const CHANNEL_CONSTRAINTS: Record<OutreachChannel, ChannelConstraints> = 
     platformGuidance:
       "Write a brief WhatsApp message. Must be under 300 characters. Casual and conversational tone. Only appropriate for warm contacts with prior CRM history.",
   },
+  call: {
+    maxChars: null,
+    maxWords: null,
+    hasSubject: false,
+    outputFields: ["message"],
+    platformGuidance:
+      "Generate pre-call talking points as a concise bulleted list. Include: opening hook, key questions to ask, value prop relevant to their company, and potential objections to prepare for.",
+  },
 };
 
 export const CHANNEL_OPTIONS: {
@@ -44,4 +52,5 @@ export const CHANNEL_OPTIONS: {
   { value: "linkedin_connect", label: "Connect", icon: "linkedin" },
   { value: "linkedin_inmail", label: "InMail", icon: "linkedin" },
   { value: "whatsapp", label: "WhatsApp", icon: "message-circle" },
+  { value: "call", label: "Call", icon: "phone" },
 ];
