@@ -9,13 +9,14 @@ const IDLE_THRESHOLD_MS = 15 * 60 * 1000; // 15 minutes
 export function useSessionActivity() {
   const userName = useStore((s) => s.userName);
   const sessionIdRef = useRef<string | null>(null);
-  const lastActivityRef = useRef(Date.now());
+  const lastActivityRef = useRef(0);
   const prevCountsRef = useRef({ search: 0, triage: 0, companyView: 0, export: 0 });
   const idleEndedRef = useRef(false);
 
   useEffect(() => {
     if (!userName) return;
 
+    lastActivityRef.current = Date.now();
     let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
     // Track last user activity
