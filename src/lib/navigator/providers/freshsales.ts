@@ -716,6 +716,44 @@ export async function createFreshsalesTask(
   }
 }
 
+export async function createFreshsalesActivity(
+  activity: {
+    title: string;
+    notes?: string;
+    targetableType: "Contact" | "SalesAccount";
+    targetableId: number;
+    ownerId?: number;
+  }
+): Promise<{ id: number } | null> {
+  const settings = await getFreshsalesConfig();
+  const baseUrl = getBaseUrl(settings);
+  try {
+    const res = await fetch(`${baseUrl}/sales_activities`, {
+      method: "POST",
+      headers: freshsalesHeaders(),
+      body: JSON.stringify({
+        sales_activity: {
+          title: activity.title,
+          notes: activity.notes || "",
+          targetable_type: activity.targetableType,
+          targetable_id: activity.targetableId,
+          owner_id: activity.ownerId,
+        },
+      }),
+    });
+    if (!res.ok) {
+      console.error("[Freshsales] createActivity failed:", res.status);
+      return null;
+    }
+    checkRateLimit(res.headers);
+    const data = await res.json();
+    return { id: data.sales_activity?.id };
+  } catch (err) {
+    console.error("[Freshsales] createActivity error:", err);
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Thin wrappers
 // ---------------------------------------------------------------------------

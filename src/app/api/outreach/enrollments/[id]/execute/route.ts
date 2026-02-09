@@ -350,6 +350,30 @@ export async function POST(
       updatedEnrollment = mapEnrollmentRow(data);
     }
 
+    // Fire-and-forget: sync activity to Freshsales CRM
+    (async () => {
+      try {
+        const { getCached, CacheKeys } = await import("@/lib/cache");
+        const { isFreshsalesAvailable, createFreshsalesActivity } = await import(
+          "@/lib/navigator/providers/freshsales"
+        );
+        if (!isFreshsalesAvailable()) return;
+        const intel = await getCached<import("@/lib/navigator/types").FreshsalesIntel>(
+          CacheKeys.freshsales(enrollment.company_domain)
+        );
+        if (!intel?.account?.id) return;
+        await createFreshsalesActivity({
+          title: `Outreach: ${currentStep.channel} step completed`,
+          notes: typeof draftContent === "string" ? draftContent.slice(0, 500) : "",
+          targetableType: "SalesAccount",
+          targetableId: intel.account.id,
+        });
+        console.log(`[CRM Sync] Activity created for ${contactName} at ${enrollment.company_domain}`);
+      } catch {
+        // Silent — CRM sync is best-effort
+      }
+    })();
+
     // Fetch updated step logs
     const { data: allStepLogs } = await supabase
       .from("outreach_step_logs")

@@ -83,6 +83,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to create call log" }, { status: 500 });
     }
 
+    // Fire-and-forget: sync call activity to Freshsales CRM
+    (async () => {
+      try {
+        const { getCached, CacheKeys } = await import("@/lib/cache");
+        const { isFreshsalesAvailable, createFreshsalesActivity } = await import(
+          "@/lib/navigator/providers/freshsales"
+        );
+        if (!isFreshsalesAvailable()) return;
+        const intel = await getCached<import("@/lib/navigator/types").FreshsalesIntel>(
+          CacheKeys.freshsales(body.companyDomain!)
+        );
+        if (!intel?.account?.id) return;
+        await createFreshsalesActivity({
+          title: `Call: ${body.outcome}`,
+          notes: body.notes ?? "",
+          targetableType: "SalesAccount",
+          targetableId: intel.account.id,
+        });
+        console.log(`[CRM Sync] Call activity logged for ${body.companyDomain}`);
+      } catch {
+        // Silent — CRM sync is best-effort
+      }
+    })();
+
     return NextResponse.json(mapRow(data), { status: 201 });
   } catch (err) {
     console.error("[CallLog] POST error:", err);

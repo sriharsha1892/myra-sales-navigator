@@ -164,6 +164,49 @@ export async function POST(request: NextRequest) {
       status: "pending",
     });
 
+    // Fire-and-forget: create Freshsales task for the first step
+    (async () => {
+      try {
+        const { getCached, CacheKeys } = await import("@/lib/cache");
+        const { isFreshsalesAvailable, createFreshsalesTask } = await import(
+          "@/lib/navigator/providers/freshsales"
+        );
+        if (!isFreshsalesAvailable()) return;
+        const intel = await getCached<import("@/lib/navigator/types").FreshsalesIntel>(
+          CacheKeys.freshsales(body.companyDomain!)
+        );
+        if (!intel?.account?.id) return;
+
+        // Resolve contact name from cache
+        let contactName = body.contactId!;
+        const cached = await getCached<{ contacts: import("@/lib/navigator/types").Contact[] }>(
+          CacheKeys.enrichedContacts(body.companyDomain!)
+        );
+        if (cached?.contacts) {
+          const match = cached.contacts.find((c) => c.id === body.contactId);
+          if (match) contactName = `${match.firstName} ${match.lastName}`.trim() || contactName;
+        }
+
+        // Fetch sequence name
+        const { data: seq } = await supabase
+          .from("outreach_sequences")
+          .select("name")
+          .eq("id", body.sequenceId!)
+          .single();
+
+        await createFreshsalesTask({
+          title: `Follow up: ${seq?.name ?? "Sequence"} — ${contactName}`,
+          description: "Sequence enrolled via myRA Navigator",
+          dueDate: nextStepDueAt.toISOString(),
+          targetableType: "SalesAccount",
+          targetableId: intel.account.id,
+        });
+        console.log(`[CRM Sync] Task created for ${contactName} at ${body.companyDomain}`);
+      } catch {
+        // Silent — CRM sync is best-effort
+      }
+    })();
+
     return NextResponse.json(mapRow(enrollment), { status: 201 });
   } catch (err) {
     console.error("[Enrollments] POST error:", err);

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { getCached, CacheKeys } from "@/lib/cache";
+import type { Contact } from "@/lib/navigator/types";
 
 export async function GET() {
   try {
@@ -70,11 +72,35 @@ export async function GET() {
                 createdBy: "",
                 createdAt: "",
               },
-          contactName: e.contact_id, // Will be resolved to real name by CR1 later
-          companyName: e.company_domain,
+          contactName: e.contact_id, // resolved below
+          companyName: e.company_domain, // resolved below
         };
       })
       .filter((item) => item.sequence.steps.length > 0);
+
+    // Batch-resolve contact names from KV cache
+    const uniqueDomains = [...new Set(items.map((i) => i.enrollment.companyDomain))];
+    const contactCacheMap = new Map<string, Contact[]>();
+    await Promise.all(
+      uniqueDomains.map(async (domain) => {
+        try {
+          const cached = await getCached<{ contacts: Contact[]; sources: Record<string, boolean> }>(
+            CacheKeys.enrichedContacts(domain)
+          );
+          if (cached?.contacts) contactCacheMap.set(domain, cached.contacts);
+        } catch { /* silent */ }
+      })
+    );
+
+    for (const item of items) {
+      const contacts = contactCacheMap.get(item.enrollment.companyDomain);
+      if (contacts) {
+        const match = contacts.find((c) => c.id === item.enrollment.contactId);
+        if (match) {
+          item.contactName = `${match.firstName} ${match.lastName}`.trim() || item.contactName;
+        }
+      }
+    }
 
     return NextResponse.json({ items });
   } catch (err) {
