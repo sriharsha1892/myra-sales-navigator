@@ -8,6 +8,7 @@ import { calculateIcpScore } from "@/lib/navigator/scoring";
 import { createServerClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import type { CompanyEnriched, IcpWeights } from "@/lib/navigator/types";
+import { CACHE_TTLS } from "@/lib/navigator/cache-config";
 
 export async function GET(
   request: NextRequest,
@@ -47,7 +48,6 @@ export async function GET(
     ]);
 
     const freshsalesAvailable = isFreshsalesAvailable();
-    console.log("[Freshsales]", freshsalesAvailable ? "fetching" : "skipped — not configured");
 
     // Always return a company shell — use Apollo data if available, else minimal shell
     const company: Record<string, unknown> = apolloData
@@ -117,7 +117,7 @@ export async function GET(
           .single();
         if (configRow?.icp_weights) {
           icpWeights = configRow.icp_weights as IcpWeights;
-          await setCached("admin:icp-weights", icpWeights, 60);
+          await setCached("admin:icp-weights", icpWeights, CACHE_TTLS.adminConfig);
         }
       }
     } catch { /* use defaults */ }
@@ -174,7 +174,7 @@ Max 2 sentences each. No marketing fluff. Be factual and concise. If you don't h
     });
 
     if (result) {
-      await setCached(cacheKey, result, 360); // 6h TTL
+      await setCached(cacheKey, result, CACHE_TTLS.aiSummary);
     }
 
     return result;

@@ -3,6 +3,7 @@ import { getFreshsalesPeers } from "@/lib/navigator/providers/freshsales";
 import { searchExa, isExaAvailable } from "@/lib/navigator/providers/exa";
 import { enrichCompany } from "@/lib/navigator/providers/apollo";
 import { getCached, setCached } from "@/lib/cache";
+import { CACHE_TTLS } from "@/lib/navigator/cache-config";
 import type { CompanyEnriched } from "@/lib/navigator/types";
 
 interface PeersResponse {
@@ -75,7 +76,7 @@ export async function GET(
     };
 
     // Cache for 1 hour
-    await setCached(cacheKey, response, 60);
+    await setCached(cacheKey, response, CACHE_TTLS.peers);
 
     return NextResponse.json(response);
   } catch (err) {

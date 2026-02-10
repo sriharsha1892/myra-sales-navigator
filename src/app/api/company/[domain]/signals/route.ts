@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { extractSignals, isExaAvailable, isNoiseDomain } from "@/lib/navigator/providers/exa";
 import { getCached, setCached } from "@/lib/cache";
+import { CACHE_TTLS } from "@/lib/navigator/cache-config";
 import Exa from "exa-js";
 
 let _exa: Exa | null = null;
@@ -95,7 +96,7 @@ export async function GET(
     }
 
     if (signals.length > 0) {
-      await setCached(cacheKey, signals, 360); // 6h TTL
+      await setCached(cacheKey, signals, CACHE_TTLS.signalExtraction);
     }
 
     return NextResponse.json({ signals });

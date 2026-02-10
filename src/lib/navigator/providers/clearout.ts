@@ -1,8 +1,9 @@
 import { getCached, setCached } from "@/lib/cache";
 import type { VerificationResult } from "@/lib/navigator/types";
+import { CACHE_TTLS } from "@/lib/navigator/cache-config";
 
 const CLEAROUT_API_BASE = "https://api.clearout.io/v2";
-const CACHE_TTL_MINUTES = 30 * 24 * 60; // 30 days
+const CACHE_TTL_MINUTES = CACHE_TTLS.clearout; // 30 days
 const BATCH_DELAY_MS = 200;
 
 export function isClearoutAvailable(): boolean {

@@ -14,6 +14,7 @@ import {
 } from "@/components/navigator/dossier";
 import { CompanyNotes } from "@/components/navigator/notes/CompanyNotes";
 import { DossierSimilarCompanies } from "@/components/navigator/dossier/DossierSimilarCompanies";
+import { DossierErrorBoundary } from "@/components/navigator/shared/DossierErrorBoundary";
 import { ContactsPanel } from "@/components/navigator/contacts/ContactsPanel";
 import { useCompanyDossier } from "@/hooks/navigator/useCompanyDossier";
 import { useExport } from "@/hooks/navigator/useExport";
@@ -230,25 +231,39 @@ export function SlideOverPane() {
 
             <div className={cn("flex-1 divide-y divide-surface-3 transition-opacity duration-200", effectiveLoading && "opacity-50")}>
               <div className="animate-fadeInUp" style={{ animationDelay: "0ms" }}>
-                <DossierOverview company={company} />
+                <DossierErrorBoundary sectionName="Overview">
+                  <DossierOverview company={company} />
+                </DossierErrorBoundary>
               </div>
               <div className="animate-fadeInUp" style={{ animationDelay: "60ms" }}>
-                <DossierFreshsales company={company} />
+                <DossierErrorBoundary sectionName="Freshsales">
+                  <DossierFreshsales company={company} />
+                </DossierErrorBoundary>
               </div>
               <div className="animate-fadeInUp" style={{ animationDelay: "120ms" }}>
-                <DossierSignals signals={dossier.signals.length > 0 ? dossier.signals : (company.signals ?? [])} />
+                <DossierErrorBoundary sectionName="Signals">
+                  <DossierSignals signals={dossier.signals.length > 0 ? dossier.signals : (company.signals ?? [])} />
+                </DossierErrorBoundary>
               </div>
               <div className="animate-fadeInUp" style={{ animationDelay: "180ms" }}>
-                <DossierContacts key={company.domain} companyDomain={company.domain} contacts={dossier.contacts} />
+                <DossierErrorBoundary sectionName="Contacts">
+                  <DossierContacts key={company.domain} companyDomain={company.domain} contacts={dossier.contacts} />
+                </DossierErrorBoundary>
               </div>
               <div className="animate-fadeInUp" style={{ animationDelay: "210ms" }}>
-                <DossierHubspot company={company} />
+                <DossierErrorBoundary sectionName="HubSpot">
+                  <DossierHubspot company={company} />
+                </DossierErrorBoundary>
               </div>
               <div className="animate-fadeInUp" style={{ animationDelay: "270ms" }}>
-                <CompanyNotes companyDomain={company.domain} />
+                <DossierErrorBoundary sectionName="Notes">
+                  <CompanyNotes companyDomain={company.domain} />
+                </DossierErrorBoundary>
               </div>
               <div className="animate-fadeInUp" style={{ animationDelay: "330ms" }}>
-                <DossierSimilarCompanies domain={company.domain} />
+                <DossierErrorBoundary sectionName="Similar Companies">
+                  <DossierSimilarCompanies domain={company.domain} />
+                </DossierErrorBoundary>
               </div>
             </div>
 

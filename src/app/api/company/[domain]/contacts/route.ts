@@ -6,6 +6,7 @@ import { getFreshsalesContacts, isFreshsalesAvailable } from "@/lib/navigator/pr
 import { findEmailsBatch, isClearoutAvailable } from "@/lib/navigator/providers/clearout";
 import { pLimit } from "@/lib/utils";
 import { createServerClient } from "@/lib/supabase/server";
+import { CACHE_TTLS } from "@/lib/navigator/cache-config";
 import type { Contact } from "@/lib/navigator/types";
 
 export async function GET(
@@ -23,7 +24,6 @@ export async function GET(
   if (!refreshRequested) {
     const cached = await getCached<{ contacts: Contact[]; sources: Record<string, boolean> }>(enrichedCacheKey);
     if (cached) {
-      console.log(`[Contacts] ${normalized}: returning cached enriched contacts (${cached.contacts.length})`);
       return NextResponse.json(cached);
     }
   } else {
@@ -52,7 +52,6 @@ export async function GET(
       freshsalesAvailable ? getFreshsalesContacts(getRootDomain(normalized), companyName) : Promise.resolve([]),
     ]);
 
-    console.log(`[Contacts] ${normalized}: apollo=${apolloContacts.length} hubspot=${hubspotContacts.length} freshsales=${freshsalesContacts.length}`);
 
     // Merge and deduplicate
     const merged = mergeContacts(apolloContacts, hubspotContacts, freshsalesContacts);
@@ -75,7 +74,7 @@ export async function GET(
           const limits = limitsRow.enrichment_limits as Record<string, number>;
           maxAutoEnrich = limits.maxContactAutoEnrich ?? 5;
           maxClearoutFinds = limits.maxClearoutFinds ?? 10;
-          await setCached("admin:enrichment-limits", limits, 60);
+          await setCached("admin:enrichment-limits", limits, CACHE_TTLS.adminConfig);
         }
       }
     } catch { /* use defaults */ }
@@ -141,7 +140,6 @@ export async function GET(
             };
           }
         }
-        console.log(`[Contacts] ${normalized}: Clearout found ${clearoutResults.filter((r) => r.email).length}/${batch.length} emails`);
       } catch (err) {
         console.warn("[Contacts] Clearout fallback failed:", err);
       }
@@ -157,9 +155,6 @@ export async function GET(
           const tags = (c.tags || []).map((t) => t.toLowerCase());
           return !tags.some((t) => excludeTags.includes(t));
         });
-        if (tagFiltered.length < beforeCount) {
-          console.log(`[Contacts] ${normalized}: filtered ${beforeCount - tagFiltered.length} DNC-tagged contacts`);
-        }
         merged.splice(0, merged.length, ...tagFiltered);
       }
     } catch { /* non-fatal */ }
@@ -175,9 +170,6 @@ export async function GET(
         const excludedIds = new Set(contactIdExclusions.map((e) => e.value));
         const beforeCount = merged.length;
         const filtered = merged.filter((c) => !excludedIds.has(c.id));
-        if (filtered.length < beforeCount) {
-          console.log(`[Contacts] ${normalized}: filtered ${beforeCount - filtered.length} contact_id exclusions`);
-        }
         merged.splice(0, merged.length, ...filtered);
       }
     } catch { /* non-fatal */ }

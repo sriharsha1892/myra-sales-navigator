@@ -413,7 +413,6 @@ export async function POST(
           targetableType: "SalesAccount",
           targetableId: intel.account.id,
         });
-        console.log(`[CRM Sync] Activity created for ${contactName} at ${enrollment.company_domain}`);
       } catch {
         // Silent — CRM sync is best-effort
       }

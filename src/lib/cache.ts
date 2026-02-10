@@ -71,21 +71,23 @@ export const CacheKeys = {
 } as const;
 
 // ---------------------------------------------------------------------------
-// Cache TTL constants (in minutes)
+// Cache TTL constants (in minutes) — sourced from centralized config
 // ---------------------------------------------------------------------------
 
+import { CACHE_TTLS } from "@/lib/navigator/cache-config";
+
 export const CacheTTL = {
-  search: 60,
-  exaSearch: 360, // 6 hours — Exa search results
-  company: 120,
-  contacts: 120,
-  signals: 60,
-  email: 1440,   // 24 hours (Clearout verification)
-  hubspot: 30,
-  freshsales: 30,
-  enrichedContacts: 120, // 2 hours
-  serperSearch: 360,     // 6 hours
-  parallelSearch: 360,   // 6 hours
+  search: CACHE_TTLS.search,
+  exaSearch: CACHE_TTLS.exaSearch,
+  company: CACHE_TTLS.company,
+  contacts: CACHE_TTLS.enrichedContacts,
+  signals: CACHE_TTLS.signals,
+  email: CACHE_TTLS.email,
+  hubspot: CACHE_TTLS.hubspot,
+  freshsales: CACHE_TTLS.freshsales,
+  enrichedContacts: CACHE_TTLS.enrichedContacts,
+  serperSearch: CACHE_TTLS.serperSearch,
+  parallelSearch: CACHE_TTLS.parallelSearch,
 } as const;
 
 // ---------------------------------------------------------------------------

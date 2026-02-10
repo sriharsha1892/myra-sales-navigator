@@ -2,9 +2,11 @@ import type { Contact, HubSpotStatus } from "../types";
 import { getCached, setCached, normalizeDomain } from "../../cache";
 import { apiCallBreadcrumb } from "@/lib/sentry";
 import { logApiCall } from "../health";
+import { withRetry, HttpError } from "../retry";
+import { CACHE_TTLS } from "../cache-config";
 
 const HUBSPOT_BASE_URL = "https://api.hubapi.com";
-const HUBSPOT_CACHE_TTL = 60; // 1 hour in minutes
+const HUBSPOT_CACHE_TTL = CACHE_TTLS.hubspot; // 1 hour in minutes
 
 export interface HubSpotStatusResult {
   domain: string;
@@ -171,29 +173,36 @@ export async function getHubSpotStatus(
     // Step 1: Search for company by domain
     apiCallBreadcrumb("hubspot", "getStatus", { domain: normalized });
     const _statusStart = Date.now();
-    const companyRes = await fetch(
-      `${HUBSPOT_BASE_URL}/crm/v3/objects/companies/search`,
-      {
-        method: "POST",
-        headers: hubspotHeaders(),
-        body: JSON.stringify({
-          filterGroups: [
-            {
-              filters: [
-                { propertyName: "domain", operator: "EQ", value: normalized },
+    const companyRes = await withRetry(
+      async () => {
+        const r = await fetch(
+          `${HUBSPOT_BASE_URL}/crm/v3/objects/companies/search`,
+          {
+            method: "POST",
+            headers: hubspotHeaders(),
+            body: JSON.stringify({
+              filterGroups: [
+                {
+                  filters: [
+                    { propertyName: "domain", operator: "EQ", value: normalized },
+                  ],
+                },
               ],
-            },
-          ],
-          properties: [
-            "name",
-            "domain",
-            "lifecyclestage",
-            "hs_lead_status",
-            "num_associated_deals",
-          ],
-          limit: 1,
-        }),
-      }
+              properties: [
+                "name",
+                "domain",
+                "lifecyclestage",
+                "hs_lead_status",
+                "num_associated_deals",
+              ],
+              limit: 1,
+            }),
+          }
+        );
+        if (!r.ok) throw new HttpError(r.status, r.statusText);
+        return r;
+      },
+      { label: "HubSpot", maxRetries: 2 }
     );
 
     const hsRateLimit = companyRes.headers.get("X-RateLimit-Remaining");
@@ -201,16 +210,9 @@ export async function getHubSpotStatus(
       source: "hubspot", endpoint: "companies/search", status_code: companyRes.status,
       success: companyRes.ok, latency_ms: Date.now() - _statusStart,
       rate_limit_remaining: hsRateLimit ? parseInt(hsRateLimit, 10) : null,
-      error_message: companyRes.ok ? null : `${companyRes.status}`,
+      error_message: null,
       context: { domain: normalized }, user_name: null,
     });
-
-    if (!companyRes.ok) {
-      console.warn(
-        `[HubSpot] Company search failed for ${normalized}: ${companyRes.status}`
-      );
-      return { domain: normalized, status: "none", lastContact: null, dealStage: null };
-    }
 
     const companyData = await companyRes.json();
     const companies = companyData.results || [];
@@ -235,12 +237,19 @@ export async function getHubSpotStatus(
     let lastContact: string | null = null;
 
     try {
-      const assocRes = await fetch(
-        `${HUBSPOT_BASE_URL}/crm/v3/objects/companies/${companyId}/associations/deals`,
-        { headers: hubspotHeaders() }
-      );
+      const assocRes = await withRetry(
+        async () => {
+          const r = await fetch(
+            `${HUBSPOT_BASE_URL}/crm/v3/objects/companies/${companyId}/associations/deals`,
+            { headers: hubspotHeaders() }
+          );
+          if (!r.ok) throw new HttpError(r.status, r.statusText);
+          return r;
+        },
+        { label: "HubSpot", maxRetries: 2 }
+      ).catch(() => null);
 
-      if (assocRes.ok) {
+      if (assocRes) {
         const assocData = await assocRes.json();
         const dealIds: string[] = (assocData.results || []).map(
           (r: { id: string }) => r.id
@@ -248,12 +257,22 @@ export async function getHubSpotStatus(
 
         // Fetch deal details (batch up to 10)
         const dealFetches = dealIds.slice(0, 10).map(async (dealId) => {
-          const dealRes = await fetch(
-            `${HUBSPOT_BASE_URL}/crm/v3/objects/deals/${dealId}?properties=dealstage,dealname,amount,closedate`,
-            { headers: hubspotHeaders() }
-          );
-          if (!dealRes.ok) return null;
-          return dealRes.json();
+          try {
+            const dealRes = await withRetry(
+              async () => {
+                const r = await fetch(
+                  `${HUBSPOT_BASE_URL}/crm/v3/objects/deals/${dealId}?properties=dealstage,dealname,amount,closedate`,
+                  { headers: hubspotHeaders() }
+                );
+                if (!r.ok) throw new HttpError(r.status, r.statusText);
+                return r;
+              },
+              { label: "HubSpot", maxRetries: 1 }
+            );
+            return dealRes.json();
+          } catch {
+            return null;
+          }
         });
 
         const deals = (await Promise.all(dealFetches)).filter(Boolean);
@@ -317,60 +336,60 @@ export async function getHubSpotContacts(
     // Try searching contacts by company domain property
     apiCallBreadcrumb("hubspot", "getContacts", { domain: normalized });
     const _contactsStart = Date.now();
-    const res = await fetch(
-      `${HUBSPOT_BASE_URL}/crm/v3/objects/contacts/search`,
-      {
-        method: "POST",
-        headers: hubspotHeaders(),
-        body: JSON.stringify({
-          filterGroups: [
-            {
-              filters: [
+    const res = await withRetry(
+      async () => {
+        const r = await fetch(
+          `${HUBSPOT_BASE_URL}/crm/v3/objects/contacts/search`,
+          {
+            method: "POST",
+            headers: hubspotHeaders(),
+            body: JSON.stringify({
+              filterGroups: [
                 {
-                  propertyName: "hs_additional_emails",
-                  operator: "CONTAINS_TOKEN",
-                  value: `*@${normalized}`,
+                  filters: [
+                    {
+                      propertyName: "hs_additional_emails",
+                      operator: "CONTAINS_TOKEN",
+                      value: `*@${normalized}`,
+                    },
+                  ],
+                },
+                {
+                  filters: [
+                    {
+                      propertyName: "email",
+                      operator: "CONTAINS_TOKEN",
+                      value: `*@${normalized}`,
+                    },
+                  ],
                 },
               ],
-            },
-            {
-              filters: [
-                {
-                  propertyName: "email",
-                  operator: "CONTAINS_TOKEN",
-                  value: `*@${normalized}`,
-                },
+              properties: [
+                "firstname",
+                "lastname",
+                "email",
+                "phone",
+                "jobtitle",
+                "hs_linkedin_url",
+                "lastmodifieddate",
+                "company",
               ],
-            },
-          ],
-          properties: [
-            "firstname",
-            "lastname",
-            "email",
-            "phone",
-            "jobtitle",
-            "hs_linkedin_url",
-            "lastmodifieddate",
-            "company",
-          ],
-          limit: 25,
-        }),
-      }
+              limit: 25,
+            }),
+          }
+        );
+        if (!r.ok) throw new HttpError(r.status, r.statusText);
+        return r;
+      },
+      { label: "HubSpot", maxRetries: 2 }
     );
 
     logApiCall({
       source: "hubspot", endpoint: "contacts/search", status_code: res.status,
       success: res.ok, latency_ms: Date.now() - _contactsStart,
-      rate_limit_remaining: null, error_message: res.ok ? null : `${res.status}`,
+      rate_limit_remaining: null, error_message: null,
       context: { domain: normalized }, user_name: null,
     });
-
-    if (!res.ok) {
-      console.warn(
-        `[HubSpot] Contact search failed for ${normalized}: ${res.status}`
-      );
-      return [];
-    }
 
     const data = await res.json();
     const results = data.results || [];
@@ -442,26 +461,36 @@ async function getContactsViaCompanyAssociation(
 ): Promise<Contact[]> {
   try {
     // Get company ID first
-    const companyRes = await fetch(
-      `${HUBSPOT_BASE_URL}/crm/v3/objects/companies/search`,
-      {
-        method: "POST",
-        headers: hubspotHeaders(),
-        body: JSON.stringify({
-          filterGroups: [
+    let companyRes: Response;
+    try {
+      companyRes = await withRetry(
+        async () => {
+          const r = await fetch(
+            `${HUBSPOT_BASE_URL}/crm/v3/objects/companies/search`,
             {
-              filters: [
-                { propertyName: "domain", operator: "EQ", value: domain },
-              ],
-            },
-          ],
-          properties: ["name"],
-          limit: 1,
-        }),
-      }
-    );
-
-    if (!companyRes.ok) return [];
+              method: "POST",
+              headers: hubspotHeaders(),
+              body: JSON.stringify({
+                filterGroups: [
+                  {
+                    filters: [
+                      { propertyName: "domain", operator: "EQ", value: domain },
+                    ],
+                  },
+                ],
+                properties: ["name"],
+                limit: 1,
+              }),
+            }
+          );
+          if (!r.ok) throw new HttpError(r.status, r.statusText);
+          return r;
+        },
+        { label: "HubSpot", maxRetries: 2 }
+      );
+    } catch {
+      return [];
+    }
     const companyData = await companyRes.json();
     if (!companyData.results?.length) return [];
 
@@ -469,42 +498,62 @@ async function getContactsViaCompanyAssociation(
     const companyName = companyData.results[0].properties?.name || domain;
 
     // Get associated contacts
-    const assocRes = await fetch(
-      `${HUBSPOT_BASE_URL}/crm/v3/objects/companies/${companyId}/associations/contacts`,
-      { headers: hubspotHeaders() }
-    );
-
-    if (!assocRes.ok) return [];
-    const assocData = await assocRes.json();
-    const contactIds: string[] = (assocData.results || [])
+    let assocContactRes: Response;
+    try {
+      assocContactRes = await withRetry(
+        async () => {
+          const r = await fetch(
+            `${HUBSPOT_BASE_URL}/crm/v3/objects/companies/${companyId}/associations/contacts`,
+            { headers: hubspotHeaders() }
+          );
+          if (!r.ok) throw new HttpError(r.status, r.statusText);
+          return r;
+        },
+        { label: "HubSpot", maxRetries: 2 }
+      );
+    } catch {
+      return [];
+    }
+    const assocContactData = await assocContactRes.json();
+    const contactIds: string[] = (assocContactData.results || [])
       .slice(0, 25)
       .map((r: { id: string }) => r.id);
 
     if (contactIds.length === 0) return [];
 
     // Batch fetch contact details
-    const batchRes = await fetch(
-      `${HUBSPOT_BASE_URL}/crm/v3/objects/contacts/batch/read`,
-      {
-        method: "POST",
-        headers: hubspotHeaders(),
-        body: JSON.stringify({
-          inputs: contactIds.map((id) => ({ id })),
-          properties: [
-            "firstname",
-            "lastname",
-            "email",
-            "phone",
-            "jobtitle",
-            "hs_linkedin_url",
-            "lastmodifieddate",
-            "company",
-          ],
-        }),
-      }
-    );
-
-    if (!batchRes.ok) return [];
+    let batchRes: Response;
+    try {
+      batchRes = await withRetry(
+        async () => {
+          const r = await fetch(
+            `${HUBSPOT_BASE_URL}/crm/v3/objects/contacts/batch/read`,
+            {
+              method: "POST",
+              headers: hubspotHeaders(),
+              body: JSON.stringify({
+                inputs: contactIds.map((id) => ({ id })),
+                properties: [
+                  "firstname",
+                  "lastname",
+                  "email",
+                  "phone",
+                  "jobtitle",
+                  "hs_linkedin_url",
+                  "lastmodifieddate",
+                  "company",
+                ],
+              }),
+            }
+          );
+          if (!r.ok) throw new HttpError(r.status, r.statusText);
+          return r;
+        },
+        { label: "HubSpot", maxRetries: 2 }
+      );
+    } catch {
+      return [];
+    }
     const batchData = await batchRes.json();
     const results = batchData.results || [];
 

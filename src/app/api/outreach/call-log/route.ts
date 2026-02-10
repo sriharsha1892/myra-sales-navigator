@@ -101,7 +101,6 @@ export async function POST(request: NextRequest) {
           targetableType: "SalesAccount",
           targetableId: intel.account.id,
         });
-        console.log(`[CRM Sync] Call activity logged for ${body.companyDomain}`);
       } catch {
         // Silent — CRM sync is best-effort
       }

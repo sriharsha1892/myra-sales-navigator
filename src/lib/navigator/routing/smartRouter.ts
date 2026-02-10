@@ -112,13 +112,11 @@ export async function pickDiscoveryEngine(): Promise<"parallel" | "exa"> {
 
   // Parallel unavailable/unhealthy/over-budget — try Exa if under its tiny budget
   if (isExaAvailable() && isHealthy(health, "exa") && isUnderBudget("exa")) {
-    console.log("[SmartRouter] Parallel unavailable/unhealthy, falling back to Exa");
     return "exa";
   }
 
   // Both over budget or unhealthy — still prefer Parallel (cheaper per query)
   if (isParallelAvailable()) {
-    console.log("[SmartRouter] All engines over budget, using Parallel (cheaper)");
     return "parallel";
   }
 
@@ -140,13 +138,11 @@ export async function pickNameEngine(): Promise<"serper" | "exa"> {
 
   // Serper unavailable — try Exa if under budget
   if (isExaAvailable() && isHealthy(health, "exa") && isUnderBudget("exa")) {
-    console.log("[SmartRouter] Serper unavailable, falling back to Exa");
     return "exa";
   }
 
   // Both over budget — still prefer Serper (cheaper)
   if (isSerperAvailable()) {
-    console.log("[SmartRouter] All engines over budget, using Serper (cheaper)");
     return "serper";
   }
 

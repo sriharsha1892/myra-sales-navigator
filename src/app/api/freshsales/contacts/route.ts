@@ -64,10 +64,6 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log(
-      `[Freshsales] Created contact ${firstName} ${lastName} (id=${result.id}) under account ${account.id}${account.created ? " (new account)" : ""}`
-    );
-
     return NextResponse.json({
       success: true,
       freshsalesContactId: result.id,

@@ -62,10 +62,6 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log(
-      `[Freshsales] Created task "${title}" (id=${result.id}) for ${targetableType} ${targetableId}`
-    );
-
     return NextResponse.json({
       success: true,
       freshsalesTaskId: result.id,

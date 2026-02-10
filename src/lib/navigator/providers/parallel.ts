@@ -117,7 +117,6 @@ export async function searchParallel(
   const cacheKey = CacheKeys.parallelSearch(hashFilters({ query, num }));
   const cached = await getCached<ParallelSearchResult>(cacheKey);
   if (cached) {
-    console.log("[Parallel] Returning cached results for:", query.slice(0, 60));
     return { ...cached, cacheHit: true };
   }
 

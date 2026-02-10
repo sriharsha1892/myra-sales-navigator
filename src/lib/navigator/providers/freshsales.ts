@@ -3,6 +3,7 @@ import { getCached, setCached, CacheKeys, CacheTTL, normalizeDomain, getRootDoma
 import { defaultFreshsalesSettings } from "../mock-data";
 import { apiCallBreadcrumb } from "@/lib/sentry";
 import { logApiCall } from "../health";
+import { withRetry, HttpError } from "../retry";
 
 // ---------------------------------------------------------------------------
 // Admin config access (server-side)
@@ -134,10 +135,16 @@ async function resolveOwner(
     return { id: ownerId, ...cached };
   }
   try {
-    const res = await fetch(`${baseUrl}/users/${ownerId}`, {
-      headers: freshsalesHeaders(),
-    });
-    if (!res.ok) return null;
+    const res = await withRetry(
+      async () => {
+        const r = await fetch(`${baseUrl}/users/${ownerId}`, {
+          headers: freshsalesHeaders(),
+        });
+        if (!r.ok) throw new HttpError(r.status, r.statusText);
+        return r;
+      },
+      { label: "Freshsales", maxRetries: 2 }
+    );
     checkRateLimit(res.headers);
     const data = await res.json();
     const owner = {
@@ -164,21 +171,31 @@ async function paginatedFilteredSearch(
   const all: Record<string, unknown>[] = [];
   for (let page = 1; page <= maxPages; page++) {
     const _start = Date.now();
-    const res = await fetch(
-      `${baseUrl}/filtered_search/${entity}?page=${page}`,
-      {
-        method: "POST",
-        headers: freshsalesHeaders(),
-        body: JSON.stringify({ filter_rule: filterRule }),
-      }
-    );
-    if (!res.ok) {
+    let res: Response;
+    try {
+      res = await withRetry(
+        async () => {
+          const r = await fetch(
+            `${baseUrl}/filtered_search/${entity}?page=${page}`,
+            {
+              method: "POST",
+              headers: freshsalesHeaders(),
+              body: JSON.stringify({ filter_rule: filterRule }),
+            }
+          );
+          if (!r.ok) throw new HttpError(r.status, r.statusText);
+          return r;
+        },
+        { label: "Freshsales", maxRetries: 2 }
+      );
+    } catch (err) {
       if (page === 1) {
-        console.warn(`[Freshsales] ${entity} search failed: ${res.status}`);
+        const status = err instanceof HttpError ? err.status : 0;
+        console.warn(`[Freshsales] ${entity} search failed: ${status}`);
         logApiCall({
-          source: "freshsales", endpoint: `filtered_search/${entity}`, status_code: res.status,
+          source: "freshsales", endpoint: `filtered_search/${entity}`, status_code: status,
           success: false, latency_ms: Date.now() - _start, rate_limit_remaining: null,
-          error_message: `${res.status}`, context: { entity, page }, user_name: null,
+          error_message: `${err instanceof HttpError ? err.status : err}`, context: { entity, page }, user_name: null,
         });
       }
       break;
@@ -273,7 +290,7 @@ export async function getFreshsalesIntel(
 
     if (accounts.length === 0 && companyName) {
       // Fallback: search by company name
-      console.log("[Freshsales] domain search empty, trying name fallback:", companyName);
+      // domain search empty, trying name fallback
       const nameFilterRule = [
         {
           attribute: "name",
@@ -292,7 +309,6 @@ export async function getFreshsalesIntel(
       if (companyName) {
         const directContacts = await fetchFreshsalesContactsByCompanyName(baseUrl, companyName, normalized);
         if (directContacts.length > 0) {
-          console.log(`[Freshsales] Found ${directContacts.length} contacts via direct company_name search for "${companyName}"`);
           const result: FreshsalesIntel = {
             domain: normalized,
             status: "none",
@@ -352,7 +368,6 @@ export async function getFreshsalesIntel(
       ? contactsData.map((c) => ({ ...c, crmStatus: statusTag }))
       : contactsData;
 
-    console.log(`[Freshsales] ${normalized}: ${taggedContacts.length} contacts, ${dealsData.length} deals`);
 
     // Derive last contact date — prefer activity date, fall back to contact.lastVerified
     let lastContactDate: string | null = null;
@@ -414,10 +429,6 @@ async function fetchFreshsalesContacts(
     ];
     const rawContacts = await paginatedFilteredSearch(baseUrl, "contact", filterRule, 4);
     const validated = rawContacts.filter((raw) => contactBelongsToCompany(raw, domain));
-    const filtered = rawContacts.length - validated.length;
-    if (filtered > 0) {
-      console.log(`[Freshsales] Filtered ${filtered}/${rawContacts.length} contacts (email domain mismatch) for ${domain}`);
-    }
 
     // Freshsales contacts are CRM records — do NOT run sanitizeContacts on them.
     // sanitizeContacts filters out contacts whose email domain matches the company
@@ -470,10 +481,6 @@ async function fetchFreshsalesContactsByCompanyName(
     ];
     const rawContacts = await paginatedFilteredSearch(baseUrl, "contact", filterRule, 4);
     const validated = rawContacts.filter((raw) => contactBelongsToCompany(raw, domain));
-    const filtered = rawContacts.length - validated.length;
-    if (filtered > 0) {
-      console.log(`[Freshsales] Filtered ${filtered}/${rawContacts.length} contacts (email domain mismatch) for ${domain}`);
-    }
 
     return validated.map(
       (raw: Record<string, unknown>, i: number) => ({
@@ -608,25 +615,28 @@ export async function createFreshsalesContact(
   const settings = await getFreshsalesConfig();
   const baseUrl = getBaseUrl(settings);
   try {
-    const res = await fetch(`${baseUrl}/contacts`, {
-      method: "POST",
-      headers: freshsalesHeaders(),
-      body: JSON.stringify({
-        contact: {
-          first_name: contact.firstName,
-          last_name: contact.lastName,
-          email: contact.email,
-          mobile_number: contact.phone,
-          job_title: contact.title,
-          linkedin: contact.linkedinUrl,
-          sales_account_id: accountId,
-        },
-      }),
-    });
-    if (!res.ok) {
-      console.error("[Freshsales] createContact failed:", res.status);
-      return null;
-    }
+    const res = await withRetry(
+      async () => {
+        const r = await fetch(`${baseUrl}/contacts`, {
+          method: "POST",
+          headers: freshsalesHeaders(),
+          body: JSON.stringify({
+            contact: {
+              first_name: contact.firstName,
+              last_name: contact.lastName,
+              email: contact.email,
+              mobile_number: contact.phone,
+              job_title: contact.title,
+              linkedin: contact.linkedinUrl,
+              sales_account_id: accountId,
+            },
+          }),
+        });
+        if (!r.ok) throw new HttpError(r.status, r.statusText);
+        return r;
+      },
+      { label: "Freshsales", maxRetries: 2 }
+    );
     checkRateLimit(res.headers);
     const data = await res.json();
     return { id: data.contact?.id };
@@ -653,20 +663,23 @@ export async function findOrCreateAccount(
     }
 
     // 2. Create new account
-    const res = await fetch(`${baseUrl}/sales_accounts`, {
-      method: "POST",
-      headers: freshsalesHeaders(),
-      body: JSON.stringify({
-        sales_account: {
-          name: companyName,
-          website: `https://${domain}`,
-        },
-      }),
-    });
-    if (!res.ok) {
-      console.error("[Freshsales] createAccount failed:", res.status);
-      return null;
-    }
+    const res = await withRetry(
+      async () => {
+        const r = await fetch(`${baseUrl}/sales_accounts`, {
+          method: "POST",
+          headers: freshsalesHeaders(),
+          body: JSON.stringify({
+            sales_account: {
+              name: companyName,
+              website: `https://${domain}`,
+            },
+          }),
+        });
+        if (!r.ok) throw new HttpError(r.status, r.statusText);
+        return r;
+      },
+      { label: "Freshsales", maxRetries: 2 }
+    );
     checkRateLimit(res.headers);
     const data = await res.json();
     return { id: data.sales_account?.id, created: true };
@@ -689,24 +702,27 @@ export async function createFreshsalesTask(
   const settings = await getFreshsalesConfig();
   const baseUrl = getBaseUrl(settings);
   try {
-    const res = await fetch(`${baseUrl}/tasks`, {
-      method: "POST",
-      headers: freshsalesHeaders(),
-      body: JSON.stringify({
-        task: {
-          title: task.title,
-          description: task.description || "",
-          due_date: task.dueDate,
-          owner_id: task.ownerId,
-          targetable_type: task.targetableType,
-          targetable_id: task.targetableId,
-        },
-      }),
-    });
-    if (!res.ok) {
-      console.error("[Freshsales] createTask failed:", res.status);
-      return null;
-    }
+    const res = await withRetry(
+      async () => {
+        const r = await fetch(`${baseUrl}/tasks`, {
+          method: "POST",
+          headers: freshsalesHeaders(),
+          body: JSON.stringify({
+            task: {
+              title: task.title,
+              description: task.description || "",
+              due_date: task.dueDate,
+              owner_id: task.ownerId,
+              targetable_type: task.targetableType,
+              targetable_id: task.targetableId,
+            },
+          }),
+        });
+        if (!r.ok) throw new HttpError(r.status, r.statusText);
+        return r;
+      },
+      { label: "Freshsales", maxRetries: 2 }
+    );
     checkRateLimit(res.headers);
     const data = await res.json();
     return { id: data.task?.id };
@@ -728,23 +744,26 @@ export async function createFreshsalesActivity(
   const settings = await getFreshsalesConfig();
   const baseUrl = getBaseUrl(settings);
   try {
-    const res = await fetch(`${baseUrl}/sales_activities`, {
-      method: "POST",
-      headers: freshsalesHeaders(),
-      body: JSON.stringify({
-        sales_activity: {
-          title: activity.title,
-          notes: activity.notes || "",
-          targetable_type: activity.targetableType,
-          targetable_id: activity.targetableId,
-          owner_id: activity.ownerId,
-        },
-      }),
-    });
-    if (!res.ok) {
-      console.error("[Freshsales] createActivity failed:", res.status);
-      return null;
-    }
+    const res = await withRetry(
+      async () => {
+        const r = await fetch(`${baseUrl}/sales_activities`, {
+          method: "POST",
+          headers: freshsalesHeaders(),
+          body: JSON.stringify({
+            sales_activity: {
+              title: activity.title,
+              notes: activity.notes || "",
+              targetable_type: activity.targetableType,
+              targetable_id: activity.targetableId,
+              owner_id: activity.ownerId,
+            },
+          }),
+        });
+        if (!r.ok) throw new HttpError(r.status, r.statusText);
+        return r;
+      },
+      { label: "Freshsales", maxRetries: 2 }
+    );
     checkRateLimit(res.headers);
     const data = await res.json();
     return { id: data.sales_activity?.id };

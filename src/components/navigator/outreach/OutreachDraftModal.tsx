@@ -6,7 +6,6 @@ import { useStore } from "@/lib/navigator/store";
 import { Overlay } from "@/components/primitives/Overlay";
 import { useInlineFeedback } from "@/hooks/navigator/useInlineFeedback";
 import { CHANNEL_CONSTRAINTS, CHANNEL_OPTIONS } from "@/lib/navigator/outreach/channelConfig";
-import { Tooltip } from "@/components/navigator/shared/Tooltip";
 import type {
   Contact,
   CompanyEnriched,
@@ -19,6 +18,9 @@ import type {
   HubSpotStatus,
   CustomEmailTemplate,
 } from "@/lib/navigator/types";
+import { ChannelSelector } from "./ChannelSelector";
+import { DraftEditor } from "./DraftEditor";
+import { SequenceEnrollTab } from "./SequenceEnrollTab";
 
 interface OutreachDraftModalProps {
   contact: Contact;
@@ -149,7 +151,7 @@ export function OutreachDraftModal({
     if (url) {
       const win = window.open(url, "_blank");
       if (!win) {
-        addToast({ message: "Popup blocked — allow popups for this site", type: "error" });
+        addToast({ message: "Popup blocked \u2014 allow popups for this site", type: "error" });
       }
     }
     setShowCallOutcome(true);
@@ -267,7 +269,7 @@ export function OutreachDraftModal({
       setHasGenerated(true);
     } catch (err) {
       addToast({
-        message: err instanceof Error ? err.message : "Draft generation failed — check your connection and try again",
+        message: err instanceof Error ? err.message : "Draft generation failed \u2014 check your connection and try again",
         type: "error",
       });
     } finally {
@@ -287,12 +289,6 @@ export function OutreachDraftModal({
       .then(() => trigger("Copied"))
       .catch(() => trigger("Copy failed", "error"));
   }, [subject, message, constraints.hasSubject, trigger]);
-
-  // Character counter
-  const charCount = message.length;
-  const charLimit = constraints.maxChars;
-  const charWarning = charLimit ? charCount >= charLimit * 0.9 : false;
-  const charOver = charLimit ? charCount > charLimit : false;
 
   // Filtered tone options by channel
   const availableTones = useMemo(() => {
@@ -360,100 +356,27 @@ export function OutreachDraftModal({
         )}
 
         {modalTab === "sequence" ? (
-          /* ---- Sequence enrollment tab ---- */
-          <div className="px-5 py-4">
-            <p className="mb-3 text-xs text-text-secondary">
-              Enroll {contact.firstName} in a multi-step outreach sequence.
-            </p>
-            {sequencesFetchError ? (
-              <div className="py-6 text-center text-xs text-danger">
-                Failed to load sequences. Check your connection and try again.
-              </div>
-            ) : !sequencesData?.sequences?.length ? (
-              <div className="py-6 text-center text-xs text-text-tertiary">
-                No sequences created yet. Create one from the Sequences page.
-              </div>
-            ) : (
-              <div className="max-h-[300px] space-y-1.5 overflow-y-auto">
-                {sequencesData.sequences.map((seq) => (
-                  <button
-                    key={seq.id}
-                    onClick={() => setSelectedSequenceId(seq.id === selectedSequenceId ? null : seq.id)}
-                    className={`flex w-full items-start gap-3 rounded-input border px-3 py-2.5 text-left transition-all duration-[180ms] ${
-                      selectedSequenceId === seq.id
-                        ? "border-accent-primary/40 bg-accent-primary/5"
-                        : "border-surface-3 bg-surface-0 hover:border-surface-3/80 hover:bg-surface-2/50"
-                    }`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <span className="block text-xs font-medium text-text-primary">{seq.name}</span>
-                      {seq.description && (
-                        <span className="block mt-0.5 text-[10px] text-text-tertiary truncate">{seq.description}</span>
-                      )}
-                      <span className="block mt-1 text-[10px] text-text-tertiary">
-                        {seq.steps.length} step{seq.steps.length !== 1 ? "s" : ""}: {seq.steps.map((s) => s.channel.replace("_", " ")).join(" → ")}
-                      </span>
-                    </div>
-                    {seq.isTemplate && (
-                      <span className="flex-shrink-0 rounded-pill bg-accent-secondary/10 px-2 py-0.5 text-[9px] font-medium text-accent-secondary">
-                        Template
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-            {/* Enroll footer */}
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                onClick={onClose}
-                className="rounded-input px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-surface-2"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleEnroll}
-                disabled={!selectedSequenceId || isEnrolling}
-                className="rounded-input bg-accent-primary px-4 py-1.5 text-xs font-medium text-surface-0 transition-opacity hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {isEnrolling ? "Enrolling..." : "Enroll"}
-              </button>
-            </div>
-          </div>
+          <SequenceEnrollTab
+            contactFirstName={contact.firstName}
+            sequences={sequencesData?.sequences}
+            sequencesFetchError={sequencesFetchError}
+            selectedSequenceId={selectedSequenceId}
+            isEnrolling={isEnrolling}
+            onSelectSequence={setSelectedSequenceId}
+            onEnroll={handleEnroll}
+            onClose={onClose}
+          />
         ) : (
         <>
         {/* Channel selector */}
-        <div className="flex gap-1 border-b border-surface-3 px-5 py-2.5">
-          {CHANNEL_OPTIONS.filter((opt) => enabledChannels.includes(opt.value)).map((opt) => {
-            const isDisabled =
-              (opt.value === "whatsapp" && whatsappDisabled) ||
-              ((opt.value === "linkedin_connect" || opt.value === "linkedin_inmail") && linkedinDisabled);
-            const isActive = channel === opt.value;
-            const btn = (
-              <button
-                key={opt.value}
-                onClick={() => !isDisabled && setChannel(opt.value)}
-                disabled={isDisabled}
-                className={`rounded-pill px-3 py-1.5 text-xs transition-colors ${
-                  isActive
-                    ? "bg-accent-primary/15 text-accent-primary font-medium"
-                    : isDisabled
-                      ? "cursor-not-allowed text-text-tertiary/40"
-                      : "text-text-secondary hover:bg-surface-2 hover:text-text-primary"
-                }`}
-              >
-                {opt.label}
-              </button>
-            );
-            return isDisabled ? (
-              <Tooltip key={opt.value} text={
-                opt.value === "whatsapp"
-                  ? (contact.phone ? "Requires prior CRM contact" : "No phone number available")
-                  : "No LinkedIn URL available"
-              }>{btn}</Tooltip>
-            ) : btn;
-          })}
-        </div>
+        <ChannelSelector
+          channel={channel}
+          enabledChannels={enabledChannels}
+          whatsappDisabled={whatsappDisabled}
+          linkedinDisabled={linkedinDisabled}
+          contactPhone={contact.phone}
+          onChannelChange={setChannel}
+        />
 
         {/* Controls */}
         <div className="flex gap-3 border-b border-surface-3 px-5 py-3">
@@ -584,73 +507,18 @@ export function OutreachDraftModal({
         )}
 
         {/* Draft area */}
-        <div className="px-5 py-4">
-          {!hasGenerated && !isGenerating ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <p className="mb-3 text-sm text-text-secondary">
-                Generate a personalized {channel === "email" ? "email" : channel.replace("_", " ")} draft based on prospect data and signals.
-              </p>
-              <button
-                onClick={generate}
-                className="rounded-lg bg-accent-primary px-4 py-2 text-sm font-medium text-surface-0 transition-opacity hover:opacity-90"
-              >
-                Generate Draft
-              </button>
-            </div>
-          ) : isGenerating ? (
-            <div className="flex flex-col items-center justify-center py-8">
-              <div className="mb-3 h-5 w-5 animate-spin rounded-full border-2 border-accent-primary border-t-transparent" />
-              <p className="text-xs text-text-tertiary">Generating draft...</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {/* Subject (only for channels that have it) */}
-              {constraints.hasSubject && (
-                <div>
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-text-secondary">
-                    Subject
-                  </label>
-                  <input
-                    type="text"
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    className="w-full rounded-lg border border-surface-3 bg-surface-0 px-3 py-2 text-sm text-text-primary outline-none transition-colors focus:border-accent-primary"
-                  />
-                </div>
-              )}
-
-              {/* Message */}
-              <div>
-                <div className="mb-1 flex items-center justify-between">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
-                    Message
-                  </label>
-                  {charLimit && (
-                    <span
-                      className={`font-mono text-xs ${
-                        charOver
-                          ? "text-danger"
-                          : charWarning
-                            ? "text-warning"
-                            : "text-text-tertiary"
-                      }`}
-                    >
-                      {charCount}/{charLimit}
-                    </span>
-                  )}
-                </div>
-                <textarea
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  rows={channel === "linkedin_connect" || channel === "whatsapp" ? 5 : 10}
-                  className={`w-full resize-y rounded-lg border bg-surface-0 px-3 py-2 font-mono text-sm leading-relaxed text-text-primary outline-none transition-colors focus:border-accent-primary ${
-                    charOver ? "border-danger" : "border-surface-3"
-                  }`}
-                />
-              </div>
-            </div>
-          )}
-        </div>
+        <DraftEditor
+          channel={channel}
+          subject={subject}
+          message={message}
+          hasSubject={constraints.hasSubject}
+          maxChars={constraints.maxChars}
+          isGenerating={isGenerating}
+          hasGenerated={hasGenerated}
+          onSubjectChange={setSubject}
+          onMessageChange={setMessage}
+          onGenerate={generate}
+        />
 
         {/* Footer actions */}
         {hasGenerated && !isGenerating && (

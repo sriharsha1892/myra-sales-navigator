@@ -1,6 +1,7 @@
 import type { FilterState, ExtractedEntities } from "../types";
 import { getGroq, isGroqAvailable } from "../llm/client";
 import { getCached, setCached } from "../../cache";
+import { CACHE_TTLS } from "../cache-config";
 
 // ---------------------------------------------------------------------------
 // Legal entity suffix stripping
@@ -155,7 +156,7 @@ export async function reformulateQueryWithEntities(
       };
 
       const result: ReformulatedResult = { queries, entities };
-      await setCached(cacheKey, result, 360); // 6h TTL
+      await setCached(cacheKey, result, CACHE_TTLS.queryReformulation);
       return result;
     }
   } catch (err) {

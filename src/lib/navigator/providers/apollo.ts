@@ -2,11 +2,13 @@ import type { CompanyEnriched, Contact } from "../types";
 import { getCached, setCached, CacheKeys, normalizeDomain, getRootDomain } from "../../cache";
 import { apiCallBreadcrumb } from "@/lib/sentry";
 import { logApiCall } from "../health";
+import { withRetry, HttpError } from "../retry";
+import { CACHE_TTLS } from "../cache-config";
 
 // Cache TTL: 24 hours in minutes (for person enrichment — credit-bearing)
-const APOLLO_CACHE_TTL = 1440;
+const APOLLO_CACHE_TTL = CACHE_TTLS.apolloPerson;
 // Cache TTL: 2 hours for contacts list (free endpoint, refresh more often)
-const APOLLO_CONTACTS_CACHE_TTL = 120;
+const APOLLO_CONTACTS_CACHE_TTL = CACHE_TTLS.apolloContacts;
 
 const APOLLO_BASE_URL = "https://api.apollo.io/api/v1";
 
@@ -73,9 +75,16 @@ export async function enrichCompany(
   try {
     apiCallBreadcrumb("apollo", "enrichCompany", { domain: normalized });
     const _start = Date.now();
-    const res = await fetch(
-      `${APOLLO_BASE_URL}/organizations/enrich?domain=${encodeURIComponent(normalized)}`,
-      { method: "GET", headers: apolloHeaders() }
+    const res = await withRetry(
+      async () => {
+        const r = await fetch(
+          `${APOLLO_BASE_URL}/organizations/enrich?domain=${encodeURIComponent(normalized)}`,
+          { method: "GET", headers: apolloHeaders() }
+        );
+        if (!r.ok) throw new HttpError(r.status, r.statusText);
+        return r;
+      },
+      { label: "Apollo", maxRetries: 2 }
     );
 
     const rateLimitRemaining = res.headers.get("x-ratelimit-remaining");
@@ -83,16 +92,9 @@ export async function enrichCompany(
       source: "apollo", endpoint: "organizations/enrich", status_code: res.status,
       success: res.ok, latency_ms: Date.now() - _start,
       rate_limit_remaining: rateLimitRemaining ? parseInt(rateLimitRemaining, 10) : null,
-      error_message: res.ok ? null : `${res.status} ${res.statusText}`,
+      error_message: null,
       context: { domain: normalized }, user_name: null,
     });
-
-    if (!res.ok) {
-      console.warn(
-        `[Apollo] enrichCompany failed for ${normalized}: ${res.status} ${res.statusText}`
-      );
-      return null;
-    }
 
     const data = await res.json();
     const org = data.organization;
@@ -146,32 +148,32 @@ export async function findContacts(domain: string): Promise<Contact[]> {
   try {
     apiCallBreadcrumb("apollo", "findContacts", { domain: normalized });
     const _start = Date.now();
-    const res = await fetch(`${APOLLO_BASE_URL}/mixed_people/api_search`, {
-      method: "POST",
-      headers: apolloHeaders(),
-      body: JSON.stringify({
-        q_organization_domains: normalized,
-        per_page: 25,
-        page: 1,
-        person_seniorities: ["c_suite", "vp", "director", "manager"],
-      }),
-    });
+    const res = await withRetry(
+      async () => {
+        const r = await fetch(`${APOLLO_BASE_URL}/mixed_people/api_search`, {
+          method: "POST",
+          headers: apolloHeaders(),
+          body: JSON.stringify({
+            q_organization_domains: normalized,
+            per_page: 25,
+            page: 1,
+            person_seniorities: ["c_suite", "vp", "director", "manager"],
+          }),
+        });
+        if (!r.ok) throw new HttpError(r.status, r.statusText);
+        return r;
+      },
+      { label: "Apollo", maxRetries: 2 }
+    );
 
     const rateLimitRemaining = res.headers.get("x-ratelimit-remaining");
     logApiCall({
       source: "apollo", endpoint: "mixed_people/api_search", status_code: res.status,
       success: res.ok, latency_ms: Date.now() - _start,
       rate_limit_remaining: rateLimitRemaining ? parseInt(rateLimitRemaining, 10) : null,
-      error_message: res.ok ? null : `${res.status} ${res.statusText}`,
+      error_message: null,
       context: { domain: normalized }, user_name: null,
     });
-
-    if (!res.ok) {
-      console.warn(
-        `[Apollo] findContacts failed for ${normalized}: ${res.status} ${res.statusText}`
-      );
-      return [];
-    }
 
     const data = await res.json();
     const people: unknown[] = data.people || [];
@@ -252,24 +254,31 @@ export async function enrichContact(
 
   try {
     // Try ID-based match first
-    const res = await fetch(`${APOLLO_BASE_URL}/people/match`, {
-      method: "POST",
-      headers: apolloHeaders(),
-      body: JSON.stringify({
-        id: apolloId,
-        reveal_personal_emails: true,
-      }),
-    });
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let p: any = null;
 
-    if (res.ok) {
+    try {
+      const res = await withRetry(
+        async () => {
+          const r = await fetch(`${APOLLO_BASE_URL}/people/match`, {
+            method: "POST",
+            headers: apolloHeaders(),
+            body: JSON.stringify({
+              id: apolloId,
+              reveal_personal_emails: true,
+            }),
+          });
+          if (!r.ok) throw new HttpError(r.status, r.statusText);
+          return r;
+        },
+        { label: "Apollo", maxRetries: 2 }
+      );
       const data = await res.json();
       p = data.person ?? null;
-    } else {
+    } catch (err) {
       console.warn(
-        `[Apollo] enrichContact ID match failed for ${apolloId}: ${res.status} ${res.statusText}`
+        `[Apollo] enrichContact ID match failed for ${apolloId}:`,
+        err instanceof HttpError ? `${err.status} ${err.statusText}` : err
       );
     }
 
@@ -286,17 +295,22 @@ export async function enrichContact(
           fallbackBody.last_name = hint.lastName;
         }
 
-        const fallbackRes = await fetch(`${APOLLO_BASE_URL}/people/match`, {
-          method: "POST",
-          headers: apolloHeaders(),
-          body: JSON.stringify(fallbackBody),
-        });
+        const fallbackRes = await withRetry(
+          async () => {
+            const r = await fetch(`${APOLLO_BASE_URL}/people/match`, {
+              method: "POST",
+              headers: apolloHeaders(),
+              body: JSON.stringify(fallbackBody),
+            });
+            if (!r.ok) throw new HttpError(r.status, r.statusText);
+            return r;
+          },
+          { label: "Apollo", maxRetries: 2 }
+        );
 
-        if (fallbackRes.ok) {
-          const fallbackData = await fallbackRes.json();
-          if (fallbackData.person?.email) {
-            p = fallbackData.person;
-          }
+        const fallbackData = await fallbackRes.json();
+        if (fallbackData.person?.email) {
+          p = fallbackData.person;
         }
       } catch (fallbackErr) {
         console.warn("[Apollo] enrichContact name fallback failed:", fallbackErr);
@@ -350,12 +364,17 @@ export async function getApolloCredits(): Promise<{ available: number; total: nu
   if (!isApolloAvailable()) return null;
 
   try {
-    const res = await fetch(`${APOLLO_BASE_URL}/auth/health`, {
-      method: "GET",
-      headers: apolloHeaders(),
-    });
-
-    if (!res.ok) return null;
+    const res = await withRetry(
+      async () => {
+        const r = await fetch(`${APOLLO_BASE_URL}/auth/health`, {
+          method: "GET",
+          headers: apolloHeaders(),
+        });
+        if (!r.ok) throw new HttpError(r.status, r.statusText);
+        return r;
+      },
+      { label: "Apollo", maxRetries: 2 }
+    );
 
     const data = await res.json();
     const plan = data.plan ?? data;

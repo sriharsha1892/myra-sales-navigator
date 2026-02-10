@@ -304,13 +304,16 @@ describe("searchSerper — caching", () => {
 
 describe("searchSerper — HTTP error", () => {
   it("returns empty result on non-ok response", async () => {
+    // Use 400 (non-retryable) to avoid retry overhead in test
     fetchMock.mockResolvedValueOnce({
       ok: false,
-      status: 429,
-      text: async () => "Rate limited",
+      status: 400,
+      statusText: "Bad Request",
+      text: async () => "Bad request",
       headers: new Headers(),
     });
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const result = await searchSerper("test");
     expect(result.companies).toEqual([]);
     expect(result.signals).toEqual([]);

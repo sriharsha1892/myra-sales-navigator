@@ -4,6 +4,22 @@ import { completeJSON, isGroqAvailable } from "../llm/client";
 import { getCached, setCached, CacheKeys, CacheTTL, hashFilters, getRootDomain } from "@/lib/cache";
 import { apiCallBreadcrumb } from "@/lib/sentry";
 import { logApiCall } from "../health";
+import { withRetry, defaultRetryOn } from "../retry";
+
+/**
+ * Exa SDK throws plain Error objects for HTTP failures.
+ * Check the error message for retryable status codes.
+ */
+function exaRetryOn(error: unknown): boolean {
+  if (defaultRetryOn(error)) return true;
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase();
+    if (msg.includes("429") || msg.includes("rate limit")) return true;
+    if (msg.includes("500") || msg.includes("502") || msg.includes("503") || msg.includes("504")) return true;
+    if (msg.includes("timeout") || msg.includes("econnreset") || msg.includes("socket")) return true;
+  }
+  return false;
+}
 
 /** Minimum Exa relevance score (0-1) to include a result. Filters garbage. */
 const MIN_EXA_RELEVANCE = 0.10;
@@ -147,7 +163,6 @@ export async function searchExa(
   const cacheKey = CacheKeys.exaSearch(hashFilters({ query: params.query, numResults: params.numResults ?? 25 }));
   const cached = await getCached<ExaSearchResult>(cacheKey);
   if (cached) {
-    console.log("[Exa] Returning cached search results for:", params.query.slice(0, 60));
     return { ...cached, cacheHit: true };
   }
 
@@ -160,31 +175,39 @@ export async function searchExa(
   const [companyResults, newsResults] = await Promise.all([
     // Company search — category:"company" uses a dedicated index that
     // does not support excludeDomains, so we post-filter noise domains instead
-    exa.search(params.query, {
-      type: "auto",
-      numResults: numResults + 10, // over-fetch to compensate for post-filtering
-      category: "company" as never,
-      contents: {
-        highlights: {
-          numSentences: 6,
-          highlightsPerUrl: 6,
-        },
-      },
-      ...({ language: "en" } as Record<string, unknown>),
-    }),
+    withRetry(
+      () =>
+        exa.search(params.query, {
+          type: "auto",
+          numResults: numResults + 10, // over-fetch to compensate for post-filtering
+          category: "company" as never,
+          contents: {
+            highlights: {
+              numSentences: 6,
+              highlightsPerUrl: 6,
+            },
+          },
+          ...({ language: "en" } as Record<string, unknown>),
+        }),
+      { label: "Exa", maxRetries: 2, retryOn: exaRetryOn }
+    ),
     // News/signals search
-    exa.search(params.query, {
-      type: "auto",
-      numResults: 10,
-      category: "news" as never,
-      contents: {
-        highlights: {
-          numSentences: 4,
-          highlightsPerUrl: 4,
-        },
-      },
-      ...({ language: "en" } as Record<string, unknown>),
-    }),
+    withRetry(
+      () =>
+        exa.search(params.query, {
+          type: "auto",
+          numResults: 10,
+          category: "news" as never,
+          contents: {
+            highlights: {
+              numSentences: 4,
+              highlightsPerUrl: 4,
+            },
+          },
+          ...({ language: "en" } as Record<string, unknown>),
+        }),
+      { label: "Exa", maxRetries: 2, retryOn: exaRetryOn }
+    ),
   ]);
 
   apiCallBreadcrumb("exa", "search complete", {

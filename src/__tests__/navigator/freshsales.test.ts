@@ -348,32 +348,42 @@ describe("getFreshsalesIntel — HTTP errors", () => {
   it("returns EMPTY_INTEL on account search 500", async () => {
     fetchMock
       .mockResolvedValueOnce(makeSupabaseConfigResponse())
-      .mockResolvedValueOnce(makeErrorResponse(500));
+      .mockResolvedValueOnce(makeErrorResponse(500))
+      .mockResolvedValueOnce(makeErrorResponse(500))
+      .mockResolvedValueOnce(makeErrorResponse(500)); // 3 attempts (retry x2)
+    vi.spyOn(console, "error").mockImplementation(() => {}); // suppress retry logs
     const result = await getFreshsalesIntel("acme.com");
     expect(result.status).toBe("none");
   });
 
   it("does not cache failures — transient errors allow retries", async () => {
+    // Use 422 (not retryable) to avoid internal retry overhead
     fetchMock
       .mockResolvedValueOnce(makeSupabaseConfigResponse())
-      .mockResolvedValueOnce(makeErrorResponse(500));
+      .mockResolvedValueOnce(makeErrorResponse(422));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
     await getFreshsalesIntel("fail.com");
+
+    // Record call count after first call
+    const callsAfterFirst = fetchMock.mock.calls.length;
 
     // Second call re-fetches since failures are not cached
     fetchMock
-      .mockResolvedValueOnce(makeSupabaseConfigResponse())
-      .mockResolvedValueOnce(makeErrorResponse(500));
+      .mockResolvedValueOnce(makeErrorResponse(422));
     const result = await getFreshsalesIntel("fail.com");
     expect(result.status).toBe("none");
-    // 4 fetches total (2 per call)
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    // At least 1 new fetch happened (account search) proving result was NOT cached
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(callsAfterFirst);
   });
 
   it("logs console.warn on failure", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {}); // suppress retry logs
     fetchMock
       .mockResolvedValueOnce(makeSupabaseConfigResponse())
-      .mockResolvedValueOnce(makeErrorResponse(500));
+      .mockResolvedValueOnce(makeErrorResponse(500))
+      .mockResolvedValueOnce(makeErrorResponse(500))
+      .mockResolvedValueOnce(makeErrorResponse(500)); // 3 attempts (retry x2)
     await getFreshsalesIntel("acme.com");
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining("[Freshsales] sales_account search failed")
@@ -391,7 +401,7 @@ describe("getFreshsalesIntel — partial failures", () => {
     fetchMock
       .mockResolvedValueOnce(makeSupabaseConfigResponse())
       .mockResolvedValueOnce(makeAccountResponse([DEFAULT_ACCOUNT]))
-      .mockResolvedValueOnce(makeErrorResponse(500)) // contacts fail
+      .mockResolvedValueOnce(makeErrorResponse(422)) // contacts fail (non-retryable)
       .mockResolvedValueOnce(makeDealResponse([makeRawDeal()])) // deals ok
       .mockResolvedValueOnce(makeActivityResponse([])); // activities ok
     vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -405,7 +415,7 @@ describe("getFreshsalesIntel — partial failures", () => {
       .mockResolvedValueOnce(makeSupabaseConfigResponse())
       .mockResolvedValueOnce(makeAccountResponse([DEFAULT_ACCOUNT]))
       .mockResolvedValueOnce(makeContactResponse([makeRawContact()])) // contacts ok
-      .mockResolvedValueOnce(makeErrorResponse(500)) // deals fail
+      .mockResolvedValueOnce(makeErrorResponse(422)) // deals fail (non-retryable)
       .mockResolvedValueOnce(makeActivityResponse([])); // activities ok
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const result = await getFreshsalesIntel("acme.com");
@@ -417,8 +427,8 @@ describe("getFreshsalesIntel — partial failures", () => {
     fetchMock
       .mockResolvedValueOnce(makeSupabaseConfigResponse())
       .mockResolvedValueOnce(makeAccountResponse([DEFAULT_ACCOUNT]))
-      .mockResolvedValueOnce(makeErrorResponse(500))
-      .mockResolvedValueOnce(makeErrorResponse(500))
+      .mockResolvedValueOnce(makeErrorResponse(422)) // contacts fail (non-retryable)
+      .mockResolvedValueOnce(makeErrorResponse(422)) // deals fail (non-retryable)
       .mockResolvedValueOnce(makeActivityResponse([]));
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const result = await getFreshsalesIntel("acme.com");
@@ -468,17 +478,18 @@ describe("getFreshsalesIntel — network error", () => {
     expect(result.account).toBeNull();
   });
 
-  it("logs console.error", async () => {
-    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  it("logs console.warn on network error", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {}); // suppress retry logs
     fetchMock
       .mockResolvedValueOnce(makeSupabaseConfigResponse())
       .mockRejectedValueOnce(new Error("Network failure"));
     await getFreshsalesIntel("acme.com");
-    expect(errSpy).toHaveBeenCalledWith(
-      expect.stringContaining("[Freshsales] getFreshsalesIntel error"),
-      expect.any(Error)
+    // Error is caught inside paginatedFilteredSearch (via withRetry), logged as warn
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[Freshsales] sales_account search failed")
     );
-    errSpy.mockRestore();
+    warnSpy.mockRestore();
   });
 });
 
@@ -1177,8 +1188,8 @@ describe("findOrCreateAccount", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     fetchMock
       .mockResolvedValueOnce(makeSupabaseConfigResponse())
-      .mockResolvedValueOnce(makeAccountResponse([]))
-      .mockResolvedValueOnce(makeErrorResponse(500));
+      .mockResolvedValueOnce(makeAccountResponse([])) // search finds nothing
+      .mockResolvedValueOnce(makeErrorResponse(422)); // create fails (non-retryable)
     const result = await findOrCreateAccount("fail.com", "Fail Corp");
     expect(result).toBeNull();
   });
@@ -1274,7 +1285,7 @@ describe("createFreshsalesTask", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     fetchMock
       .mockResolvedValueOnce(makeSupabaseConfigResponse())
-      .mockResolvedValueOnce(makeErrorResponse(500));
+      .mockResolvedValueOnce(makeErrorResponse(422)); // non-retryable
     const result = await createFreshsalesTask({
       title: "Fail task",
       dueDate: "2026-02-10",

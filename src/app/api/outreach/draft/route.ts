@@ -3,6 +3,7 @@ import { getGemini, getGroq, isGeminiAvailable, isGroqAvailable } from "@/lib/na
 import { buildOutreachPrompt } from "@/lib/navigator/llm/outreachPrompts";
 import { defaultAdminConfig } from "@/lib/navigator/mock-data";
 import { getCached, setCached } from "@/lib/cache";
+import { CACHE_TTLS } from "@/lib/navigator/cache-config";
 import type { OutreachDraftRequest, OutreachDraftResponse, EmailPromptsConfig } from "@/lib/navigator/types";
 import { CHANNEL_CONSTRAINTS } from "@/lib/navigator/outreach/channelConfig";
 import { createClient } from "@supabase/supabase-js";
@@ -29,7 +30,7 @@ async function getEmailPromptsConfig(): Promise<EmailPromptsConfig> {
         .eq("id", "global")
         .single();
       if (data?.email_prompts) {
-        await setCached(cacheKey, data.email_prompts, 60).catch(() => {});
+        await setCached(cacheKey, data.email_prompts, CACHE_TTLS.adminConfig).catch(() => {});
         return data.email_prompts as EmailPromptsConfig;
       }
     }

@@ -3,6 +3,7 @@ import { getCached, setCached, CacheKeys, CacheTTL, hashFilters, getRootDomain }
 import { isNoiseDomain } from "./exa";
 import { apiCallBreadcrumb } from "@/lib/sentry";
 import { logApiCall } from "../health";
+import { withRetry, HttpError } from "../retry";
 
 // ---------------------------------------------------------------------------
 // Serper (Google Search) Provider — used for company-name queries
@@ -136,35 +137,43 @@ export async function searchSerper(
   const cacheKey = CacheKeys.serperSearch(hashFilters({ query, num }));
   const cached = await getCached<SerperSearchResult>(cacheKey);
   if (cached) {
-    console.log("[Serper] Returning cached results for:", query.slice(0, 60));
     return { ...cached, cacheHit: true };
   }
 
   apiCallBreadcrumb("serper", "search", { query: query.slice(0, 60), num });
   const searchStart = Date.now();
 
-  const res = await fetch(SERPER_API_URL, {
-    method: "POST",
-    headers: {
-      "X-API-KEY": process.env.SERPER_API_KEY!,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ q: query, num }),
-  });
-
-  const latencyMs = Date.now() - searchStart;
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "");
+  let res: Response;
+  try {
+    res = await withRetry(
+      async () => {
+        const r = await fetch(SERPER_API_URL, {
+          method: "POST",
+          headers: {
+            "X-API-KEY": process.env.SERPER_API_KEY!,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ q: query, num }),
+        });
+        if (!r.ok) throw new HttpError(r.status, r.statusText);
+        return r;
+      },
+      { label: "Serper", maxRetries: 2 }
+    );
+  } catch (err) {
+    const latencyMs = Date.now() - searchStart;
+    const status = err instanceof HttpError ? err.status : 0;
+    const errMsg = err instanceof Error ? err.message : String(err);
     logApiCall({
-      source: "serper", endpoint: "search", status_code: res.status, success: false,
+      source: "serper", endpoint: "search", status_code: status, success: false,
       latency_ms: latencyMs, rate_limit_remaining: null,
-      error_message: errText.slice(0, 200), context: { query: query.slice(0, 60) }, user_name: null,
+      error_message: errMsg.slice(0, 200), context: { query: query.slice(0, 60) }, user_name: null,
     });
-    console.warn("[Serper] Search failed:", res.status, errText.slice(0, 200));
+    console.warn("[Serper] Search failed:", errMsg);
     return { companies: [], signals: [] };
   }
 
+  const latencyMs = Date.now() - searchStart;
   const data: SerperResponse = await res.json();
 
   apiCallBreadcrumb("serper", "search complete", {

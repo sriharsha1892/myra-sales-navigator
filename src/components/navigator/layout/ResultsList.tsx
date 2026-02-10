@@ -4,9 +4,8 @@ import { useStore } from "@/lib/navigator/store";
 import { CompanyCard } from "@/components/navigator/cards/CompanyCard";
 import { InlineContacts } from "@/components/navigator/cards/InlineContacts";
 import { SkeletonCard } from "@/components/navigator/cards/SkeletonCard";
-import { ViewToggle, EmptyState } from "@/components/navigator/shared";
-import { ActiveFilterPills } from "@/components/navigator/shared/ActiveFilterPills";
-import type { SortField, CompanyEnriched } from "@/lib/navigator/types";
+import { EmptyState } from "@/components/navigator/shared";
+import type { SortField, CompanyEnriched, ViewMode } from "@/lib/navigator/types";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useSearchHistory } from "@/hooks/navigator/useSearchHistory";
 import { MyProspects } from "./MyProspects";
@@ -15,9 +14,10 @@ import { ExportedContactsPanel } from "@/components/navigator/exports/ExportedCo
 import { AllContactsView } from "./AllContactsView";
 import { SessionStarterCard } from "@/components/navigator/home/SessionStarterCard";
 import { FollowUpNudges } from "@/components/navigator/shared/FollowUpNudges";
-import { CreditUsageIndicator } from "@/components/navigator/CreditUsageIndicator";
 import { DueStepsWidget } from "@/components/navigator/outreach/DueStepsWidget";
 import { SimilarSearchBanner } from "@/components/navigator/banners/SimilarSearchBanner";
+import { ResultsTabBar } from "./ResultsTabBar";
+import { ResultsHeader } from "./ResultsHeader";
 
 const exampleQueries = [
   "chemicals in Europe",
@@ -88,14 +88,27 @@ export function ResultsList() {
 
   const hasSearched = searchResults !== null;
 
-  const handleSortChange = (field: SortField) => {
+  const handleSortChange = useCallback((field: SortField) => {
     if (sortField === field) {
       setSortDirection(sortDirection === "desc" ? "asc" : "desc");
     } else {
       setSortField(field);
       setSortDirection("desc");
     }
-  };
+  }, [sortField, sortDirection, setSortField, setSortDirection]);
+
+  const handleSortDirectionToggle = useCallback(() => {
+    setSortDirection(sortDirection === "desc" ? "asc" : "desc");
+  }, [sortDirection, setSortDirection]);
+
+  const handleViewModeChange = useCallback((mode: ViewMode) => {
+    setViewMode(mode);
+    if (mode !== "companies") setAllContactsViewActive(false);
+  }, [setViewMode, setAllContactsViewActive]);
+
+  const handleDeselectAll = useCallback(() => {
+    deselectAllCompanies();
+  }, [deselectAllCompanies]);
 
   const quickStartChips = history.length > 0
     ? history.slice(0, 6).map((h) => ({ label: h.label ?? "Search", onClick: () => {
@@ -118,112 +131,29 @@ export function ResultsList() {
   return (
     <div className="flex h-full flex-col bg-surface-0">
       {/* Top bar */}
-      <div className="ambient-header relative bg-surface-0 border-b border-surface-3 flex flex-shrink-0 flex-wrap items-center gap-3 px-4 py-2.5">
-        {searchLoading && (
-          <div className="absolute inset-x-0 bottom-0 h-[2px] overflow-hidden bg-accent-primary/10">
-            <div className="h-full w-1/4 bg-accent-primary" style={{ animation: "progressSlide 1.2s ease-in-out infinite" }} />
-          </div>
-        )}
-        <ViewToggle
-          value={viewMode}
-          onChange={(mode) => { setViewMode(mode); if (mode !== "companies") setAllContactsViewActive(false); }}
-          companyCount={companies.length}
-          prospectCount={prospectList.size}
-        />
-        {/* Bulk selection count indicator */}
-        {selectedCompanyDomains.size > 0 && (
-          <>
-            <div className="h-3.5 w-px bg-surface-3" />
-            <span className="flex items-center gap-1.5 rounded-pill bg-accent-primary/10 px-2 py-0.5 text-xs text-accent-primary">
-              {selectedCompanyDomains.size} selected
-              <button
-                onClick={() => deselectAllCompanies()}
-                className="ml-0.5 text-accent-primary/60 transition-colors hover:text-accent-primary"
-                aria-label="Clear selection"
-              >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </span>
-          </>
-        )}
-        <div className="ml-auto flex items-center gap-3">
-          {viewMode === "companies" && (
-            <>
-              {/* Sort — dot-separated text links */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs uppercase tracking-[0.06em] text-text-secondary">Sort</span>
-                <div className="flex items-center">
-                  {(["icp_score", "name", "employee_count"] as SortField[]).map((field, i) => {
-                    const labels: Record<SortField, string> = { icp_score: "Score", name: "Name", employee_count: "Size", relevance: "Relevance" };
-                    const sortIcons: Record<SortField, string> = { icp_score: "\u2605", name: "Az", employee_count: "\u2195", relevance: "\u2261" };
-                    const isActive = sortField === field;
-                    return (
-                      <span key={field} className="flex items-center">
-                        {i > 0 && <span className="mx-1 text-text-tertiary/40">·</span>}
-                        <button
-                          onClick={() => handleSortChange(field)}
-                          className={`rounded px-1.5 py-0.5 text-xs transition-all duration-[180ms] ${
-                            isActive
-                              ? "bg-surface-2 font-semibold text-text-primary"
-                              : "text-text-secondary hover:bg-surface-2 hover:text-text-primary"
-                          }`}
-                        >
-                          <span className="mr-0.5 opacity-60">{sortIcons[field]}</span>{labels[field]}
-                        </button>
-                      </span>
-                    );
-                  })}
-                </div>
-                <button
-                  onClick={() => setSortDirection(sortDirection === "desc" ? "asc" : "desc")}
-                  className="btn-press text-xs text-text-tertiary hover:text-text-primary transition-colors duration-[180ms]"
-                  aria-label={sortDirection === "desc" ? "Descending" : "Ascending"}
-                >
-                  {sortDirection === "desc" ? "\u2193" : "\u2191"}
-                </button>
-              </div>
-            </>
-          )}
-          <CreditUsageIndicator />
-        </div>
-      </div>
+      <ResultsTabBar
+        viewMode={viewMode}
+        sortField={sortField}
+        sortDirection={sortDirection}
+        companyCount={companies.length}
+        prospectCount={prospectList.size}
+        selectedCompanyCount={selectedCompanyDomains.size}
+        searchLoading={searchLoading}
+        onViewModeChange={handleViewModeChange}
+        onSortChange={handleSortChange}
+        onSortDirectionToggle={handleSortDirectionToggle}
+        onDeselectAll={handleDeselectAll}
+      />
 
-      {/* Persistent search query header — visible during loading and after results */}
-      {(hasSearched || searchLoading) && lastSearchQuery && (
-        <div className="sticky top-0 z-20 flex flex-shrink-0 items-center gap-2 border-b border-surface-3 bg-surface-1/80 backdrop-blur-sm px-4 py-1.5">
-          <span className="text-xs text-text-tertiary">Results for</span>
-          <span className="font-mono text-xs text-text-secondary">&ldquo;{lastSearchQuery}&rdquo;</span>
-          {!searchLoading && companies.length > 0 && (
-            <span className="text-xs text-text-tertiary">
-              ({companies.length} companies{lastExcludedCount > 0 ? `, ${lastExcludedCount} excluded` : ""})
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Sticky active filter pills — visible after search */}
-      {(hasSearched || searchLoading) && (
-        <div className="sticky top-0 z-10 flex flex-shrink-0 border-b border-surface-3 bg-surface-0 px-4 py-2">
-          <ActiveFilterPills />
-        </div>
-      )}
-
-      {/* Error banner — sticky so it stays visible while scrolling */}
-      {searchError && (
-        <div className="sticky top-0 z-20 flex-shrink-0 border-b border-danger/20 bg-danger-light px-4 py-2">
-          <div className="flex items-center gap-2 text-xs text-danger">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="15" y1="9" x2="9" y2="15" />
-              <line x1="9" y1="9" x2="15" y2="15" />
-            </svg>
-            <span>{searchError}</span>
-          </div>
-        </div>
-      )}
+      {/* Search query header + filter pills + error banner */}
+      <ResultsHeader
+        hasSearched={hasSearched}
+        searchLoading={searchLoading}
+        lastSearchQuery={lastSearchQuery}
+        companyCount={companies.length}
+        lastExcludedCount={lastExcludedCount}
+        searchError={searchError}
+      />
 
       {/* Results */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 transition-opacity duration-200">
@@ -445,7 +375,7 @@ function OnboardingTour({ onDismiss }: { onDismiss: () => void }) {
   const [step, setStep] = useState(0);
   const steps = [
     { title: "Search", body: "Type a company name, industry, or description in the search bar above. Or press \u2318K for a powerful free-text search." },
-    { title: "Filter", body: "Use the filter pills above the results to narrow by vertical, region, company size, and buying signals. Or press ⌘K to refine your search." },
+    { title: "Filter", body: "Use the filter pills above the results to narrow by vertical, region, company size, and buying signals. Or press \u2318K to refine your search." },
     { title: "Export", body: "Select companies with checkboxes, then use Copy/CSV/Excel from the action bar at the bottom. Contacts are verified on export." },
   ];
 
@@ -654,4 +584,3 @@ function NoResultsSuggestions() {
     </EmptyState>
   );
 }
-

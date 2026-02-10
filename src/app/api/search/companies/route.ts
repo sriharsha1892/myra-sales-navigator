@@ -13,6 +13,7 @@ import { calculateIcpScore } from "@/lib/navigator/scoring";
 import { getCached, setCached, getRootDomain } from "@/lib/cache";
 import { extractICPCriteria, scoreCompaniesAgainstICP } from "@/lib/navigator/llm/icpPrompts";
 import { pickDiscoveryEngine, pickNameEngine, recordUsage, isExaFallbackAllowed, getUsageSummary } from "@/lib/navigator/routing/smartRouter";
+import { CACHE_TTLS } from "@/lib/navigator/cache-config";
 import type { Company, FilterState, IcpWeights, NLICPCriteria } from "@/lib/navigator/types";
 
 // ---------------------------------------------------------------------------
@@ -33,7 +34,7 @@ async function getEnrichmentLimits(): Promise<{ maxSearchEnrich: number; maxCont
       .single();
     if (data?.enrichment_limits) {
       const limits = { ...defaults, ...(data.enrichment_limits as Record<string, number>) };
-      await setCached("admin:enrichment-limits", limits, 60);
+      await setCached("admin:enrichment-limits", limits, CACHE_TTLS.adminConfig);
       return limits;
     }
   } catch { /* use defaults */ }
@@ -217,7 +218,6 @@ export async function POST(request: Request) {
     const primaryQuery = reformulatedQueries[0] || freeText || "";
     const strippedQuery = stripLegalSuffix(primaryQuery);
     const numResults = isNameQuery ? 15 : 25;
-    console.log("[Search] primaryQuery:", primaryQuery, "stripped:", strippedQuery, "isNameQuery:", isNameQuery);
 
     // ------ Smart Engine Dispatch (budget + health aware) ------
     // Parallel = workhorse (20K free). Serper = company names (2,500 free).
@@ -232,7 +232,6 @@ export async function POST(request: Request) {
     if (isNameQuery) {
       // --- Company name path: smart router picks Serper or Exa ---
       searchEngine = await pickNameEngine();
-      console.log("[SmartRouter] Name query → engine:", searchEngine);
 
       if (searchEngine === "serper") {
         try {
@@ -247,7 +246,6 @@ export async function POST(request: Request) {
         // Fallback to Exa only if Serper returned nothing AND Exa budget allows
         if (searchCompanies.length === 0 && isExaFallbackAllowed()) {
           searchEngine = "exa";
-          console.log("[SmartRouter] Serper returned 0, Exa fallback (budget ok)");
           try {
             const exaResult = await searchExa({ query: strippedQuery, numResults });
             searchCompanies = exaResult.companies;
@@ -273,7 +271,6 @@ export async function POST(request: Request) {
     } else {
       // --- Discovery path: smart router picks Parallel or Exa ---
       searchEngine = await pickDiscoveryEngine();
-      console.log("[SmartRouter] Discovery query → engine:", searchEngine);
 
       if (searchEngine === "parallel") {
         try {
@@ -284,7 +281,6 @@ export async function POST(request: Request) {
           if (!searchCacheHit) recordUsage("parallel");
           // Fallback: Parallel returned too few results — try Exa IF budget allows
           if (parallelResult.companies.length < 3 && parallelResult.avgRelevance < 0.2 && isExaFallbackAllowed()) {
-            console.log("[SmartRouter] Parallel low-quality, Exa fallback (budget ok)");
             searchEngine = "exa";
             const exaResult = await searchExa({ query: strippedQuery, numResults });
             searchCompanies = exaResult.companies;
@@ -388,7 +384,7 @@ export async function POST(request: Request) {
           .single();
         if (configRow?.icp_weights) {
           icpWeights = configRow.icp_weights as IcpWeights;
-          await setCached("admin:icp-weights", icpWeights, 60); // 1h cache
+          await setCached("admin:icp-weights", icpWeights, CACHE_TTLS.adminConfig);
         }
       }
     } catch { /* use defaults */ }

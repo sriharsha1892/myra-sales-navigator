@@ -201,7 +201,6 @@ export async function POST(request: NextRequest) {
           targetableType: "SalesAccount",
           targetableId: intel.account.id,
         });
-        console.log(`[CRM Sync] Task created for ${contactName} at ${body.companyDomain}`);
       } catch {
         // Silent — CRM sync is best-effort
       }
