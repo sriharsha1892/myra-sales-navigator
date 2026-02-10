@@ -200,7 +200,7 @@ const STEP_LOGS = [
  *   9. from("outreach_step_logs").select()... -> fetch all step logs
  */
 function stubHappyPath(overrides?: {
-  enrollment?: unknown;
+  enrollment?: Record<string, unknown>;
   enrollmentError?: unknown;
   sequence?: unknown;
   sequenceError?: unknown;

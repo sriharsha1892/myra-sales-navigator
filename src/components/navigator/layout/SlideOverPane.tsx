@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/cn";
 import { useStore } from "@/lib/navigator/store";
 import {
   DossierHeader,
@@ -227,7 +228,7 @@ export function SlideOverPane() {
           <>
             <DossierHeader key={company.domain} company={company} onRefresh={dossier.refetch} isRefreshing={effectiveLoading} />
 
-            <div className="flex-1 divide-y divide-surface-3">
+            <div className={cn("flex-1 divide-y divide-surface-3 transition-opacity duration-200", effectiveLoading && "opacity-50")}>
               <div className="animate-fadeInUp" style={{ animationDelay: "0ms" }}>
                 <DossierOverview company={company} />
               </div>

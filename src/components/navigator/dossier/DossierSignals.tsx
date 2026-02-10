@@ -44,7 +44,7 @@ export function DossierSignals({ signals }: DossierSignalsProps) {
               </span>
               <SourceBadge source={signal.source} />
             </div>
-            <p className="mt-1 text-xs font-medium text-text-primary">
+            <p className="mt-1 line-clamp-2 text-xs font-medium text-text-primary">
               {signal.title}
             </p>
             <p className="mt-0.5 text-xs text-text-secondary">

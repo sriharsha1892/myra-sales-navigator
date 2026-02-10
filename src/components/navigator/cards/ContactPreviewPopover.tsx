@@ -38,7 +38,7 @@ export function ContactPreviewPopover({ domain }: ContactPreviewPopoverProps) {
             </span>
             <span className="truncate text-text-tertiary">{c.title}</span>
             {c.email && (
-              <span className="ml-auto shrink-0 truncate font-mono text-text-secondary" style={{ maxWidth: "100px" }}>
+              <span className="ml-auto max-w-[100px] shrink-0 truncate font-mono text-text-secondary">
                 {c.email}
               </span>
             )}

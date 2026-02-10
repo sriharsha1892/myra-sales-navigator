@@ -262,7 +262,7 @@ export function CompanyCard({
               {company.teamActivity && <TeamActivityBadge activity={company.teamActivity} />}
               <IcpScoreBadge score={company.icpScore} breakdown={company.icpBreakdown} showBreakdown />
               {company.nlIcpReasoning && (
-                <span className="truncate text-[10px] text-text-tertiary italic" style={{ maxWidth: "200px" }} title={company.nlIcpReasoning}>
+                <span className="max-w-[200px] truncate text-[10px] text-text-tertiary italic" title={company.nlIcpReasoning}>
                   {company.nlIcpReasoning}
                 </span>
               )}
@@ -447,10 +447,10 @@ export function CompanyCard({
                         onClick={(e) => handleContactClick(e, contact.id)}
                         className="flex min-w-0 cursor-pointer items-center gap-1.5 hover:underline"
                       >
-                        <span className="truncate font-medium text-text-primary" style={{ maxWidth: "120px" }} title={`${contact.firstName} ${contact.lastName}`}>
+                        <span className="max-w-[120px] truncate font-medium text-text-primary" title={`${contact.firstName} ${contact.lastName}`}>
                           {contact.firstName} {contact.lastName}
                         </span>
-                        <span className="truncate text-text-tertiary" style={{ maxWidth: "140px" }} title={contact.title ?? undefined}>
+                        <span className="max-w-[140px] truncate text-text-tertiary" title={contact.title ?? undefined}>
                           {contact.title}
                         </span>
                       </button>
