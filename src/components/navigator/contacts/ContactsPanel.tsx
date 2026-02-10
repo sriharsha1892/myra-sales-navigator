@@ -6,6 +6,7 @@ import { useStore } from "@/lib/navigator/store";
 import { ContactRow } from "./ContactRow";
 import { OutreachDraftModal } from "@/components/navigator/outreach/OutreachDraftModal";
 import { useOutreachSuggestion } from "@/lib/navigator/outreach/useOutreachSuggestion";
+import { cn } from "@/lib/cn";
 import type { Contact, CompanyEnriched } from "@/lib/navigator/types";
 
 interface ContactsPanelProps {
@@ -24,6 +25,10 @@ const freshsalesLabels: Record<string, string> = {
   none: "",
 };
 
+const SENIORITY_ORDER: Record<string, number> = {
+  c_level: 0, vp: 1, director: 2, manager: 3, staff: 4,
+};
+
 export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps) {
   const setSlideOverMode = useStore((s) => s.setSlideOverMode);
   const selectedContactIds = useStore((s) => s.selectedContactIds);
@@ -33,6 +38,9 @@ export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps)
   const [draftContact, setDraftContact] = useState<Contact | null>(null);
   const [seniorityFilter, setSeniorityFilter] = useState<string>("all");
   const [hasEmailFilter, setHasEmailFilter] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState<"all" | "freshsales">("all");
+  const [verifiedFilter, setVerifiedFilter] = useState(false);
+  const [sortBy, setSortBy] = useState<"seniority" | "email_confidence" | "last_contacted">("seniority");
   const suggestion = useOutreachSuggestion(company, draftContact, !!draftContact);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -45,8 +53,25 @@ export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps)
     if (hasEmailFilter) {
       result = result.filter((c) => !!c.email);
     }
+    if (sourceFilter === "freshsales") {
+      result = result.filter((c) => c.sources.includes("freshsales"));
+    }
+    if (verifiedFilter) {
+      result = result.filter((c) => c.verificationStatus === "valid" || c.verificationStatus === "valid_risky");
+    }
+    // Sort
+    result = [...result].sort((a, b) => {
+      if (sortBy === "email_confidence") return (b.emailConfidence ?? 0) - (a.emailConfidence ?? 0);
+      if (sortBy === "last_contacted") {
+        const aDate = a.lastVerified ? new Date(a.lastVerified).getTime() : 0;
+        const bDate = b.lastVerified ? new Date(b.lastVerified).getTime() : 0;
+        return bDate - aDate;
+      }
+      // Default: seniority
+      return (SENIORITY_ORDER[a.seniority] ?? 5) - (SENIORITY_ORDER[b.seniority] ?? 5);
+    });
     return result;
-  }, [contacts, seniorityFilter, hasEmailFilter]);
+  }, [contacts, seniorityFilter, hasEmailFilter, sourceFilter, verifiedFilter, sortBy]);
 
   // Fetch export history
   const { data: exportHistory } = useQuery({
@@ -183,7 +208,41 @@ export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps)
           >
             Has email
           </button>
-          {(seniorityFilter !== "all" || hasEmailFilter) && (
+          {/* Source filter */}
+          <button
+            onClick={() => { setSourceFilter(v => v === "freshsales" ? "all" : "freshsales"); setFocusIndex(-1); }}
+            className={cn(
+              "rounded-pill border px-2 py-0.5 text-[10px] font-medium transition-colors",
+              sourceFilter === "freshsales"
+                ? "border-[#3EA67B]/30 bg-[#3EA67B]/10 text-[#3EA67B]"
+                : "border-surface-3 text-text-tertiary hover:text-text-secondary"
+            )}
+          >
+            In Freshsales
+          </button>
+          {/* Verified filter */}
+          <button
+            onClick={() => { setVerifiedFilter(v => !v); setFocusIndex(-1); }}
+            className={cn(
+              "rounded-pill border px-2 py-0.5 text-[10px] font-medium transition-colors",
+              verifiedFilter
+                ? "border-success/30 bg-success/10 text-success"
+                : "border-surface-3 text-text-tertiary hover:text-text-secondary"
+            )}
+          >
+            Verified
+          </button>
+          {/* Sort dropdown */}
+          <select
+            value={sortBy}
+            onChange={(e) => { setSortBy(e.target.value as "seniority" | "email_confidence" | "last_contacted"); setFocusIndex(-1); }}
+            className="rounded-input border border-surface-3 bg-surface-1 px-1.5 py-0.5 text-[10px] text-text-secondary outline-none"
+          >
+            <option value="seniority">Sort: Seniority</option>
+            <option value="email_confidence">Sort: Confidence</option>
+            <option value="last_contacted">Sort: Last contacted</option>
+          </select>
+          {(seniorityFilter !== "all" || hasEmailFilter || sourceFilter !== "all" || verifiedFilter) && (
             <span className="text-[10px] text-text-tertiary">
               {filteredContacts.length}/{contacts.length}
             </span>

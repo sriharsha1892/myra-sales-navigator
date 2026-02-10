@@ -41,6 +41,16 @@ export async function POST(request: NextRequest) {
         .eq("domain", domain);
     }
 
+    // Fire-and-forget activity log
+    Promise.resolve(
+      sb.from("company_activity_log").insert({
+        company_domain: domain,
+        user_name: userName,
+        activity_type: "view",
+        metadata: {},
+      })
+    ).catch(() => {});
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("POST /api/session/track-view error:", err);

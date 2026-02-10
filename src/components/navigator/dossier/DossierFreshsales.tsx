@@ -78,14 +78,70 @@ export function DossierFreshsales({ company }: DossierFreshsalesProps) {
         {settings.sectionTitle}
       </h3>
 
-      {/* Status badge */}
-      <div className="mb-3">
-        <span
-          className={`inline-flex items-center rounded-pill px-2 py-0.5 text-[11px] font-medium ${colors.color} ${colors.bg}`}
-        >
-          {statusLabel}
-        </span>
-      </div>
+      {/* CRM Status Callout — visually distinct */}
+      {status !== "none" && intel && (
+        <div className="mb-3 rounded-input border border-[#3EA67B]/20 bg-[#3EA67B]/5 px-3 py-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-[#3EA67B]/15 text-[10px] font-bold text-[#3EA67B]">F</span>
+              <span className={`text-sm font-medium ${colors.color}`}>{statusLabel}</span>
+              {intel.account?.owner && (
+                <span className="text-[10px] text-text-tertiary">&middot; Owner: {intel.account.owner.name}</span>
+              )}
+            </div>
+            <div className="flex items-center gap-3 text-[10px] text-text-tertiary">
+              {deals.length > 0 && <span>{deals.length} deal{deals.length !== 1 ? "s" : ""}</span>}
+              {contacts.length > 0 && <span>{contacts.length} contact{contacts.length !== 1 ? "s" : ""}</span>}
+              {intel.lastContactDate && <span>Last: {daysAgo(intel.lastContactDate)}d ago</span>}
+            </div>
+          </div>
+          {deals.length > 0 && (
+            <div className="mt-2 flex items-center gap-2 text-xs">
+              <span className="text-text-secondary">{deals[0].name}</span>
+              <span className="text-text-tertiary">&middot;</span>
+              <span className="text-text-secondary">{deals[0].stage}</span>
+              {deals[0].amount != null && (
+                <span className="font-mono text-text-primary">
+                  {deals[0].amount >= 1000 ? `$${(deals[0].amount / 1000).toFixed(0)}K` : `$${deals[0].amount}`}
+                </span>
+              )}
+              {deals[0].daysInStage != null && deals[0].daysInStage > (settings?.stalledDealThresholdDays ?? 30) && (
+                <span className="text-[10px] font-medium text-danger">Stalled ({deals[0].daysInStage}d)</span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+      {/* Fallback status badge when no intel */}
+      {(status === "none" || !intel) && (
+        <div className="mb-3">
+          <span
+            className={`inline-flex items-center rounded-pill px-2 py-0.5 text-[11px] font-medium ${colors.color} ${colors.bg}`}
+          >
+            {statusLabel}
+          </span>
+        </div>
+      )}
+
+      {/* Warmth bar */}
+      {intel?.lastContactDate && (
+        <div className="mb-2">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[9px] text-text-tertiary">CRM Engagement</span>
+            <span className="text-[9px] text-text-tertiary">{daysAgo(intel.lastContactDate)}d since last contact</span>
+          </div>
+          <div className="h-1 rounded-full bg-surface-2 overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-300"
+              style={{
+                width: `${Math.max(5, 100 - daysAgo(intel.lastContactDate))}%`,
+                backgroundColor: daysAgo(intel.lastContactDate) <= 14 ? "#d4a012" :
+                                daysAgo(intel.lastContactDate) <= 60 ? "#22d3ee" : "#6b6b80",
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Recency banner */}
       {showRecencyBanner && intel?.lastContactDate && (

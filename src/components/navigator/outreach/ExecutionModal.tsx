@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { Overlay } from "@/components/primitives/Overlay";
 import { useStore } from "@/lib/navigator/store";
 import { CHANNEL_OPTIONS } from "@/lib/navigator/outreach/channelConfig";
+import type { BriefingData } from "@/lib/navigator/types";
 
 interface ExecutionModalProps {
   channel: string;
@@ -12,6 +13,7 @@ interface ExecutionModalProps {
   draft: string | null;
   subject?: string | null;
   linkedinUrl?: string | null;
+  briefing?: BriefingData | null;
   onDone: () => void;
   onClose: () => void;
 }
@@ -23,6 +25,7 @@ export function ExecutionModal({
   draft,
   subject: initialSubject,
   linkedinUrl,
+  briefing,
   onDone,
   onClose,
 }: ExecutionModalProps) {
@@ -81,6 +84,21 @@ export function ExecutionModal({
             </svg>
           </button>
         </div>
+
+        {/* Briefing context */}
+        {briefing && (
+          <div className="border-b border-surface-3 px-5 pb-3 pt-3 space-y-1">
+            <p className="text-xs text-text-primary font-medium">
+              {briefing.contact.name} &middot; {briefing.contact.title}
+            </p>
+            <p className="text-[10px] text-text-tertiary">
+              {briefing.company.industry} &middot; {briefing.company.employeeCount?.toLocaleString()} emp &middot; ICP {briefing.company.icpScore}
+            </p>
+            {briefing.topSignal && (
+              <p className="text-[10px] text-accent-secondary">{briefing.topSignal.title}</p>
+            )}
+          </div>
+        )}
 
         {/* Body */}
         <div className="space-y-3 px-5 py-4">

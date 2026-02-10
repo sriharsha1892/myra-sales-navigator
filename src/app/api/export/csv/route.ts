@@ -112,6 +112,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Fire-and-forget activity log — one entry per domain
+    if (domains.length > 0 && userName) {
+      const supabaseLog = createServerClient();
+      for (const domain of domains) {
+        const domainContacts = contacts.filter((c) => (c.companyDomain ?? companyDomain) === domain);
+        Promise.resolve(
+          supabaseLog.from("company_activity_log").insert({
+            company_domain: domain,
+            user_name: userName,
+            activity_type: "export",
+            metadata: { contactCount: domainContacts.length, destination: "csv" },
+          })
+        ).catch(() => {});
+      }
+    }
+
     return new NextResponse(csv, {
       status: 200,
       headers: {

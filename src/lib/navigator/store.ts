@@ -237,6 +237,13 @@ interface AppState {
   followUpNudgesDismissed: boolean;
   dismissFollowUpNudges: () => void;
 
+  // Team awareness
+  similarSearchMatch: { user: string; query: string; at: string; resultCount: number } | null;
+  dismissedSimilarSearchId: string | null;
+  setSimilarSearchMatch: (match: { user: string; query: string; at: string; resultCount: number } | null) => void;
+  dismissSimilarSearch: () => void;
+  mergeTeamActivity: (data: Record<string, { viewers: { user: string; at: string }[]; exporters: { user: string; at: string; count: number }[]; decisions: { user: string; decision: string; at: string }[] }>) => void;
+
   // Computed / derived
   filteredCompanies: () => CompanyEnriched[];
   selectedCompany: () => CompanyEnriched | null;
@@ -477,6 +484,25 @@ export const useStore = create<AppState>((set, get) => ({
   // Follow-up nudges
   followUpNudgesDismissed: false,
   dismissFollowUpNudges: () => set({ followUpNudgesDismissed: true }),
+
+  // Team awareness
+  similarSearchMatch: null,
+  dismissedSimilarSearchId: null,
+  setSimilarSearchMatch: (match) => set({ similarSearchMatch: match }),
+  dismissSimilarSearch: () => set((state) => ({
+    dismissedSimilarSearchId: state.similarSearchMatch ? "dismissed" : null,
+    similarSearchMatch: null,
+  })),
+  mergeTeamActivity: (data) => {
+    const updateFn = (c: CompanyEnriched) => {
+      const activity = data[c.domain];
+      return activity ? { ...c, teamActivity: activity } : c;
+    };
+    set((state) => ({
+      companies: state.companies.map(updateFn),
+      searchResults: state.searchResults?.map(updateFn) ?? null,
+    }));
+  },
 
   setViewMode: (mode) => set({ viewMode: mode, focusedContactId: null }),
 

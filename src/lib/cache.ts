@@ -66,6 +66,8 @@ export const CacheKeys = {
   hubspot: (domain: string) => `hubspot:${normalizeDomain(domain)}`,
   freshsales: (domain: string) => `freshsales:intel:${normalizeDomain(domain)}`,
   enrichedContacts: (domain: string) => `enriched:contacts:${normalizeDomain(domain)}`,
+  serperSearch: (hash: string) => `serper-search:${hash}`,
+  parallelSearch: (hash: string) => `parallel-search:${hash}`,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -82,6 +84,8 @@ export const CacheTTL = {
   hubspot: 30,
   freshsales: 30,
   enrichedContacts: 120, // 2 hours
+  serperSearch: 360,     // 6 hours
+  parallelSearch: 360,   // 6 hours
 } as const;
 
 // ---------------------------------------------------------------------------

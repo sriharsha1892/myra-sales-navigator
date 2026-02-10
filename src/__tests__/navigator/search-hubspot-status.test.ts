@@ -91,12 +91,26 @@ vi.mock("@/lib/navigator/providers/apollo", () => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Mock Serper + Parallel providers — not used in these tests
+// ---------------------------------------------------------------------------
+vi.mock("@/lib/navigator/providers/serper", () => ({
+  isSerperAvailable: () => false,
+  searchSerper: vi.fn().mockResolvedValue({ companies: [], signals: [] }),
+}));
+
+vi.mock("@/lib/navigator/providers/parallel", () => ({
+  isParallelAvailable: () => false,
+  searchParallel: vi.fn().mockResolvedValue({ companies: [], signals: [], avgRelevance: 0 }),
+}));
+
+// ---------------------------------------------------------------------------
 // Mock query reformulation — return the query as-is
 // ---------------------------------------------------------------------------
 vi.mock("@/lib/navigator/exa/queryBuilder", () => ({
   reformulateQuery: vi.fn().mockResolvedValue(["test query"]),
   reformulateQueryWithEntities: vi.fn().mockResolvedValue({ queries: ["test query"], entities: { verticals: [], regions: [], signals: [] } }),
   looksLikeCompanyName: vi.fn().mockReturnValue(false),
+  stripLegalSuffix: vi.fn((q: string) => q),
 }));
 
 // ---------------------------------------------------------------------------

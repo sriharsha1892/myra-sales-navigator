@@ -59,6 +59,7 @@ export async function GET() {
       outreachSuggestionRules: data.outreach_suggestion_rules ?? [],
       actionRecommendationRules: data.action_recommendation_rules ?? [],
       actionRecommendationEnabled: data.action_recommendation_enabled ?? true,
+      discoveryEngine: data.discovery_engine ?? "exa",
     };
 
     // Mask API keys in the response
@@ -116,6 +117,7 @@ export async function PUT(request: NextRequest) {
       outreachSuggestionRules: "outreach_suggestion_rules",
       actionRecommendationRules: "action_recommendation_rules",
       actionRecommendationEnabled: "action_recommendation_enabled",
+      discoveryEngine: "discovery_engine",
     };
 
     for (const [key, value] of Object.entries(body)) {

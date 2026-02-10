@@ -490,6 +490,7 @@ export const defaultAdminConfig: AdminConfig = {
     { id: "no_contacts", name: "No contacts → Load contacts", enabled: true },
   ],
   actionRecommendationEnabled: true,
+  discoveryEngine: "exa",
 };
 
 export const mockNotes: CompanyNote[] = [

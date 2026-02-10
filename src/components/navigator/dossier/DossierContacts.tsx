@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
+import { cn } from "@/lib/cn";
 import { useQuery } from "@tanstack/react-query";
 import { useStore } from "@/lib/navigator/store";
 import { OutreachDraftModal } from "@/components/navigator/outreach/OutreachDraftModal";
@@ -29,6 +30,8 @@ export function DossierContacts({ companyDomain, contacts: contactsProp }: Dossi
   const suggestion = useOutreachSuggestion(company, draftContact, !!draftContact);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [findingEmails, setFindingEmails] = useState(false);
+  const [dossierSourceFilter, setDossierSourceFilter] = useState<"all" | "freshsales" | "new">("all");
+  const [dossierEmailOnly, setDossierEmailOnly] = useState(false);
 
   // Fetch export history for this domain
   const { data: exportHistory } = useQuery({
@@ -83,6 +86,16 @@ export function DossierContacts({ companyDomain, contacts: contactsProp }: Dossi
         .slice(0, 10),
     [contacts]
   );
+
+  const displayContacts = useMemo(() => {
+    let result = contacts;
+    if (dossierSourceFilter === "freshsales") result = result.filter(c => c.sources.includes("freshsales"));
+    if (dossierSourceFilter === "new") result = result.filter(c => !c.sources.includes("freshsales"));
+    if (dossierEmailOnly) result = result.filter(c => !!c.email);
+    return result;
+  }, [contacts, dossierSourceFilter, dossierEmailOnly]);
+
+  const isFiltered = dossierSourceFilter !== "all" || dossierEmailOnly;
 
   const handleFindMissingEmails = useCallback(async () => {
     if (findingEmails || missingEmailContacts.length === 0) return;
@@ -191,10 +204,57 @@ export function DossierContacts({ companyDomain, contacts: contactsProp }: Dossi
           )}
         </div>
       </div>
+      {contacts.length > 0 && (
+        <div className="mb-2 flex items-center gap-1.5">
+          <button
+            onClick={() => setDossierSourceFilter(v => v === "all" ? "freshsales" : v === "freshsales" ? "new" : "all")}
+            className="rounded-pill border border-surface-3 px-1.5 py-0.5 text-[9px] font-medium text-text-tertiary hover:text-text-secondary transition-colors"
+          >
+            {dossierSourceFilter === "all" ? "All" : dossierSourceFilter === "freshsales" ? "Freshsales" : "New only"}
+          </button>
+          <button
+            onClick={() => setDossierEmailOnly(v => !v)}
+            className={cn(
+              "rounded-pill border px-1.5 py-0.5 text-[9px] font-medium transition-colors",
+              dossierEmailOnly
+                ? "border-accent-secondary/30 text-accent-secondary"
+                : "border-surface-3 text-text-tertiary hover:text-text-secondary"
+            )}
+          >
+            Has email
+          </button>
+          {isFiltered && (
+            <span className="text-[8px] text-text-tertiary">
+              {displayContacts.length}/{contacts.length}
+            </span>
+          )}
+        </div>
+      )}
       {contacts.length === 0 ? (
         <p className="text-xs italic text-text-tertiary">
           {pick("empty_dossier_contacts")}
         </p>
+      ) : isFiltered ? (
+        <div className="space-y-2">
+          {displayContacts.length === 0 ? (
+            <p className="text-xs italic text-text-tertiary">
+              No contacts match the current filters.
+            </p>
+          ) : (
+            displayContacts.map((contact) => (
+              <ContactRow
+                key={contact.id}
+                contact={contact}
+                selected={selectedIds.has(contact.id)}
+                isFocused={false}
+                variant="expanded"
+                onToggle={() => toggleContact(contact.id)}
+                onDraftEmail={() => setDraftContact(contact)}
+                exportInfo={contact.email ? exportByEmail.get(contact.email) : undefined}
+              />
+            ))
+          )}
+        </div>
       ) : (() => {
         const newContacts = contacts.filter((c) => !c.sources.includes("freshsales"));
         const knownContacts = contacts.filter((c) => c.sources.includes("freshsales"));

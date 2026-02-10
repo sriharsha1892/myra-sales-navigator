@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
-import type { SequenceStep, OutreachEnrollment, OutreachStepLog, Contact } from "@/lib/navigator/types";
+import type { SequenceStep, OutreachEnrollment, OutreachStepLog, Contact, CompanyEnriched, Signal } from "@/lib/navigator/types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function mapEnrollmentRow(row: any): OutreachEnrollment {
@@ -127,6 +127,42 @@ export async function POST(
       // Cache lookup failed, continue with fallback
     }
 
+    // Resolve company data from cache for draft context
+    let contactTitle = "";
+    let contactSeniority = "";
+    let companyIndustry = "";
+    let companySignals: Signal[] = [];
+    let hubspotStatus = "none";
+    let freshsalesStatus = "none";
+    let icpScore: number | undefined;
+
+    // Get contact details from the cache match
+    try {
+      const { getCached: getCachedCompany, CacheKeys: CompanyCacheKeys } = await import("@/lib/cache");
+      const cached = await getCachedCompany<{ contacts: Contact[] }>(
+        CompanyCacheKeys.enrichedContacts(enrollment.company_domain)
+      );
+      if (cached?.contacts) {
+        const match = cached.contacts.find((c) => c.id === enrollment.contact_id);
+        if (match) {
+          contactTitle = match.title || "";
+          contactSeniority = match.seniority || "";
+        }
+      }
+
+      // Get company data from KV cache
+      const companyData = await getCachedCompany<CompanyEnriched>(
+        CompanyCacheKeys.company(enrollment.company_domain)
+      );
+      if (companyData) {
+        companyIndustry = companyData.industry || "";
+        companySignals = companyData.signals || [];
+        hubspotStatus = companyData.hubspotStatus || "none";
+        freshsalesStatus = companyData.freshsalesStatus || "none";
+        icpScore = companyData.icpScore;
+      }
+    } catch { /* silent */ }
+
     let executionResult: Record<string, unknown> = {};
 
     // Channel-specific execution logic
@@ -144,10 +180,13 @@ export async function POST(
             tone: currentStep.tone ?? "formal",
             channel: "email",
             template: currentStep.template ?? "intro",
-            contactTitle: "",
-            companyIndustry: "",
-            signals: [],
-            hubspotStatus: "none",
+            contactTitle,
+            contactSeniority,
+            companyIndustry,
+            signals: companySignals,
+            hubspotStatus,
+            freshsalesStatus,
+            icpScore,
           }),
         });
 
@@ -213,10 +252,13 @@ export async function POST(
             tone: currentStep.tone ?? "casual",
             channel: currentStep.channel,
             template: currentStep.template ?? "intro",
-            contactTitle: "",
-            companyIndustry: "",
-            signals: [],
-            hubspotStatus: "none",
+            contactTitle,
+            contactSeniority,
+            companyIndustry,
+            signals: companySignals,
+            hubspotStatus,
+            freshsalesStatus,
+            icpScore,
           }),
         });
 
@@ -251,10 +293,13 @@ export async function POST(
             tone: currentStep.tone ?? "casual",
             channel: "whatsapp",
             template: currentStep.template ?? "intro",
-            contactTitle: "",
-            companyIndustry: "",
-            signals: [],
-            hubspotStatus: "none",
+            contactTitle,
+            contactSeniority,
+            companyIndustry,
+            signals: companySignals,
+            hubspotStatus,
+            freshsalesStatus,
+            icpScore,
           }),
         });
 

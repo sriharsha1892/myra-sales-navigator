@@ -19,6 +19,7 @@ function fakeTable(data: unknown = null, error: unknown = null) {
   const chain: Record<string, unknown> = {};
   chain.upsert = vi.fn().mockReturnValue(chain);
   chain.update = vi.fn().mockReturnValue(chain);
+  chain.insert = vi.fn().mockReturnValue(chain);
   chain.eq = vi.fn().mockReturnValue(chain);
   chain.then = (resolve: (v: unknown) => void) => resolve({ data, error });
   return chain;
@@ -87,9 +88,11 @@ describe("POST /api/session/track-view", () => {
     // First table (upsert) returns error, second table (update) succeeds
     const upsertTable = fakeTable(null, { message: "conflict" });
     const updateTable = fakeTable();
+    const activityTable = fakeTable();
     mockFrom
       .mockReturnValueOnce(upsertTable)
-      .mockReturnValueOnce(updateTable);
+      .mockReturnValueOnce(updateTable)
+      .mockReturnValueOnce(activityTable);
 
     const res = await POST(
       makeRequest({ domain: "acme.com", name: "Acme Corp", userName: "Satish" })
@@ -99,8 +102,8 @@ describe("POST /api/session/track-view", () => {
     const body = await res.json();
     expect(body.ok).toBe(true);
 
-    // Should have called from("companies") twice: once for upsert, once for update
-    expect(mockFrom).toHaveBeenCalledTimes(2);
+    // from("companies") twice (upsert + update) + from("company_activity_log") once
+    expect(mockFrom).toHaveBeenCalledTimes(3);
     expect(updateTable.update).toHaveBeenCalledWith(
       expect.objectContaining({
         last_viewed_by: "Satish",

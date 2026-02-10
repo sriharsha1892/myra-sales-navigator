@@ -17,6 +17,7 @@ import { SessionStarterCard } from "@/components/navigator/home/SessionStarterCa
 import { FollowUpNudges } from "@/components/navigator/shared/FollowUpNudges";
 import { CreditUsageIndicator } from "@/components/navigator/CreditUsageIndicator";
 import { DueStepsWidget } from "@/components/navigator/outreach/DueStepsWidget";
+import { SimilarSearchBanner } from "@/components/navigator/banners/SimilarSearchBanner";
 
 const exampleQueries = [
   "chemicals in Europe",
@@ -324,6 +325,8 @@ export function ResultsList() {
               <NoResultsSuggestions />
             )
           ) : (
+            <>
+            <SimilarSearchBanner />
             <div
               role="listbox"
               aria-label="Company results"
@@ -427,6 +430,7 @@ export function ResultsList() {
                 );
               })()}
             </div>
+            </>
           )
         ) : null}
       </div>

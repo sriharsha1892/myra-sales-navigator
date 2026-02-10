@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { reformulateQueryWithEntities, looksLikeCompanyName } from "@/lib/navigator/exa/queryBuilder";
+import { reformulateQueryWithEntities, looksLikeCompanyName, stripLegalSuffix } from "@/lib/navigator/exa/queryBuilder";
 import { searchExa, isExaAvailable } from "@/lib/navigator/providers/exa";
+import { searchSerper, isSerperAvailable } from "@/lib/navigator/providers/serper";
+import { searchParallel, isParallelAvailable } from "@/lib/navigator/providers/parallel";
 import {
   isApolloAvailable,
   enrichCompany,
@@ -10,6 +12,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { calculateIcpScore } from "@/lib/navigator/scoring";
 import { getCached, setCached, getRootDomain } from "@/lib/cache";
 import { extractICPCriteria, scoreCompaniesAgainstICP } from "@/lib/navigator/llm/icpPrompts";
+import { pickDiscoveryEngine, pickNameEngine, recordUsage, isExaFallbackAllowed, getUsageSummary } from "@/lib/navigator/routing/smartRouter";
 import type { Company, FilterState, IcpWeights, NLICPCriteria } from "@/lib/navigator/types";
 
 // ---------------------------------------------------------------------------
@@ -197,37 +200,138 @@ export async function POST(request: Request) {
   }
   reformulationMs = Date.now() - reformulationStart;
 
-  if (!isExaAvailable()) {
+  // Check that at least one search engine is available
+  const anyEngineAvailable = isExaAvailable() || isSerperAvailable() || isParallelAvailable();
+  if (!anyEngineAvailable) {
     return NextResponse.json({
       companies: [],
       signals: [],
       reformulatedQueries,
-      message: "EXA_API_KEY not configured. Search unavailable.",
+      message: "No search engine configured. Set EXA_API_KEY, SERPER_API_KEY, or PARALLEL_API_KEY.",
     }, { status: 503 });
   }
 
+  let searchEngine = "exa"; // track which engine was used (for logging)
+
   try {
     const primaryQuery = reformulatedQueries[0] || freeText || "";
+    const strippedQuery = stripLegalSuffix(primaryQuery);
     const numResults = isNameQuery ? 15 : 25;
-    console.log("[Search] primaryQuery:", primaryQuery, "isNameQuery:", isNameQuery);
+    console.log("[Search] primaryQuery:", primaryQuery, "stripped:", strippedQuery, "isNameQuery:", isNameQuery);
 
-    // Parallel: Exa semantic search + exclusion list fetch
+    // ------ Smart Engine Dispatch (budget + health aware) ------
+    // Parallel = workhorse (20K free). Serper = company names (2,500 free).
+    // Exa = emergency fallback only ($10.38 remaining).
+    let searchCompanies: Company[] = [];
+    let searchSignals: import("@/lib/navigator/types").Signal[] = [];
+    let searchCacheHit = false;
+
     const exaStart = Date.now();
-    const [exaResult, excluded] = await Promise.all([
-      searchExa({ query: primaryQuery, numResults }).catch((err) => {
-        exaError = err instanceof Error ? err.message : "Exa search failed";
-        return { companies: [], signals: [], cacheHit: false } as import("@/lib/navigator/providers/exa").ExaSearchResult;
-      }),
-      filters?.hideExcluded !== false ? getExcludedValues() : Promise.resolve(new Set<string>()),
-    ]);
-    exaDurationMs = Date.now() - exaStart;
-    exaCacheHit = exaResult.cacheHit ?? false;
-    exaResultCount = exaResult.companies.length;
+    const excludedPromise = filters?.hideExcluded !== false ? getExcludedValues() : Promise.resolve(new Set<string>());
 
-    // Apply exclusion filter to Exa results
-    const filteredExa = applyExclusionFilter(exaResult.companies, excluded);
-    const excludedCount = exaResult.companies.length - filteredExa.length;
-    const exaCompanies = filteredExa.slice(0, 25);
+    if (isNameQuery) {
+      // --- Company name path: smart router picks Serper or Exa ---
+      searchEngine = await pickNameEngine();
+      console.log("[SmartRouter] Name query → engine:", searchEngine);
+
+      if (searchEngine === "serper") {
+        try {
+          const serperResult = await searchSerper(strippedQuery, numResults);
+          searchCompanies = serperResult.companies;
+          searchCacheHit = serperResult.cacheHit ?? false;
+          if (!searchCacheHit) recordUsage("serper");
+        } catch (err) {
+          exaError = err instanceof Error ? err.message : "Serper search failed";
+          console.warn("[SmartRouter] Serper failed:", err);
+        }
+        // Fallback to Exa only if Serper returned nothing AND Exa budget allows
+        if (searchCompanies.length === 0 && isExaFallbackAllowed()) {
+          searchEngine = "exa";
+          console.log("[SmartRouter] Serper returned 0, Exa fallback (budget ok)");
+          try {
+            const exaResult = await searchExa({ query: strippedQuery, numResults });
+            searchCompanies = exaResult.companies;
+            searchSignals = exaResult.signals;
+            searchCacheHit = exaResult.cacheHit ?? false;
+            if (!searchCacheHit) recordUsage("exa");
+          } catch (err) {
+            exaError = err instanceof Error ? err.message : "Exa search failed";
+          }
+        }
+      } else {
+        // Router picked Exa directly (Serper unavailable)
+        try {
+          const exaResult = await searchExa({ query: strippedQuery, numResults });
+          searchCompanies = exaResult.companies;
+          searchSignals = exaResult.signals;
+          searchCacheHit = exaResult.cacheHit ?? false;
+          if (!searchCacheHit) recordUsage("exa");
+        } catch (err) {
+          exaError = err instanceof Error ? err.message : "Exa search failed";
+        }
+      }
+    } else {
+      // --- Discovery path: smart router picks Parallel or Exa ---
+      searchEngine = await pickDiscoveryEngine();
+      console.log("[SmartRouter] Discovery query → engine:", searchEngine);
+
+      if (searchEngine === "parallel") {
+        try {
+          const parallelResult = await searchParallel(strippedQuery, numResults);
+          searchCompanies = parallelResult.companies;
+          searchSignals = parallelResult.signals;
+          searchCacheHit = parallelResult.cacheHit ?? false;
+          if (!searchCacheHit) recordUsage("parallel");
+          // Fallback: Parallel returned too few results — try Exa IF budget allows
+          if (parallelResult.companies.length < 3 && parallelResult.avgRelevance < 0.2 && isExaFallbackAllowed()) {
+            console.log("[SmartRouter] Parallel low-quality, Exa fallback (budget ok)");
+            searchEngine = "exa";
+            const exaResult = await searchExa({ query: strippedQuery, numResults });
+            searchCompanies = exaResult.companies;
+            searchSignals = exaResult.signals;
+            searchCacheHit = exaResult.cacheHit ?? false;
+            if (!searchCacheHit) recordUsage("exa");
+          }
+        } catch (err) {
+          exaError = err instanceof Error ? err.message : "Parallel search failed";
+          console.warn("[SmartRouter] Parallel failed:", err);
+          // Fallback to Exa on error only if budget allows
+          if (isExaFallbackAllowed()) {
+            searchEngine = "exa";
+            try {
+              const exaResult = await searchExa({ query: strippedQuery, numResults });
+              searchCompanies = exaResult.companies;
+              searchSignals = exaResult.signals;
+              searchCacheHit = exaResult.cacheHit ?? false;
+              if (!searchCacheHit) recordUsage("exa");
+            } catch (exaErr) {
+              exaError = exaErr instanceof Error ? exaErr.message : "Exa search failed";
+            }
+          }
+        }
+      } else {
+        // Router picked Exa directly (Parallel unavailable)
+        try {
+          const exaResult = await searchExa({ query: strippedQuery, numResults });
+          searchCompanies = exaResult.companies;
+          searchSignals = exaResult.signals;
+          searchCacheHit = exaResult.cacheHit ?? false;
+          if (!searchCacheHit) recordUsage("exa");
+        } catch (err) {
+          exaError = err instanceof Error ? err.message : "Exa search failed";
+        }
+      }
+    }
+
+    const excluded = await excludedPromise;
+    exaDurationMs = Date.now() - exaStart;
+    exaCacheHit = searchCacheHit;
+    exaResultCount = searchCompanies.length;
+
+    // Apply exclusion filter
+    const filteredResults = applyExclusionFilter(searchCompanies, excluded);
+    const excludedCount = searchCompanies.length - filteredResults.length;
+    const exaCompanies = filteredResults.slice(0, 25);
 
     // Apollo structured enrichment — runs in parallel on Exa domains
     // Smart Enrich: only top N by Exa relevance (admin-configurable, default 10)
@@ -329,18 +433,24 @@ export async function POST(request: Request) {
     // Sort by ICP score descending — best results first
     companies.sort((a, b) => b.icpScore - a.icpScore);
 
-    // Exact match detection: find ALL matching companies, pick the largest
+    // Exact match detection: strip legal suffixes from both query and candidates
     const queryLower = (freeText || "").toLowerCase().trim();
-    if (queryLower) {
+    const strippedQueryLower = stripLegalSuffix(queryLower);
+    if (strippedQueryLower) {
       const matches: typeof companies = [];
       for (const c of companies) {
+        // Already marked as exact match by Serper knowledge graph
+        if (c.exactMatch) { matches.push(c); continue; }
         const domainBase = c.domain.replace(/\.(com|io|org|net|co|ai|de|it|eu)$/i, "").toLowerCase();
         const nameLower = c.name.toLowerCase();
+        const strippedName = stripLegalSuffix(nameLower);
         if (
-          domainBase === queryLower ||
-          nameLower === queryLower ||
-          domainBase.includes(queryLower.replace(/\s+/g, "")) ||
-          nameLower.includes(queryLower)
+          domainBase === strippedQueryLower ||
+          strippedName === strippedQueryLower ||
+          domainBase.includes(strippedQueryLower.replace(/\s+/g, "")) ||
+          strippedName.includes(strippedQueryLower) ||
+          strippedName.startsWith(strippedQueryLower) ||
+          strippedQueryLower.startsWith(strippedName)
         ) {
           matches.push(c);
         }
@@ -384,19 +494,24 @@ export async function POST(request: Request) {
           apollo_error: apolloError,
           nl_icp_error: nlIcpError,
           query_text: freeText || null,
+          search_engine: searchEngine,
         })
         .then(({ error: histErr }) => {
           if (histErr) console.warn("[Search] Failed to log history:", histErr);
         });
     }
 
+    const usageSummary = getUsageSummary();
+
     return NextResponse.json({
       companies,
-      signals: exaResult.signals,
+      signals: searchSignals,
       reformulatedQueries,
       extractedEntities,
       nlIcpCriteria,
       excludedCount,
+      searchEngine,
+      usageSummary,
     });
   } catch (err) {
     console.error("[Search] search failed:", err);

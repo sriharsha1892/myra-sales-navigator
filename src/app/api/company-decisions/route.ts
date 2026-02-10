@@ -21,6 +21,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Fire-and-forget activity log
+    Promise.resolve(
+      supabase.from("company_activity_log").insert({
+        company_domain: domain,
+        user_name: decidedBy,
+        activity_type: "triage",
+        metadata: { decision },
+      })
+    ).catch(() => {});
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[company-decisions] error:", err);

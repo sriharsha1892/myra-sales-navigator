@@ -101,6 +101,44 @@ export function SearchBridge() {
     }
   };
 
+  // Post-search team activity enrichment
+  const teamActivityAbortRef = useRef<AbortController | null>(null);
+  const enrichTeamActivity = (companies: import("@/lib/navigator/types").CompanyEnriched[]) => {
+    teamActivityAbortRef.current?.abort();
+    const controller = new AbortController();
+    teamActivityAbortRef.current = controller;
+
+    const domains = companies.map((c) => c.domain);
+    const userName = useStore.getState().userName;
+    if (!userName || domains.length === 0) return;
+
+    fetch("/api/team-activity/batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ domains, currentUser: userName }),
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = await res.json();
+        useStore.getState().mergeTeamActivity(data);
+      })
+      .catch(() => { /* silent */ });
+  };
+
+  // Post-search similar search detection
+  const fetchSimilarSearch = (queryText: string, userName: string) => {
+    fetch(`/api/team-activity/similar-searches?query=${encodeURIComponent(queryText)}&user=${encodeURIComponent(userName)}`)
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.match) {
+          useStore.getState().setSimilarSearchMatch(data.match);
+        }
+      })
+      .catch(() => { /* silent */ });
+  };
+
   useEffect(() => {
     if (pendingFreeTextSearch) {
       const text = pendingFreeTextSearch;
@@ -116,6 +154,8 @@ export function SearchBridge() {
             notify("Search complete", `${data.companies.length} companies found`);
             preWarmContacts(data.companies);
             enrichCrmStatus(data.companies);
+            enrichTeamActivity(data.companies);
+            fetchSimilarSearch(text, useStore.getState().userName ?? "");
             useStore.getState().incrementSessionSearchCount();
           },
           onError: () => {
@@ -143,6 +183,8 @@ export function SearchBridge() {
             notify("Search complete", `${data.companies.length} companies found`);
             preWarmContacts(data.companies);
             enrichCrmStatus(data.companies);
+            enrichTeamActivity(data.companies);
+            fetchSimilarSearch(summarizeFilters(currentFilters), useStore.getState().userName ?? "");
             useStore.getState().incrementSessionSearchCount();
           },
           onError: () => {

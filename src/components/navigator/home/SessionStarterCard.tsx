@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useStore } from "@/lib/navigator/store";
+import { TeamMomentumLine } from "./TeamMomentumLine";
 
 interface SessionInsights {
   staleResearching: { domain: string; name: string; daysSince: number }[];
@@ -114,6 +115,8 @@ export function SessionStarterCard() {
           </div>
         )}
       </div>
+
+      <TeamMomentumLine />
     </div>
   );
 }

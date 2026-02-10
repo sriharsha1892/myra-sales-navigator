@@ -73,6 +73,6 @@ function mergeCompanies(companies: CompanyEnriched[]): CompanyEnriched {
 
 export function getSourceLabel(sources: ResultSource[]): string {
   if (sources.length <= 1) return "";
-  const names: Record<ResultSource, string> = { exa: "Exa", apollo: "Apollo", hubspot: "HubSpot", clearout: "Clearout", mordor: "Mordor", freshsales: "Freshsales" };
+  const names: Record<ResultSource, string> = { exa: "Exa", apollo: "Apollo", hubspot: "HubSpot", clearout: "Clearout", mordor: "Mordor", freshsales: "Freshsales", serper: "Serper", parallel: "Parallel" };
   return "Found by " + sources.map((s) => names[s]).join(" + ");
 }

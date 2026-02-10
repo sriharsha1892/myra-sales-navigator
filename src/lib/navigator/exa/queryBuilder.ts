@@ -2,6 +2,21 @@ import type { FilterState, ExtractedEntities } from "../types";
 import { getGroq, isGroqAvailable } from "../llm/client";
 import { getCached, setCached } from "../../cache";
 
+// ---------------------------------------------------------------------------
+// Legal entity suffix stripping
+// ---------------------------------------------------------------------------
+
+const LEGAL_SUFFIXES = /\b(SE|AG|GmbH|Ltd|Inc|Corp|LLC|PLC|SA|NV|BV|SRL|Pty|Co|KG|KGaA|S\.A\.|S\.r\.l\.|S\.p\.A\.)\b\.?$/i;
+
+/**
+ * Strip common legal entity suffixes from a query string.
+ * "BASF SE" → "BASF", "Brenntag AG" → "Brenntag"
+ * Used before sending to any search engine to avoid semantic noise.
+ */
+export function stripLegalSuffix(query: string): string {
+  return query.replace(LEGAL_SUFFIXES, "").trim();
+}
+
 export interface ReformulatedResult {
   queries: string[];
   entities: ExtractedEntities;
@@ -64,7 +79,9 @@ User query: {query}`;
 export function looksLikeCompanyName(query: string): boolean {
   const trimmed = query.trim();
   if (!trimmed) return false;
-  const words = trimmed.split(/\s+/);
+  // Strip legal suffixes before word count / keyword analysis
+  const stripped = stripLegalSuffix(trimmed);
+  const words = stripped.split(/\s+/);
   // Descriptive keywords that indicate a category search, not a name
   const descriptiveWords = [
     "companies", "company", "in", "for", "with", "hiring", "funding",
@@ -72,7 +89,7 @@ export function looksLikeCompanyName(query: string): boolean {
     "startups", "enterprises", "firms", "suppliers", "manufacturers",
     "distributors", "providers", "solutions", "services", "products",
   ];
-  const lower = trimmed.toLowerCase();
+  const lower = stripped.toLowerCase();
   const hasDescriptive = descriptiveWords.some((w) => lower.includes(w));
   // 1-4 words with no descriptive keywords → likely a company name
   return words.length <= 4 && !hasDescriptive;

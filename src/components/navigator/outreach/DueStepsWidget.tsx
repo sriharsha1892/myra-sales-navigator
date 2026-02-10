@@ -5,7 +5,8 @@ import { useStore } from "@/lib/navigator/store";
 import { CHANNEL_OPTIONS } from "@/lib/navigator/outreach/channelConfig";
 import { ExecutionModal } from "@/components/navigator/outreach/ExecutionModal";
 import { CallOutcomeModal } from "@/components/navigator/outreach/CallOutcomeModal";
-import type { OutreachEnrollment, OutreachSequence } from "@/lib/navigator/types";
+import { PreCallBriefingCard } from "./PreCallBriefingCard";
+import type { OutreachEnrollment, OutreachSequence, BriefingData } from "@/lib/navigator/types";
 
 interface DueStepItem {
   enrollment: OutreachEnrollment;
@@ -53,6 +54,10 @@ export function DueStepsWidget() {
     result: ExecutionResult;
   } | null>(null);
 
+  // Briefing state
+  const [briefingData, setBriefingData] = useState<Record<string, BriefingData>>({});
+  const [briefingLoading, setBriefingLoading] = useState<Record<string, boolean>>({});
+
   useEffect(() => {
     let cancelled = false;
 
@@ -88,14 +93,34 @@ export function DueStepsWidget() {
       const step = item.sequence.steps[item.enrollment.currentStep];
       if (!step) return;
 
-      setExecutingId(item.enrollment.id);
+      const enrollmentId = item.enrollment.id;
+      setExecutingId(enrollmentId);
+
+      // Set briefing loading
+      setBriefingLoading(prev => ({ ...prev, [enrollmentId]: true }));
 
       try {
-        const res = await fetch(
-          `/api/outreach/enrollments/${item.enrollment.id}/execute`,
-          { method: "POST", headers: { "Content-Type": "application/json" } }
-        );
+        const [execRes, briefingRes] = await Promise.allSettled([
+          fetch(
+            `/api/outreach/enrollments/${enrollmentId}/execute`,
+            { method: "POST", headers: { "Content-Type": "application/json" } }
+          ),
+          fetch(`/api/outreach/enrollments/${enrollmentId}/briefing`),
+        ]);
 
+        // Handle briefing result
+        if (briefingRes.status === "fulfilled" && briefingRes.value.ok) {
+          const bData = await briefingRes.value.json();
+          setBriefingData(prev => ({ ...prev, [enrollmentId]: bData }));
+        }
+        setBriefingLoading(prev => ({ ...prev, [enrollmentId]: false }));
+
+        // Handle execution result
+        if (execRes.status !== "fulfilled") {
+          throw new Error("Execution failed");
+        }
+
+        const res = execRes.value;
         if (!res.ok) {
           const err = await res.json();
           throw new Error(err.error || "Execution failed");
@@ -108,7 +133,7 @@ export function DueStepsWidget() {
 
         if (data.completed) {
           addToast({ message: `Sequence completed for ${item.contactName}!`, type: "success" });
-          removeItem(item.enrollment.id);
+          removeItem(enrollmentId);
           setExecutingId(null);
           return;
         }
@@ -117,7 +142,7 @@ export function DueStepsWidget() {
 
         if (result.type === "call") {
           // Inline expand for calls
-          setExpandedCallId(item.enrollment.id);
+          setExpandedCallId(enrollmentId);
           setCallResult(result);
           setExecutingId(null);
         } else {
@@ -126,6 +151,7 @@ export function DueStepsWidget() {
           setExecutingId(null);
         }
       } catch (err) {
+        setBriefingLoading(prev => ({ ...prev, [enrollmentId]: false }));
         addToast({
           message: err instanceof Error ? err.message : "Failed to execute step",
           type: "error",
@@ -273,6 +299,10 @@ export function DueStepsWidget() {
                       {/* Inline call expansion */}
                       {isCallExpanded && callResult && (
                         <div className="mt-1 rounded-input border border-accent-secondary/20 bg-accent-secondary/5 px-3 py-2.5">
+                          <PreCallBriefingCard
+                            data={briefingData[item.enrollment.id]}
+                            loading={briefingLoading[item.enrollment.id]}
+                          />
                           <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-accent-secondary">
                             Talking Points
                           </p>
@@ -339,6 +369,7 @@ export function DueStepsWidget() {
           }
           subject={modalData.result.subject}
           linkedinUrl={modalData.result.linkedinUrl}
+          briefing={briefingData[modalData.item.enrollment.id] ?? null}
           onDone={handleModalDone}
           onClose={() => setModalData(null)}
         />

@@ -1,4 +1,4 @@
-export type ResultSource = "exa" | "apollo" | "hubspot" | "clearout" | "mordor" | "freshsales";
+export type ResultSource = "exa" | "apollo" | "hubspot" | "clearout" | "mordor" | "freshsales" | "serper" | "parallel";
 
 export type HubSpotStatus =
   | "new"
@@ -197,6 +197,11 @@ export interface CompanyEnriched {
   nlIcpScore?: number;
   nlIcpReasoning?: string;
   peerSource?: "freshsales" | "exa" | null;
+  teamActivity?: {
+    viewers: { user: string; at: string }[];
+    exporters: { user: string; at: string; count: number }[];
+    decisions: { user: string; decision: string; at: string }[];
+  };
 }
 
 
@@ -418,6 +423,7 @@ export interface AdminConfig {
   // Recommended next action rules (Section 3)
   actionRecommendationRules: { id: string; name: string; enabled: boolean }[];
   actionRecommendationEnabled: boolean;
+  discoveryEngine: "exa" | "parallel" | "round_robin";
 }
 
 export interface TeamMember {
@@ -854,4 +860,38 @@ export interface UserConfig {
   freshsalesDomain: string | null;
   hasLinkedinSalesNav: boolean;
   preferences: Record<string, unknown>;
+}
+
+// ---------------------------------------------------------------------------
+// Pre-Call Briefing
+// ---------------------------------------------------------------------------
+
+export interface BriefingData {
+  contact: {
+    name: string;
+    title: string;
+    seniority: string;
+    phone: string | null;
+    linkedinUrl: string | null;
+    emailConfidence: number;
+  };
+  company: {
+    name: string;
+    domain: string;
+    industry: string;
+    employeeCount: number;
+    location: string;
+    icpScore: number;
+    icpReasoning: string | null;
+  };
+  crm: {
+    status: string;
+    warmth: "cold" | "warm" | "hot";
+    lastContactDate: string | null;
+    topDeal: { name: string; stage: string; amount: number | null; daysInStage: number | null } | null;
+    lastActivity: { type: string; date: string; actor: string } | null;
+  };
+  topSignal: { type: string; title: string; date: string } | null;
+  previousSteps: { channel: string; completedAt: string; outcome: string | null }[];
+  suggestedOpener: string;
 }

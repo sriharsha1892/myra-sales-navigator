@@ -11,6 +11,7 @@ import { ContactPreviewPopover } from "./ContactPreviewPopover";
 import { Tooltip } from "@/components/navigator/shared/Tooltip";
 import type { Contact } from "@/lib/navigator/types";
 import { logEmailCopy } from "@/lib/navigator/logEmailCopy";
+import { TeamActivityBadge } from "@/components/navigator/badges/TeamActivityBadge";
 
 interface CompanyCardProps {
   company: CompanyEnriched;
@@ -258,6 +259,7 @@ export function CompanyCard({
               {company.name}
             </h3>
             <div className="flex items-center gap-1.5">
+              {company.teamActivity && <TeamActivityBadge activity={company.teamActivity} />}
               <IcpScoreBadge score={company.icpScore} breakdown={company.icpBreakdown} showBreakdown />
               {company.nlIcpReasoning && (
                 <span className="truncate text-[10px] text-text-tertiary italic" style={{ maxWidth: "200px" }} title={company.nlIcpReasoning}>
