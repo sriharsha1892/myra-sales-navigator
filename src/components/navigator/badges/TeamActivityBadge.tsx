@@ -11,6 +11,8 @@ interface TeamActivityBadgeProps {
 }
 
 export function TeamActivityBadge({ activity }: TeamActivityBadgeProps) {
+  const now = useRef(Date.now()).current;
+
   // Collect unique users with their most recent activity
   const userMap = new Map<string, { type: string; at: string }>();
   for (const v of activity.viewers) userMap.set(v.user, { type: "view", at: v.at });
@@ -38,7 +40,6 @@ export function TeamActivityBadge({ activity }: TeamActivityBadgeProps) {
     return "bg-surface-2 text-text-tertiary";
   };
 
-  const now = useRef(Date.now()).current;
   const daysAgo = (dateStr: string) => {
     const d = Math.floor((now - new Date(dateStr).getTime()) / 86400000);
     return d === 0 ? "today" : d === 1 ? "1d ago" : `${d}d ago`;

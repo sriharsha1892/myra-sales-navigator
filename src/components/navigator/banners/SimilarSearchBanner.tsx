@@ -6,10 +6,9 @@ import { useStore } from "@/lib/navigator/store";
 export function SimilarSearchBanner() {
   const match = useStore((s) => s.similarSearchMatch);
   const dismiss = useStore((s) => s.dismissSimilarSearch);
+  const now = useRef(Date.now()).current;
 
   if (!match) return null;
-
-  const now = useRef(Date.now()).current;
   const daysAgo = Math.floor(
     (now - new Date(match.at).getTime()) / 86400000
   );
