@@ -35,6 +35,24 @@ export async function deleteCached(key: string): Promise<void> {
   memoryCache.delete(key);
 }
 
+/**
+ * Scan all non-expired cache entries whose key starts with `prefix`.
+ * Returns an array of the cached data values (typed as T).
+ */
+export function scanCacheByPrefix<T>(prefix: string): T[] {
+  const now = Date.now();
+  const results: T[] = [];
+  for (const [key, entry] of memoryCache) {
+    if (!key.startsWith(prefix)) continue;
+    if (now > entry.expiresAt) {
+      memoryCache.delete(key);
+      continue;
+    }
+    results.push(entry.data as T);
+  }
+  return results;
+}
+
 // ---------------------------------------------------------------------------
 // Domain normalization
 // ---------------------------------------------------------------------------

@@ -4,10 +4,10 @@ const STORAGE_KEY = "nav_theme";
 const COOKIE_KEY = "nav_theme";
 
 export function getTheme(): Theme {
-  if (typeof window === "undefined") return "light";
+  if (typeof window === "undefined") return "dark";
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored === "dark" || stored === "light") return stored;
-  return "light";
+  return "dark";
 }
 
 export function setTheme(theme: Theme): void {

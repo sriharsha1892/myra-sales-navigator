@@ -42,6 +42,17 @@ export function BulkActionBar() {
 
   const totalCount = filteredCompanies().length;
 
+  // Count contacts available for selected companies (for export button state)
+  const contactCountForSelected = useMemo(() => {
+    let total = 0;
+    for (const domain of domains) {
+      const domainContacts = contactsByDomain[domain];
+      if (domainContacts) total += domainContacts.length;
+    }
+    return total;
+  }, [domains, contactsByDomain]);
+  const exportDisabled = contactCountForSelected === 0;
+
   const addUndoToast = useStore((s) => s.addUndoToast);
   const undoExclude = useStore((s) => s.undoExclude);
 
@@ -162,9 +173,15 @@ export function BulkActionBar() {
               />
             ) : (
               <div className="flex items-center gap-2">
-                <BulkButton onClick={() => initiateExport("clipboard")} label="Copy" shortcut="\u2318E" />
-                <BulkButton onClick={() => initiateExport("csv")} label="CSV" />
-                <BulkButton onClick={() => initiateExport("excel")} label="Excel" />
+                <Tooltip text={exportDisabled ? "Select contacts first" : ""}>
+                  <BulkButton onClick={() => initiateExport("clipboard")} label="Copy" shortcut="\u2318E" disabled={exportDisabled} />
+                </Tooltip>
+                <Tooltip text={exportDisabled ? "Select contacts first" : ""}>
+                  <BulkButton onClick={() => initiateExport("csv")} label="CSV" disabled={exportDisabled} />
+                </Tooltip>
+                <Tooltip text={exportDisabled ? "Select contacts first" : ""}>
+                  <BulkButton onClick={() => initiateExport("excel")} label="Excel" disabled={exportDisabled} />
+                </Tooltip>
                 {viewMode === "companies" && (
                   <>
                     <BulkButton
@@ -227,18 +244,23 @@ function BulkButton({
   label,
   variant = "default",
   shortcut,
+  disabled = false,
 }: {
   onClick: () => void;
   label: string;
   variant?: "default" | "ghost" | "danger";
   shortcut?: string;
+  disabled?: boolean;
 }) {
   return (
     <button
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
       className={cn(
         "rounded-input px-3 py-1.5 text-sm font-medium transition-all duration-[var(--transition-default)] flex items-center gap-1.5",
-        variant === "default"
+        disabled
+          ? "opacity-40 cursor-not-allowed bg-accent-primary text-text-inverse"
+          : variant === "default"
           ? "bg-accent-primary text-text-inverse hover:bg-accent-primary-hover"
           : variant === "danger"
           ? "bg-danger/10 text-danger hover:bg-danger/20"

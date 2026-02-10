@@ -269,7 +269,7 @@ export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps)
           >
             <option value="seniority">Sort: Seniority</option>
             <option value="email_confidence">Sort: Confidence</option>
-            <option value="last_contacted">Sort: Last contacted</option>
+            <option value="last_contacted">Sort: Last verified</option>
           </select>
           {(seniorityFilter !== "all" || hasEmailFilter || sourceFilter !== "all" || verifiedFilter) && (
             <span className="text-[10px] text-text-tertiary">

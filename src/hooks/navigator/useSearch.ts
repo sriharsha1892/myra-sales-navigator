@@ -7,6 +7,7 @@ import type { CompanyEnriched, FilterState, ExtractedEntities, NLICPCriteria } f
 interface SearchParams {
   filters?: FilterState;
   freeText?: string;
+  signal?: AbortSignal;
 }
 
 interface SearchResponse {
@@ -17,10 +18,12 @@ interface SearchResponse {
 }
 
 async function searchCompanies(params: SearchParams): Promise<SearchResponse> {
+  const { signal, ...body } = params;
   const res = await fetch("/api/search/companies", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
+    body: JSON.stringify(body),
+    signal,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: "Search failed" }));
@@ -54,6 +57,8 @@ export function useSearch() {
       setLastExcludedCount(data.excludedCount ?? 0);
     },
     onError: (error: Error) => {
+      // Don't overwrite results for aborted searches
+      if (error.name === "AbortError") return;
       setSearchResults([]);
       setSearchError(error.message);
     },

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Command } from "cmdk";
 import { useStore } from "@/lib/navigator/store";
 import { Overlay } from "@/components/primitives/Overlay";
 import { cn } from "@/lib/cn";
 import { useSearchHistory } from "@/hooks/navigator/useSearchHistory";
 import { timeAgo } from "@/lib/utils";
+import type { Contact } from "@/lib/navigator/types";
 
 export function CommandPalette() {
   const open = useStore((s) => s.commandPaletteOpen);
@@ -27,6 +28,53 @@ export function CommandPalette() {
   const { history } = useSearchHistory();
   const [search, setSearch] = useState("");
 
+  // Debounced server-side contact search
+  const [apiContacts, setApiContacts] = useState<Contact[]>([]);
+  const [apiSearching, setApiSearching] = useState(false);
+  const apiAbortRef = useRef<AbortController | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    // Reset when palette closes or search is too short
+    if (!open || search.length < 3) {
+      setApiContacts([]);
+      setApiSearching(false);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      apiAbortRef.current?.abort();
+      return;
+    }
+
+    // Debounce 300ms
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      apiAbortRef.current?.abort();
+      const controller = new AbortController();
+      apiAbortRef.current = controller;
+      setApiSearching(true);
+
+      fetch(`/api/contacts/search?q=${encodeURIComponent(search)}`, {
+        signal: controller.signal,
+      })
+        .then(async (res) => {
+          if (!res.ok) return;
+          const data = await res.json();
+          if (!controller.signal.aborted) {
+            setApiContacts(data.contacts ?? []);
+          }
+        })
+        .catch(() => {
+          // Ignore abort errors and network failures
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setApiSearching(false);
+        });
+    }, 300);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [search, open]);
+
   const inputRef = useCallback((node: HTMLInputElement | null) => {
     if (node && open) {
       setSearch("");
@@ -37,6 +85,13 @@ export function CommandPalette() {
   if (!open) return null;
 
   const allContacts = Object.values(contactsByDomain).flat();
+
+  // Merge local + API contacts, dedup by id, local first
+  const localContactIds = new Set(allContacts.map((c) => c.id));
+  const mergedContacts = [
+    ...allContacts,
+    ...apiContacts.filter((c) => !localContactIds.has(c.id)),
+  ];
 
   const handleExaSearch = () => {
     setPendingFreeTextSearch(search);
@@ -200,8 +255,8 @@ export function CommandPalette() {
             </Command.Group>
 
             {/* Contacts */}
-            <Command.Group heading="Contacts">
-              {allContacts.slice(0, 8).map((ct) => (
+            <Command.Group heading={apiSearching ? "Contacts \u2014 Searching\u2026" : "Contacts"}>
+              {mergedContacts.slice(0, 8).map((ct) => (
                 <CommandItem
                   key={ct.id}
                   onSelect={() => {

@@ -22,6 +22,9 @@ export function SearchBridge() {
   const { saveToHistory } = useSearchHistory();
   const { notify } = useBrowserNotifications();
 
+  // Abort controller for the main search request
+  const searchAbortRef = useRef<AbortController | null>(null);
+
   // Post-search CRM enrichment — batch fetch Freshsales + HubSpot status
   const crmAbortRef = useRef<AbortController | null>(null);
   const enrichCrmStatus = (companies: import("@/lib/navigator/types").CompanyEnriched[]) => {
@@ -143,13 +146,18 @@ export function SearchBridge() {
   useEffect(() => {
     if (pendingFreeTextSearch) {
       const text = pendingFreeTextSearch;
+      // Abort any in-flight search
+      searchAbortRef.current?.abort();
+      const controller = new AbortController();
+      searchAbortRef.current = controller;
+
       setDemoMode(false);
       setSearchLoading(true);
       setSearchError(null);
       setLastSearchQuery(text);
       setLastICPCriteria(null);
       search(
-        { freeText: text },
+        { freeText: text, signal: controller.signal },
         {
           onSuccess: (data) => {
             saveToHistory(text, {}, data.companies.length);
@@ -160,7 +168,9 @@ export function SearchBridge() {
             fetchSimilarSearch(text, useStore.getState().userName ?? "");
             useStore.getState().incrementSessionSearchCount();
           },
-          onError: () => {
+          onError: (error: Error) => {
+            // Don't show error toast for aborted searches
+            if (error.name === "AbortError") return;
             notify("Search failed", "Something went wrong with your search");
           },
           onSettled: () => setSearchLoading(false),
@@ -173,13 +183,18 @@ export function SearchBridge() {
   useEffect(() => {
     if (pendingFilterSearch) {
       const currentFilters = filters;
+      // Abort any in-flight search
+      searchAbortRef.current?.abort();
+      const controller = new AbortController();
+      searchAbortRef.current = controller;
+
       setDemoMode(false);
       setSearchLoading(true);
       setSearchError(null);
       setLastSearchQuery(summarizeFilters(currentFilters));
       setLastICPCriteria(null);
       search(
-        { filters: currentFilters },
+        { filters: currentFilters, signal: controller.signal },
         {
           onSuccess: (data) => {
             saveToHistory(summarizeFilters(currentFilters), currentFilters, data.companies.length);
@@ -190,7 +205,9 @@ export function SearchBridge() {
             fetchSimilarSearch(summarizeFilters(currentFilters), useStore.getState().userName ?? "");
             useStore.getState().incrementSessionSearchCount();
           },
-          onError: () => {
+          onError: (error: Error) => {
+            // Don't show error toast for aborted searches
+            if (error.name === "AbortError") return;
             notify("Search failed", "Something went wrong with your search");
           },
           onSettled: () => setSearchLoading(false),

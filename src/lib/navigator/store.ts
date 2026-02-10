@@ -530,12 +530,16 @@ export const useStore = create<AppState>((set, get) => ({
   setViewMode: (mode) => set({ viewMode: mode, focusedContactId: null }),
 
   selectCompany: (domain) => {
+    const hadSelections = get().selectedContactIds.size > 0;
     set((state) => {
       if (typeof window !== "undefined" && domain) {
         localStorage.setItem("nav_detail_pane_collapsed", "0");
       }
-      return { selectedCompanyDomain: domain, slideOverOpen: !!domain, slideOverMode: "dossier", detailPaneCollapsed: false, dossierScrollToTop: state.dossierScrollToTop + 1 };
+      return { selectedCompanyDomain: domain, slideOverOpen: !!domain, slideOverMode: "dossier", detailPaneCollapsed: false, dossierScrollToTop: state.dossierScrollToTop + 1, selectedContactIds: new Set<string>(), selectedContactsForOutreach: new Set<string>() };
     });
+    if (hadSelections && domain) {
+      get().addToast({ message: "Selection cleared", type: "info", duration: 2000 });
+    }
     if (domain) {
       if (!sessionViewedDomains.has(domain)) {
         sessionViewedDomains.add(domain);
