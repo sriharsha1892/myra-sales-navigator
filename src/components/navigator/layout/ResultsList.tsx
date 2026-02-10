@@ -86,24 +86,22 @@ export function ResultsList() {
   }, [searchResults]);
 
   // Seed contacts into store when demo mode is active
-  const hasSearchedRef = useRef(false);
-  if (searchResults !== null) hasSearchedRef.current = true;
+  const hasSearched = searchResults !== null;
   const seedContactsLoadedRef = useRef(false);
   useEffect(() => {
-    if (demoMode && !hasSearchedRef.current && !seedContactsLoadedRef.current) {
+    if (demoMode && !hasSearched && !seedContactsLoadedRef.current) {
       for (const [domain, contacts] of Object.entries(SEED_CONTACTS)) {
         setContactsForDomain(domain, contacts);
       }
       seedContactsLoadedRef.current = true;
     }
-  }, [demoMode, setContactsForDomain]);
+  }, [demoMode, hasSearched, setContactsForDomain]);
 
   const dismissOnboarding = () => {
     setShowOnboarding(false);
     localStorage.setItem("nav_onboarded", "1");
   };
 
-  const hasSearched = searchResults !== null;
   const showDemoData = demoMode && !hasSearched && !searchLoading;
 
   const handleSortChange = useCallback((field: SortField) => {
