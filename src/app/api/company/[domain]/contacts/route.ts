@@ -60,7 +60,7 @@ export async function GET(
     // N is admin-configurable (default 5). Cap at 5 concurrent API calls.
     const limit = pLimit(5);
     const seniorityOrder: Record<string, number> = { c_level: 0, vp: 1, director: 2, manager: 3, staff: 4 };
-    let maxAutoEnrich = 5;
+    let maxAutoEnrich = 10;
     let maxClearoutFinds = 10;
     try {
       const cached = await getCached<{ maxContactAutoEnrich?: number; maxClearoutFinds?: number }>("admin:enrichment-limits");

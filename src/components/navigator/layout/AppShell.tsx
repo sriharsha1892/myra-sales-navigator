@@ -4,16 +4,14 @@ import React, { useEffect } from "react";
 import { useStore } from "@/lib/navigator/store";
 import { ResultsList } from "./ResultsList";
 import { SlideOverPane } from "./SlideOverPane";
-import { DetailPlaceholder } from "./DetailPlaceholder";
 import { Tooltip } from "@/components/navigator/shared/Tooltip";
 
 export function AppShell() {
   const selectedCompanyDomain = useStore((s) => s.selectedCompanyDomain);
-  const searchResults = useStore((s) => s.searchResults);
   const detailPaneCollapsed = useStore((s) => s.detailPaneCollapsed);
   const toggleDetailPane = useStore((s) => s.toggleDetailPane);
 
-  const showDetailColumn = searchResults !== null && searchResults.length > 0;
+  const showDetailColumn = !!selectedCompanyDomain;
 
   // Cmd+D shortcut to toggle detail pane (C4)
   useEffect(() => {
@@ -68,13 +66,9 @@ export function AppShell() {
 
           {!detailPaneCollapsed && (
             <div style={{ animation: "columnReveal 250ms ease-out" }}>
-              {selectedCompanyDomain ? (
-                <DetailErrorBoundary key={selectedCompanyDomain}>
-                  <SlideOverPane />
-                </DetailErrorBoundary>
-              ) : (
-                <DetailPlaceholder />
-              )}
+              <DetailErrorBoundary key={selectedCompanyDomain}>
+                <SlideOverPane />
+              </DetailErrorBoundary>
             </div>
           )}
         </div>

@@ -34,7 +34,7 @@ export const ResultsHeader = React.memo(function ResultsHeader({
       {(hasSearched || searchLoading) && lastSearchQuery && (
         <div className="sticky top-0 z-20 flex flex-shrink-0 items-center gap-2 border-b border-surface-3 bg-surface-1/80 backdrop-blur-sm px-4 py-1.5">
           <span className="text-xs text-text-tertiary">Results for</span>
-          <span className="font-mono text-xs text-text-secondary">&ldquo;{lastSearchQuery}&rdquo;</span>
+          <span className="max-w-[360px] truncate inline-block align-bottom font-mono text-xs text-text-secondary" title={lastSearchQuery ?? undefined}>&ldquo;{lastSearchQuery}&rdquo;</span>
           {!searchLoading && companyCount > 0 && (
             <span className="text-xs text-text-tertiary">
               ({companyCount} companies{lastExcludedCount > 0 ? `, ${lastExcludedCount} excluded` : ""})

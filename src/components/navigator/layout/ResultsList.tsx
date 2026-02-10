@@ -8,13 +8,10 @@ import { EmptyState } from "@/components/navigator/shared";
 import type { SortField, CompanyEnriched, ViewMode } from "@/lib/navigator/types";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useSearchHistory } from "@/hooks/navigator/useSearchHistory";
-import { MyProspects } from "./MyProspects";
 import { pick } from "@/lib/navigator/ui-copy";
 import { ExportedContactsPanel } from "@/components/navigator/exports/ExportedContactsPanel";
 import { AllContactsView } from "./AllContactsView";
 import { SessionStarterCard } from "@/components/navigator/home/SessionStarterCard";
-import { FollowUpNudges } from "@/components/navigator/shared/FollowUpNudges";
-import { DueStepsWidget } from "@/components/navigator/outreach/DueStepsWidget";
 import { SimilarSearchBanner } from "@/components/navigator/banners/SimilarSearchBanner";
 import { ResultsTabBar } from "./ResultsTabBar";
 import { ResultsHeader } from "./ResultsHeader";
@@ -50,8 +47,6 @@ export function ResultsList() {
   const selectCompany = useStore((s) => s.selectCompany);
   const selectedCompanyDomains = useStore((s) => s.selectedCompanyDomains);
   const toggleCompanySelection = useStore((s) => s.toggleCompanySelection);
-  const sessionCompaniesReviewed = useStore((s) => s.sessionCompaniesReviewed);
-  const sessionContactsExported = useStore((s) => s.sessionContactsExported);
   const expandedContactsDomain = useStore((s) => s.expandedContactsDomain);
   const allContactsViewActive = useStore((s) => s.allContactsViewActive);
   const setAllContactsViewActive = useStore((s) => s.setAllContactsViewActive);
@@ -227,8 +222,9 @@ export function ResultsList() {
                   <button
                     key={`${chip.label}-${i}`}
                     onClick={chip.onClick}
-                    className="btn-press animate-fadeInUp rounded-pill border border-surface-3 bg-surface-1 px-4 py-2 text-xs font-medium text-text-secondary shadow-sm transition-all duration-[180ms] hover:-translate-y-0.5 hover:shadow-md hover:text-text-primary"
+                    className="btn-press animate-fadeInUp rounded-pill border border-surface-3 bg-surface-1 px-4 py-2 text-xs font-medium text-text-secondary shadow-sm transition-all duration-[180ms] hover:-translate-y-0.5 hover:shadow-md hover:text-text-primary max-w-[220px] truncate"
                     style={{ animationDelay: `${60 + i * 40}ms` }}
+                    title={chip.label}
                   >
                     {chip.label}
                   </button>
@@ -264,7 +260,6 @@ export function ResultsList() {
                 <OnboardingTour onDismiss={dismissOnboarding} />
               )}
               <SessionStarterCard />
-              <FollowUpNudges />
               <h2 className="animate-fadeInUp font-display text-2xl text-text-primary" style={{ animationDelay: "0ms" }}>
                 Search for companies
               </h2>
@@ -272,19 +267,14 @@ export function ResultsList() {
                 A specific company, an industry, or a description of your ideal prospect
               </p>
 
-              {sessionCompaniesReviewed > 0 && (
-                <p className="animate-fadeInUp mt-1.5 text-xs text-text-tertiary" style={{ animationDelay: "100ms" }}>
-                  This session: reviewed {sessionCompaniesReviewed} companies{sessionContactsExported > 0 ? `, exported ${sessionContactsExported} contacts` : ""}
-                </p>
-              )}
-
               <div className="mt-6 flex flex-wrap justify-center gap-2.5">
                 {quickStartChips.map((chip, i) => (
                   <button
                     key={`${chip.label}-${i}`}
                     onClick={chip.onClick}
-                    className="btn-press animate-fadeInUp rounded-pill border border-surface-3 bg-surface-1 px-5 py-2.5 text-sm font-medium text-text-secondary shadow-sm transition-all duration-[180ms] hover:-translate-y-0.5 hover:shadow-md hover:text-text-primary"
+                    className="btn-press animate-fadeInUp rounded-pill border border-surface-3 bg-surface-1 px-5 py-2.5 text-sm font-medium text-text-secondary shadow-sm transition-all duration-[180ms] hover:-translate-y-0.5 hover:shadow-md hover:text-text-primary max-w-[220px] truncate"
                     style={{ animationDelay: `${120 + i * 60}ms` }}
+                    title={chip.label}
                   >
                     {chip.label}
                   </button>
@@ -321,13 +311,6 @@ export function ResultsList() {
                 </div>
               )}
 
-              {/* Steps due today */}
-              <div className="mt-6 w-full max-w-lg animate-fadeInUp" style={{ animationDelay: "460ms" }}>
-                <DueStepsWidget />
-              </div>
-              <div className="mt-8 flex w-full justify-center">
-                <MyProspects />
-              </div>
             </div>
           )
         ) : allContactsViewActive && viewMode === "companies" ? (
