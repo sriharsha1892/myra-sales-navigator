@@ -28,6 +28,7 @@ import type {
   TriageFilter,
   RelevanceFeedback,
   RelevanceFeedbackReason,
+  SearchErrorDetail,
 } from "./types";
 import { DEFAULT_PIPELINE_STAGES } from "./types";
 import {
@@ -47,6 +48,9 @@ interface AppState {
   // Search results (from API)
   searchResults: CompanyEnriched[] | null;
   searchError: string | null;
+  searchErrors: SearchErrorDetail[];
+  searchWarnings: string[];
+  lastSearchParams: { freeText?: string; filters?: FilterState } | null;
 
   // UI State
   viewMode: ViewMode;
@@ -153,6 +157,10 @@ interface AppState {
   clearPresetNotification: (id: string) => void;
   setSearchResults: (companies: CompanyEnriched[] | null) => void;
   setSearchError: (error: string | null) => void;
+  setSearchErrors: (errors: SearchErrorDetail[]) => void;
+  setSearchWarnings: (warnings: string[]) => void;
+  setLastSearchParams: (params: { freeText?: string; filters?: FilterState } | null) => void;
+  retryLastSearch: () => void;
   setUserCopyFormat: (formatId: string) => void;
   setExportState: (s: ExportFlowState | null) => void;
   setTriggerExport: (v: "csv" | "clipboard" | "excel" | null) => void;
@@ -352,6 +360,9 @@ export const useStore = create<AppState>((set, get) => ({
 
   searchResults: null,
   searchError: null,
+  searchErrors: [],
+  searchWarnings: [],
+  lastSearchParams: null,
 
   viewMode: "companies",
   selectedCompanyDomain: null,
@@ -1168,6 +1179,19 @@ export const useStore = create<AppState>((set, get) => ({
 
   setSearchResults: (companies) => set({ searchResults: companies, similarResults: null }),
   setSearchError: (error) => set({ searchError: error }),
+  setSearchErrors: (errs) => set({ searchErrors: errs, searchError: errs[0]?.message ?? null }),
+  setSearchWarnings: (w) => set({ searchWarnings: w }),
+  setLastSearchParams: (params) => set({ lastSearchParams: params }),
+  retryLastSearch: () => {
+    const params = get().lastSearchParams;
+    if (!params) return;
+    if (params.freeText) {
+      get().setPendingFreeTextSearch(params.freeText);
+    } else if (params.filters) {
+      set({ filters: { ...get().filters, ...params.filters } });
+      get().setPendingFilterSearch(true);
+    }
+  },
   setUserCopyFormat: (formatId) => set({ userCopyFormat: formatId }),
   setExportState: (s) => set({ exportState: s }),
   setTriggerExport: (v) => set({ triggerExport: v }),

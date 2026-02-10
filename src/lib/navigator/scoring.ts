@@ -121,13 +121,13 @@ export function calculateIcpScore(
     });
   }
 
-  // 6. Exa relevance — scale bonus by actual Exa relevance score (0-1)
-  const hasExa = company.sources.includes("exa");
-  if (hasExa) {
-    const relevance = company.exaRelevanceScore ?? 0.5;
+  // 6. Search relevance — scale bonus by normalized relevance score (0-1)
+  const hasSearchRelevance = company.sources.includes("exa") || company.searchRelevanceScore != null;
+  if (hasSearchRelevance) {
+    const relevance = company.searchRelevanceScore ?? company.exaRelevanceScore ?? 0.5;
     const scaledPoints = Math.round(w.exaRelevance * relevance);
     breakdown.push({
-      factor: `Exa relevance: ${Math.round(relevance * 100)}%`,
+      factor: `Search relevance: ${Math.round(relevance * 100)}%`,
       points: scaledPoints,
       matched: scaledPoints > 0,
     });

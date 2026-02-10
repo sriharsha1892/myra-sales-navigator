@@ -3,6 +3,7 @@ import { getCached, setCached, CacheKeys, CacheTTL, hashFilters, getRootDomain }
 import { isNoiseDomain } from "./exa";
 import { apiCallBreadcrumb } from "@/lib/sentry";
 import { logApiCall } from "../health";
+import { withTimeout } from "../timeout";
 
 // ---------------------------------------------------------------------------
 // Parallel AI Search Provider — alternative discovery engine
@@ -123,20 +124,26 @@ export async function searchParallel(
   apiCallBreadcrumb("parallel", "search", { query: query.slice(0, 60), num });
   const searchStart = Date.now();
 
-  const res = await fetch(PARALLEL_API_URL, {
-    method: "POST",
-    headers: {
-      "x-api-key": process.env.PARALLEL_API_KEY!,
-      "Content-Type": "application/json",
-      "parallel-beta": "search-extract-2025-10-10",
-    },
-    body: JSON.stringify({
-      objective: `Find companies matching: ${query}. Focus on company websites, not news articles or directories.`,
-      search_queries: [query],
-      max_results: num + 10, // over-fetch to compensate for noise filtering
-      excerpts: { max_chars_per_result: 2000 },
-    }),
-  });
+  const res = await withTimeout(
+    (signal) =>
+      fetch(PARALLEL_API_URL, {
+        method: "POST",
+        headers: {
+          "x-api-key": process.env.PARALLEL_API_KEY!,
+          "Content-Type": "application/json",
+          "parallel-beta": "search-extract-2025-10-10",
+        },
+        body: JSON.stringify({
+          objective: `Find companies matching: ${query}. Focus on company websites, not news articles or directories.`,
+          search_queries: [query],
+          max_results: num + 10, // over-fetch to compensate for noise filtering
+          excerpts: { max_chars_per_result: 2000 },
+        }),
+        signal,
+      }),
+    4000,
+    "Parallel",
+  );
 
   const latencyMs = Date.now() - searchStart;
 
@@ -177,6 +184,11 @@ export async function searchParallel(
     seen.add(root);
     return true;
   }).slice(0, num);
+
+  // Assign position-based relevance scores (first result 1.0, last ~0.5)
+  for (let i = 0; i < deduped.length; i++) {
+    deduped[i].searchRelevanceScore = Math.round((1.0 - (i / Math.max(deduped.length, 1)) * 0.5) * 100) / 100;
+  }
 
   // Parallel doesn't return relevance scores — use result count as quality signal
   const avgRelevance = deduped.length >= 3 ? 0.5 : deduped.length > 0 ? 0.2 : 0;

@@ -5,6 +5,7 @@ import { getCached, setCached, CacheKeys, CacheTTL, hashFilters, getRootDomain }
 import { apiCallBreadcrumb } from "@/lib/sentry";
 import { logApiCall } from "../health";
 import { withRetry, defaultRetryOn } from "../retry";
+import { withTimeout } from "../timeout";
 
 /**
  * Exa SDK throws plain Error objects for HTTP failures.
@@ -145,6 +146,7 @@ function mapExaResultToCompany(result: {
     lastRefreshed: now,
     website: result.url,
     exaRelevanceScore: result.score ?? undefined,
+    searchRelevanceScore: result.score ?? undefined,
   };
 }
 
@@ -172,43 +174,48 @@ export async function searchExa(
   apiCallBreadcrumb("exa", "search", { query: params.query.slice(0, 60), numResults });
   const searchStart = Date.now();
 
-  const [companyResults, newsResults] = await Promise.all([
-    // Company search — category:"company" uses a dedicated index that
-    // does not support excludeDomains, so we post-filter noise domains instead
-    withRetry(
-      () =>
-        exa.search(params.query, {
-          type: "auto",
-          numResults: numResults + 10, // over-fetch to compensate for post-filtering
-          category: "company" as never,
-          contents: {
-            highlights: {
-              numSentences: 6,
-              highlightsPerUrl: 6,
-            },
-          },
-          ...({ language: "en" } as Record<string, unknown>),
-        }),
-      { label: "Exa", maxRetries: 2, retryOn: exaRetryOn }
-    ),
-    // News/signals search
-    withRetry(
-      () =>
-        exa.search(params.query, {
-          type: "auto",
-          numResults: 10,
-          category: "news" as never,
-          contents: {
-            highlights: {
-              numSentences: 4,
-              highlightsPerUrl: 4,
-            },
-          },
-          ...({ language: "en" } as Record<string, unknown>),
-        }),
-      { label: "Exa", maxRetries: 2, retryOn: exaRetryOn }
-    ),
-  ]);
+  const [companyResults, newsResults] = await withTimeout(
+    () =>
+      Promise.all([
+        // Company search — category:"company" uses a dedicated index that
+        // does not support excludeDomains, so we post-filter noise domains instead
+        withRetry(
+          () =>
+            exa.search(params.query, {
+              type: "auto",
+              numResults: numResults + 10, // over-fetch to compensate for post-filtering
+              category: "company" as never,
+              contents: {
+                highlights: {
+                  numSentences: 6,
+                  highlightsPerUrl: 6,
+                },
+              },
+              ...({ language: "en" } as Record<string, unknown>),
+            }),
+          { label: "Exa", maxRetries: 2, retryOn: exaRetryOn },
+        ),
+        // News/signals search
+        withRetry(
+          () =>
+            exa.search(params.query, {
+              type: "auto",
+              numResults: 10,
+              category: "news" as never,
+              contents: {
+                highlights: {
+                  numSentences: 4,
+                  highlightsPerUrl: 4,
+                },
+              },
+              ...({ language: "en" } as Record<string, unknown>),
+            }),
+          { label: "Exa", maxRetries: 2, retryOn: exaRetryOn },
+        ),
+      ]),
+    5000,
+    "Exa",
+  );
 
   apiCallBreadcrumb("exa", "search complete", {
     companies: companyResults.results.length,

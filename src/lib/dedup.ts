@@ -1,11 +1,11 @@
 import type { CompanyEnriched, ResultSource } from "./navigator/types";
-import { normalizeDomain } from "./cache";
+import { getRootDomain } from "./cache";
 
 export function deduplicateCompanies(companies: CompanyEnriched[]): CompanyEnriched[] {
   const byDomain = new Map<string, CompanyEnriched[]>();
 
   for (const company of companies) {
-    const key = normalizeDomain(company.domain);
+    const key = getRootDomain(company.domain);
     const existing = byDomain.get(key) ?? [];
     existing.push(company);
     byDomain.set(key, existing);

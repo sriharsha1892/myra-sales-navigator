@@ -92,7 +92,27 @@ export function looksLikeCompanyName(query: string): boolean {
   ];
   const lower = stripped.toLowerCase();
   const hasDescriptive = descriptiveWords.some((w) => lower.includes(w));
-  // 1-4 words with no descriptive keywords → likely a company name
+
+  // Industry/product qualifiers that suggest a discovery query when they're the last word
+  const qualifierWords = new Set([
+    "food", "tech", "software", "logistics", "chemical", "chemicals",
+    "pharma", "pharmaceutical", "energy", "finance", "banking", "insurance",
+    "automotive", "retail", "agriculture", "packaging", "ingredients",
+    "payments", "analytics", "security", "cloud", "ai", "ml", "data",
+    "healthcare", "medical", "biotech", "fintech", "edtech", "cleantech",
+    "aerospace", "defense", "construction", "mining", "textile", "textiles",
+    "manufacturing", "semiconductor", "semiconductors", "telecom",
+  ]);
+
+  const lastWord = words[words.length - 1].toLowerCase();
+
+  // 1 word + no descriptive → company name (e.g. "BASF", "Brenntag")
+  if (words.length === 1 && !hasDescriptive) return true;
+  // 5+ words → discovery
+  if (words.length >= 5) return false;
+  // 2+ words + last word is qualifier → discovery (e.g. "Nestle food", "German chemicals")
+  if (words.length >= 2 && qualifierWords.has(lastWord)) return false;
+  // 2-4 words + no descriptive → company name (e.g. "Cereal Docks", "Dow Chemical Company")
   return words.length <= 4 && !hasDescriptive;
 }
 
@@ -173,4 +193,23 @@ function simpleHash(str: string): string {
     hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
   }
   return Math.abs(hash).toString(36);
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5A: Query simplification for empty result recovery
+// ---------------------------------------------------------------------------
+
+/**
+ * Strip qualifiers and trailing geographic/contextual clauses from a query
+ * to produce a broader search when the original returns zero results.
+ * Returns the original query unchanged if simplification would empty it.
+ */
+export function simplifyQuery(query: string): string {
+  const stripped = query
+    .replace(/\b(small|mid-size|mid size|large|enterprise|startup|emerging)\b/gi, "")
+    .replace(/\b(expanding|hiring|growing|funding|funded)\b/gi, "")
+    .replace(/\b(in|to|at|for|with|near|around)\s+[\w\s]+$/i, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  return stripped || query;
 }

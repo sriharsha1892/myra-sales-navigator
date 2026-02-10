@@ -47,4 +47,9 @@ export const CACHE_TTLS = {
   // ---------------------------------------------------------------------------
   adminConfig: 60,          // 1 hour   — admin config rows (icp-weights, enrichment-limits, email_prompts)
   peers: 60,                // 1 hour   — peer companies
+
+  // ---------------------------------------------------------------------------
+  // Exclusion list
+  // ---------------------------------------------------------------------------
+  exclusions: 5,            // 5 minutes — exclusion list (busted on write)
 } as const;

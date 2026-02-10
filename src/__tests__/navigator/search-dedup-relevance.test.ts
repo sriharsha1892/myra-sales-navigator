@@ -165,12 +165,12 @@ describe("domain normalization consistency — getBaseDomain vs getRootDomain vs
     expect(normalizeDomain(withSub)).not.toBe(getRootDomain(withSub));
   });
 
-  it("deduplicateCompanies does NOT merge subdomain variants (uses normalizeDomain)", () => {
+  it("deduplicateCompanies DOES merge subdomain variants (uses getRootDomain)", () => {
     const c1 = makeCompany({ domain: "blog.example.com" });
     const c2 = makeCompany({ domain: "example.com" });
     const result = deduplicateCompanies([c1, c2]);
-    // normalizeDomain keeps subdomains, so these are treated as different
-    expect(result).toHaveLength(2);
+    // getRootDomain collapses subdomains, so these are merged
+    expect(result).toHaveLength(1);
   });
 });
 

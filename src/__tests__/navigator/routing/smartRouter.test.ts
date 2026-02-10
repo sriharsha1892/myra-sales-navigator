@@ -28,11 +28,20 @@ vi.mock("@/lib/supabase/server", () => ({
   createServerClient: vi.fn(() => ({
     from: vi.fn(() => ({
       select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
       gte: vi.fn().mockReturnThis(),
       order: vi.fn().mockReturnThis(),
       limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+      upsert: vi.fn().mockResolvedValue({ error: null }),
     })),
   })),
+}));
+
+vi.mock("@/lib/navigator/circuitBreaker", () => ({
+  isCircuitOpen: vi.fn(() => false),
+  recordSuccess: vi.fn(),
+  recordFailure: vi.fn(),
+  resetCircuit: vi.fn(),
 }));
 
 // ---------------------------------------------------------------------------

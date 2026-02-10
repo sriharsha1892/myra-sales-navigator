@@ -1,5 +1,35 @@
 export type ResultSource = "exa" | "apollo" | "hubspot" | "clearout" | "mordor" | "freshsales" | "serper" | "parallel";
 
+// ---------------------------------------------------------------------------
+// Structured search errors (client-safe — duplicated from errors.ts to avoid
+// importing server-only dependencies like TimeoutError / HttpError)
+// ---------------------------------------------------------------------------
+
+export type SearchErrorCode =
+  | "TIMEOUT"
+  | "RATE_LIMITED"
+  | "AUTH_FAILED"
+  | "NETWORK_ERROR"
+  | "NO_ENGINE_AVAILABLE"
+  | "ALL_ENGINES_FAILED"
+  | "EMPTY_RESULTS"
+  | "UNKNOWN";
+
+export interface SearchErrorDetail {
+  code: SearchErrorCode;
+  message: string;
+  engine?: string;
+  retryable: boolean;
+  suggestedAction?: string;
+}
+
+export interface SearchMeta {
+  totalDurationMs: number;
+  engineUsed: string;
+  enrichedCount: number;
+  unenrichedCount: number;
+}
+
 export type HubSpotStatus =
   | "new"
   | "open"
@@ -201,6 +231,7 @@ export interface CompanyEnriched {
   exaRelevanceScore?: number;
   nlIcpScore?: number;
   nlIcpReasoning?: string;
+  searchRelevanceScore?: number; // 0-1, normalized across all engines
   peerSource?: "freshsales" | "exa" | null;
   teamActivity?: {
     viewers: { user: string; at: string }[];

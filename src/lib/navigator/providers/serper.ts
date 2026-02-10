@@ -4,6 +4,7 @@ import { isNoiseDomain } from "./exa";
 import { apiCallBreadcrumb } from "@/lib/sentry";
 import { logApiCall } from "../health";
 import { withRetry, HttpError } from "../retry";
+import { withTimeout } from "../timeout";
 
 // ---------------------------------------------------------------------------
 // Serper (Google Search) Provider — used for company-name queries
@@ -145,20 +146,26 @@ export async function searchSerper(
 
   let res: Response;
   try {
-    res = await withRetry(
-      async () => {
-        const r = await fetch(SERPER_API_URL, {
-          method: "POST",
-          headers: {
-            "X-API-KEY": process.env.SERPER_API_KEY!,
-            "Content-Type": "application/json",
+    res = await withTimeout(
+      (signal) =>
+        withRetry(
+          async () => {
+            const r = await fetch(SERPER_API_URL, {
+              method: "POST",
+              headers: {
+                "X-API-KEY": process.env.SERPER_API_KEY!,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ q: query, num }),
+              signal,
+            });
+            if (!r.ok) throw new HttpError(r.status, r.statusText);
+            return r;
           },
-          body: JSON.stringify({ q: query, num }),
-        });
-        if (!r.ok) throw new HttpError(r.status, r.statusText);
-        return r;
-      },
-      { label: "Serper", maxRetries: 2 }
+          { label: "Serper", maxRetries: 2 },
+        ),
+      4000,
+      "Serper",
     );
   } catch (err) {
     const latencyMs = Date.now() - searchStart;
@@ -254,6 +261,15 @@ export async function searchSerper(
     seen.add(root);
     return true;
   });
+
+  // Assign relevance scores: KG exact match gets 1.0, organic results decay
+  for (let i = 0; i < deduped.length; i++) {
+    if (deduped[i].exactMatch) {
+      deduped[i].searchRelevanceScore = 1.0;
+    } else {
+      deduped[i].searchRelevanceScore = Math.round((1.0 - i * 0.07) * 100) / 100;
+    }
+  }
 
   const result: SerperSearchResult = {
     companies: deduped,

@@ -38,7 +38,7 @@ export async function GET() {
       uiPreferences: data.ui_preferences ?? {},
       emailPrompts: data.email_prompts ?? {},
       analyticsSettings: data.analytics_settings ?? {},
-      enrichmentLimits: data.enrichment_limits ?? { maxSearchEnrich: 10, maxContactAutoEnrich: 5, maxClearoutFinds: 10 },
+      enrichmentLimits: data.enrichment_limits ?? { maxSearchEnrich: 15, maxContactAutoEnrich: 5, maxClearoutFinds: 10 },
       icpProfiles: data.icp_profiles ?? [],
       freshsalesSettings: (() => {
         const db = (data.freshsales_settings ?? {}) as Record<string, unknown>;

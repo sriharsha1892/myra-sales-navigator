@@ -91,6 +91,7 @@ vi.mock("@/lib/navigator/exa/queryBuilder", () => ({
     return words.length <= 4 && !hasDescriptive;
   }),
   stripLegalSuffix: vi.fn((q: string) => q.replace(/\b(SE|AG|GmbH|Ltd|Inc|Corp|LLC)\b\.?$/i, "").trim()),
+  simplifyQuery: vi.fn((q: string) => q.trim()),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({

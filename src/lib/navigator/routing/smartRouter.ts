@@ -1,9 +1,12 @@
 /**
- * Smart Engine Router — budget + health aware.
+ * Smart Engine Router — budget + health + circuit-breaker aware.
  *
  * Automatically routes searches to the cheapest healthy engine.
  * Exa is precious ($10.38 remaining) — never used as primary.
  * Parallel is the workhorse (20K free). Serper handles company names (2,500 free).
+ *
+ * Budget counters survive serverless cold starts by seeding from Supabase
+ * (engine_usage table) on the first request of each instance.
  *
  * Zero admin configuration. Fully autonomous.
  */
@@ -12,6 +15,8 @@ import { isExaAvailable } from "../providers/exa";
 import { isSerperAvailable } from "../providers/serper";
 import { isParallelAvailable } from "../providers/parallel";
 import { getHealthSummary, type SourceHealth } from "../health";
+import { isCircuitOpen } from "../circuitBreaker";
+import { createServerClient } from "@/lib/supabase/server";
 
 // ---------------------------------------------------------------------------
 // Daily budget limits (soft — derived from free tiers)
@@ -44,9 +49,36 @@ function getCount(source: string): number {
   return entry.count;
 }
 
+// ---------------------------------------------------------------------------
+// Persistent seed — load today's counts from Supabase on cold start
+// ---------------------------------------------------------------------------
+
+let _seeded = false;
+
+async function seedFromDb(): Promise<void> {
+  if (_seeded) return;
+  _seeded = true;
+  try {
+    const supabase = createServerClient();
+    const today = todayKey();
+    const { data } = await supabase
+      .from("engine_usage")
+      .select("source, count")
+      .eq("date", today);
+    if (data) {
+      for (const row of data) {
+        _dailyCounts.set(row.source as string, { count: row.count as number, date: today });
+      }
+    }
+  } catch {
+    // Best-effort — fall back to 0 counts on Supabase failure
+  }
+}
+
 /**
  * Record one API call for a source engine.
  * Call this ONLY when an actual API request was made (not on cache hits).
+ * Persists the updated count to Supabase fire-and-forget.
  */
 export function recordUsage(source: "exa" | "parallel" | "serper"): void {
   const today = todayKey();
@@ -56,6 +88,18 @@ export function recordUsage(source: "exa" | "parallel" | "serper"): void {
   } else {
     entry.count++;
   }
+
+  // Fire-and-forget persist to Supabase
+  const count = getCount(source);
+  Promise.resolve(
+    createServerClient()
+      .from("engine_usage")
+      .upsert({ source, date: today, count }, { onConflict: "source,date" })
+  )
+    .then(({ error }) => {
+      if (error) console.warn("[SmartRouter] persist:", error.message);
+    })
+    .catch(() => {});
 }
 
 /**
@@ -103,15 +147,16 @@ export type SearchEngine = "exa" | "parallel" | "serper";
  * Priority: Parallel (huge free budget) → Exa (emergency fallback only).
  */
 export async function pickDiscoveryEngine(): Promise<"parallel" | "exa"> {
+  await seedFromDb();
   const health = await getEngineHealth();
 
-  // Parallel is the default — check availability, health, budget
-  if (isParallelAvailable() && isHealthy(health, "parallel") && isUnderBudget("parallel")) {
+  // Parallel is the default — check availability, circuit, health, budget
+  if (isParallelAvailable() && !isCircuitOpen("parallel") && isHealthy(health, "parallel") && isUnderBudget("parallel")) {
     return "parallel";
   }
 
-  // Parallel unavailable/unhealthy/over-budget — try Exa if under its tiny budget
-  if (isExaAvailable() && isHealthy(health, "exa") && isUnderBudget("exa")) {
+  // Parallel unavailable/unhealthy/tripped/over-budget — try Exa if under its tiny budget
+  if (isExaAvailable() && !isCircuitOpen("exa") && isHealthy(health, "exa") && isUnderBudget("exa")) {
     return "exa";
   }
 
@@ -130,14 +175,15 @@ export async function pickDiscoveryEngine(): Promise<"parallel" | "exa"> {
  * Priority: Serper (Google exact match) → Exa (semantic fallback).
  */
 export async function pickNameEngine(): Promise<"serper" | "exa"> {
+  await seedFromDb();
   const health = await getEngineHealth();
 
-  if (isSerperAvailable() && isHealthy(health, "serper") && isUnderBudget("serper")) {
+  if (isSerperAvailable() && !isCircuitOpen("serper") && isHealthy(health, "serper") && isUnderBudget("serper")) {
     return "serper";
   }
 
   // Serper unavailable — try Exa if under budget
-  if (isExaAvailable() && isHealthy(health, "exa") && isUnderBudget("exa")) {
+  if (isExaAvailable() && !isCircuitOpen("exa") && isHealthy(health, "exa") && isUnderBudget("exa")) {
     return "exa";
   }
 

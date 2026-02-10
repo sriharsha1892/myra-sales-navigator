@@ -682,12 +682,15 @@ function ProspectListView() {
 }
 
 // ─────────────────────────────────────────────────────────
-// No Results Suggestions (A2) — actionable filter removal buttons
+// No Results Suggestions (A2) — actionable filter removal + search tips
 // ─────────────────────────────────────────────────────────
 function NoResultsSuggestions() {
   const filters = useStore((s) => s.filters);
   const setFilters = useStore((s) => s.setFilters);
   const setPendingFilterSearch = useStore((s) => s.setPendingFilterSearch);
+  const setPendingFreeTextSearch = useStore((s) => s.setPendingFreeTextSearch);
+  const lastSearchQuery = useStore((s) => s.lastSearchQuery);
+  const searchWarnings = useStore((s) => s.searchWarnings);
 
   const suggestions: { label: string; action: () => void }[] = [];
 
@@ -710,12 +713,27 @@ function NoResultsSuggestions() {
     });
   }
 
+  const searchTips: { tip: string; example: string }[] = [
+    { tip: "Try a broader search", example: "chemicals in Europe" },
+    { tip: "Search by company name", example: "BASF SE" },
+    { tip: "Use industry keywords", example: "food ingredients manufacturers" },
+  ];
+
   return (
     <EmptyState
       icon="search"
       title="No matches found"
-      description={pick("empty_results")}
+      description={lastSearchQuery ? `No results for "${lastSearchQuery}"` : pick("empty_results")}
     >
+      {/* API warnings (e.g. simplified query info) */}
+      {searchWarnings.length > 0 && (
+        <div className="mt-2 space-y-1">
+          {searchWarnings.map((w, i) => (
+            <p key={i} className="text-xs text-accent-secondary">{w}</p>
+          ))}
+        </div>
+      )}
+
       {suggestions.length > 0 && (
         <div className="mt-3 flex flex-wrap justify-center gap-2">
           {suggestions.map((s, i) => (
@@ -729,6 +747,22 @@ function NoResultsSuggestions() {
           ))}
         </div>
       )}
+
+      {/* Search tips with clickable examples */}
+      <div className="mt-4 w-full max-w-sm space-y-2">
+        <p className="text-center text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">Search tips</p>
+        {searchTips.map((t, i) => (
+          <div key={i} className="flex items-center justify-between gap-2 rounded-card border border-surface-3 bg-surface-1 px-3 py-2">
+            <span className="text-xs text-text-tertiary">{t.tip}</span>
+            <button
+              onClick={() => setPendingFreeTextSearch(t.example)}
+              className="rounded-pill border border-accent-primary/20 bg-accent-primary/5 px-2.5 py-1 font-mono text-[11px] text-accent-primary transition-colors hover:bg-accent-primary/10 hover:border-accent-primary/40"
+            >
+              {t.example}
+            </button>
+          </div>
+        ))}
+      </div>
     </EmptyState>
   );
 }

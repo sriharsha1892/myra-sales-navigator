@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { deleteCached } from "@/lib/cache";
 
 export async function GET() {
   try {
@@ -55,6 +56,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Bulk insert failed" }, { status: 500 });
       }
 
+      await deleteCached("exclusions:all");
       return NextResponse.json({ inserted: count ?? rows.length });
     }
 
@@ -84,6 +86,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to add exclusion" }, { status: 500 });
     }
 
+    await deleteCached("exclusions:all");
     return NextResponse.json({
       exclusion: {
         id: data.id,
@@ -116,6 +119,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Failed to delete exclusion" }, { status: 500 });
     }
 
+    await deleteCached("exclusions:all");
     return NextResponse.json({ deleted: true });
   } catch (err) {
     console.error("[Exclusions] DELETE error:", err);

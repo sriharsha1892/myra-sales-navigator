@@ -2,7 +2,14 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { useStore } from "@/lib/navigator/store";
-import type { CompanyEnriched, FilterState, ExtractedEntities, NLICPCriteria } from "@/lib/navigator/types";
+import type {
+  CompanyEnriched,
+  FilterState,
+  ExtractedEntities,
+  NLICPCriteria,
+  SearchErrorDetail,
+  SearchMeta,
+} from "@/lib/navigator/types";
 
 interface SearchParams {
   filters?: FilterState;
@@ -15,6 +22,9 @@ interface SearchResponse {
   extractedEntities?: ExtractedEntities;
   nlIcpCriteria?: NLICPCriteria | null;
   excludedCount?: number;
+  errors?: SearchErrorDetail[];
+  warnings?: string[];
+  searchMeta?: SearchMeta;
 }
 
 async function searchCompanies(params: SearchParams): Promise<SearchResponse> {
@@ -35,12 +45,17 @@ async function searchCompanies(params: SearchParams): Promise<SearchResponse> {
     extractedEntities: data.extractedEntities ?? undefined,
     nlIcpCriteria: data.nlIcpCriteria ?? null,
     excludedCount: data.excludedCount ?? 0,
+    errors: data.errors ?? [],
+    warnings: data.warnings ?? [],
+    searchMeta: data.searchMeta ?? undefined,
   };
 }
 
 export function useSearch() {
   const setSearchResults = useStore((s) => s.setSearchResults);
   const setSearchError = useStore((s) => s.setSearchError);
+  const setSearchErrors = useStore((s) => s.setSearchErrors);
+  const setSearchWarnings = useStore((s) => s.setSearchWarnings);
   const setExtractedEntities = useStore((s) => s.setExtractedEntities);
   const setLastICPCriteria = useStore((s) => s.setLastICPCriteria);
   const setLastExcludedCount = useStore((s) => s.setLastExcludedCount);
@@ -50,6 +65,8 @@ export function useSearch() {
     onSuccess: (data) => {
       setSearchResults(data.companies);
       setSearchError(null);
+      setSearchErrors(data.errors ?? []);
+      setSearchWarnings(data.warnings ?? []);
       if (data.extractedEntities) {
         setExtractedEntities(data.extractedEntities);
       }
@@ -61,6 +78,8 @@ export function useSearch() {
       if (error.name === "AbortError") return;
       setSearchResults([]);
       setSearchError(error.message);
+      setSearchErrors([]);
+      setSearchWarnings([]);
     },
   });
 
@@ -73,6 +92,8 @@ export function useSearch() {
       mutation.reset();
       setSearchResults(null);
       setSearchError(null);
+      setSearchErrors([]);
+      setSearchWarnings([]);
       setExtractedEntities(null);
       setLastICPCriteria(null);
       setLastExcludedCount(0);

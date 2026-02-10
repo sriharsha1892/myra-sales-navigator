@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { buildExaQuery, reformulateQuery } from "@/lib/navigator/exa/queryBuilder";
+import { buildExaQuery, reformulateQuery, looksLikeCompanyName, simplifyQuery } from "@/lib/navigator/exa/queryBuilder";
 import type { FilterState, SignalType } from "@/lib/navigator/types";
 
 const emptyFilters: FilterState = {
@@ -63,6 +63,83 @@ describe("buildExaQuery", () => {
 
   it("ignores empty freeText", () => {
     expect(buildExaQuery(emptyFilters, "   ")).toBe("");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// looksLikeCompanyName — existing company names should still be recognized
+// ---------------------------------------------------------------------------
+
+describe("looksLikeCompanyName", () => {
+  // Existing company names (should return true)
+  it("recognizes single-word company names", () => {
+    expect(looksLikeCompanyName("BASF")).toBe(true);
+    expect(looksLikeCompanyName("Brenntag")).toBe(true);
+  });
+
+  it("recognizes multi-word company names", () => {
+    expect(looksLikeCompanyName("Cereal Docks")).toBe(true);
+    expect(looksLikeCompanyName("Tata Steel")).toBe(true);
+  });
+
+  it("recognizes company names with legal suffixes", () => {
+    expect(looksLikeCompanyName("BASF SE")).toBe(true);
+    expect(looksLikeCompanyName("Brenntag AG")).toBe(true);
+  });
+
+  it("returns false for empty/blank input", () => {
+    expect(looksLikeCompanyName("")).toBe(false);
+    expect(looksLikeCompanyName("   ")).toBe(false);
+  });
+
+  // Discovery queries (should return false)
+  it("returns false for descriptive queries", () => {
+    expect(looksLikeCompanyName("food companies in Asia")).toBe(false);
+    expect(looksLikeCompanyName("chemical manufacturers hiring")).toBe(false);
+  });
+
+  it("returns false for 5+ word queries", () => {
+    expect(looksLikeCompanyName("mid-size food ingredients companies expanding to Asia")).toBe(false);
+  });
+
+  // Phase 4C: Qualifier detection — these should be discovery, not company names
+  it("returns false when last word is an industry qualifier", () => {
+    expect(looksLikeCompanyName("Nestle food")).toBe(false);
+    expect(looksLikeCompanyName("German chemicals")).toBe(false);
+    expect(looksLikeCompanyName("European pharma")).toBe(false);
+    expect(looksLikeCompanyName("India tech")).toBe(false);
+    expect(looksLikeCompanyName("US fintech")).toBe(false);
+    expect(looksLikeCompanyName("APAC logistics")).toBe(false);
+  });
+
+  it("still recognizes company names where last word is NOT a qualifier", () => {
+    expect(looksLikeCompanyName("Cereal Docks")).toBe(true);
+    expect(looksLikeCompanyName("Acme Corp")).toBe(true);
+    expect(looksLikeCompanyName("Tata Steel")).toBe(true);
+  });
+
+  it("treats 'Dow Chemical' as discovery (qualifier last word)", () => {
+    // "chemical" is in qualifierWords, so "Dow Chemical" is discovery-like
+    expect(looksLikeCompanyName("Dow Chemical")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// simplifyQuery
+// ---------------------------------------------------------------------------
+
+describe("simplifyQuery", () => {
+  it("returns trimmed query when no simplification possible", () => {
+    expect(simplifyQuery("BASF")).toBe("BASF");
+  });
+
+  it("strips size qualifiers", () => {
+    const result = simplifyQuery("mid-size food companies");
+    expect(result).not.toContain("mid-size");
+  });
+
+  it("returns original query if simplification would empty it", () => {
+    expect(simplifyQuery("expanding")).toBe("expanding");
   });
 });
 

@@ -16,6 +16,7 @@ export function SearchBridge() {
   const setLastICPCriteria = useStore((s) => s.setLastICPCriteria);
   const setLastSearchQuery = useStore((s) => s.setLastSearchQuery);
   const setSearchError = useStore((s) => s.setSearchError);
+  const setLastSearchParams = useStore((s) => s.setLastSearchParams);
   const filters = useStore((s) => s.filters);
   const setDemoMode = useStore((s) => s.setDemoMode);
   const { search } = useSearch();
@@ -156,6 +157,7 @@ export function SearchBridge() {
       setSearchError(null);
       setLastSearchQuery(text);
       setLastICPCriteria(null);
+      setLastSearchParams({ freeText: text });
       search(
         { freeText: text, signal: controller.signal },
         {
@@ -178,7 +180,7 @@ export function SearchBridge() {
       );
       setPendingFreeTextSearch(null);
     }
-  }, [pendingFreeTextSearch, search, setPendingFreeTextSearch, setSearchLoading, setSearchError, setLastSearchQuery, setLastICPCriteria, saveToHistory, notify, setDemoMode]);
+  }, [pendingFreeTextSearch, search, setPendingFreeTextSearch, setSearchLoading, setSearchError, setLastSearchQuery, setLastICPCriteria, setLastSearchParams, saveToHistory, notify, setDemoMode]);
 
   useEffect(() => {
     if (pendingFilterSearch) {
@@ -193,6 +195,7 @@ export function SearchBridge() {
       setSearchError(null);
       setLastSearchQuery(summarizeFilters(currentFilters));
       setLastICPCriteria(null);
+      setLastSearchParams({ filters: currentFilters });
       search(
         { filters: currentFilters, signal: controller.signal },
         {
@@ -215,7 +218,7 @@ export function SearchBridge() {
       );
       setPendingFilterSearch(false);
     }
-  }, [pendingFilterSearch, search, setPendingFilterSearch, setSearchLoading, setSearchError, setLastSearchQuery, setLastICPCriteria, filters, saveToHistory, notify, setDemoMode]);
+  }, [pendingFilterSearch, search, setPendingFilterSearch, setSearchLoading, setSearchError, setLastSearchQuery, setLastICPCriteria, setLastSearchParams, filters, saveToHistory, notify, setDemoMode]);
 
   return null;
 }

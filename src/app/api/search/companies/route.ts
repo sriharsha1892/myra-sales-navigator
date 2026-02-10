@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { reformulateQueryWithEntities, looksLikeCompanyName, stripLegalSuffix } from "@/lib/navigator/exa/queryBuilder";
+import { reformulateQueryWithEntities, looksLikeCompanyName, stripLegalSuffix, simplifyQuery } from "@/lib/navigator/exa/queryBuilder";
 import { searchExa, isExaAvailable } from "@/lib/navigator/providers/exa";
 import { searchSerper, isSerperAvailable } from "@/lib/navigator/providers/serper";
 import { searchParallel, isParallelAvailable } from "@/lib/navigator/providers/parallel";
@@ -15,6 +15,9 @@ import { extractICPCriteria, scoreCompaniesAgainstICP } from "@/lib/navigator/ll
 import { pickDiscoveryEngine, pickNameEngine, recordUsage, isExaFallbackAllowed, getUsageSummary } from "@/lib/navigator/routing/smartRouter";
 import { CACHE_TTLS } from "@/lib/navigator/cache-config";
 import { trackUsageEventServer } from "@/lib/navigator/analytics-server";
+import { recordSuccess as cbSuccess, recordFailure as cbFailure } from "@/lib/navigator/circuitBreaker";
+import { classifyError } from "@/lib/navigator/errors";
+import type { SearchErrorDetail } from "@/lib/navigator/errors";
 import type { Company, FilterState, IcpWeights, NLICPCriteria } from "@/lib/navigator/types";
 
 // ---------------------------------------------------------------------------
@@ -23,7 +26,7 @@ import type { Company, FilterState, IcpWeights, NLICPCriteria } from "@/lib/navi
 // ---------------------------------------------------------------------------
 
 async function getEnrichmentLimits(): Promise<{ maxSearchEnrich: number; maxContactAutoEnrich: number; maxClearoutFinds: number }> {
-  const defaults = { maxSearchEnrich: 10, maxContactAutoEnrich: 5, maxClearoutFinds: 10 };
+  const defaults = { maxSearchEnrich: 15, maxContactAutoEnrich: 5, maxClearoutFinds: 10 };
   try {
     const cached = await getCached<typeof defaults>("admin:enrichment-limits");
     if (cached) return cached;
@@ -106,16 +109,22 @@ async function apolloStructuredSearch(
 
 async function getExcludedValues(): Promise<Set<string>> {
   try {
+    // Check in-memory cache first (5 min TTL, busted on exclusion mutations)
+    const cached = await getCached<string[]>("exclusions:all");
+    if (cached) return new Set(cached);
+
     const supabase = createServerClient();
     const { data } = await supabase.from("exclusions").select("type, value");
     if (!data) return new Set();
 
-    const values = new Set<string>();
+    const valuesArray: string[] = [];
     for (const row of data) {
       // Normalize: lowercase for case-insensitive matching
-      values.add(String(row.value).toLowerCase());
+      valuesArray.push(String(row.value).toLowerCase());
     }
-    return values;
+
+    await setCached("exclusions:all", valuesArray, CACHE_TTLS.exclusions);
+    return new Set(valuesArray);
   } catch {
     return new Set();
   }
@@ -131,6 +140,28 @@ function applyExclusionFilter(
     const nameLower = c.name.toLowerCase();
     return !excluded.has(domainLower) && !excluded.has(nameLower);
   });
+}
+
+// ---------------------------------------------------------------------------
+// Lightweight firmographic extraction from description text (Phase 4A)
+// Used for companies that didn't get Apollo enrichment (positions 16-25)
+// ---------------------------------------------------------------------------
+
+function extractFirmographicsFromDescription(desc: string): { employeeCount?: number; location?: string } {
+  const result: { employeeCount?: number; location?: string } = {};
+
+  // Employee count from common patterns like "500 employees", "1,000+ team members"
+  const empMatch = desc.match(/(\d[\d,]+)\+?\s*(?:employees|team members|people|staff|workers)/i);
+  if (empMatch) {
+    const num = parseInt(empMatch[1].replace(/,/g, ""), 10);
+    if (num > 0 && num < 1_000_000) result.employeeCount = num;
+  }
+
+  // Location from patterns like "headquartered in Munich", "based in New York"
+  const locMatch = desc.match(/(?:headquartered|based|located|offices?)\s+in\s+([^.,;]+)/i);
+  if (locMatch) result.location = locMatch[1].trim().slice(0, 100);
+
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -157,8 +188,14 @@ export async function POST(request: Request) {
     });
   }
 
-  // Performance tracking
+  // Search deadline — ensure we complete within Vercel's 10s function timeout
+  const SEARCH_DEADLINE_MS = 8500;
   const searchStart = Date.now();
+  function remainingMs(): number {
+    return Math.max(0, SEARCH_DEADLINE_MS - (Date.now() - searchStart));
+  }
+
+  // Performance tracking
   let reformulationMs = 0;
   let exaDurationMs = 0;
   let apolloDurationMs = 0;
@@ -170,6 +207,11 @@ export async function POST(request: Request) {
   let exaError: string | null = null;
   let apolloError: string | null = null;
   let nlIcpError: string | null = null;
+
+  // Structured error + warning accumulation (Phase 3)
+  const errors: SearchErrorDetail[] = [];
+  const warnings: string[] = [];
+  let querySimplified = false;
 
   // LLM query reformulation (Groq) — expands raw text into semantic queries.
   // Skip reformulation for company name queries to avoid genericizing them.
@@ -240,8 +282,11 @@ export async function POST(request: Request) {
           searchCompanies = serperResult.companies;
           searchCacheHit = serperResult.cacheHit ?? false;
           if (!searchCacheHit) recordUsage("serper");
+          cbSuccess("serper");
         } catch (err) {
+          cbFailure("serper");
           exaError = err instanceof Error ? err.message : "Serper search failed";
+          errors.push(classifyError(err, "serper"));
           console.warn("[SmartRouter] Serper failed:", err);
         }
         // Fallback to Exa only if Serper returned nothing AND Exa budget allows
@@ -253,8 +298,11 @@ export async function POST(request: Request) {
             searchSignals = exaResult.signals;
             searchCacheHit = exaResult.cacheHit ?? false;
             if (!searchCacheHit) recordUsage("exa");
+            cbSuccess("exa");
           } catch (err) {
+            cbFailure("exa");
             exaError = err instanceof Error ? err.message : "Exa search failed";
+            errors.push(classifyError(err, "exa"));
           }
         }
       } else {
@@ -265,8 +313,11 @@ export async function POST(request: Request) {
           searchSignals = exaResult.signals;
           searchCacheHit = exaResult.cacheHit ?? false;
           if (!searchCacheHit) recordUsage("exa");
+          cbSuccess("exa");
         } catch (err) {
+          cbFailure("exa");
           exaError = err instanceof Error ? err.message : "Exa search failed";
+          errors.push(classifyError(err, "exa"));
         }
       }
     } else {
@@ -280,17 +331,27 @@ export async function POST(request: Request) {
           searchSignals = parallelResult.signals;
           searchCacheHit = parallelResult.cacheHit ?? false;
           if (!searchCacheHit) recordUsage("parallel");
+          cbSuccess("parallel");
           // Fallback: Parallel returned too few results — try Exa IF budget allows
           if (parallelResult.companies.length < 3 && parallelResult.avgRelevance < 0.2 && isExaFallbackAllowed()) {
             searchEngine = "exa";
-            const exaResult = await searchExa({ query: strippedQuery, numResults });
-            searchCompanies = exaResult.companies;
-            searchSignals = exaResult.signals;
-            searchCacheHit = exaResult.cacheHit ?? false;
-            if (!searchCacheHit) recordUsage("exa");
+            try {
+              const exaResult = await searchExa({ query: strippedQuery, numResults });
+              searchCompanies = exaResult.companies;
+              searchSignals = exaResult.signals;
+              searchCacheHit = exaResult.cacheHit ?? false;
+              if (!searchCacheHit) recordUsage("exa");
+              cbSuccess("exa");
+            } catch (exaFallbackErr) {
+              cbFailure("exa");
+              exaError = exaFallbackErr instanceof Error ? exaFallbackErr.message : "Exa fallback failed";
+              errors.push(classifyError(exaFallbackErr, "exa"));
+            }
           }
         } catch (err) {
+          cbFailure("parallel");
           exaError = err instanceof Error ? err.message : "Parallel search failed";
+          errors.push(classifyError(err, "parallel"));
           console.warn("[SmartRouter] Parallel failed:", err);
           // Fallback to Exa on error only if budget allows
           if (isExaFallbackAllowed()) {
@@ -301,8 +362,11 @@ export async function POST(request: Request) {
               searchSignals = exaResult.signals;
               searchCacheHit = exaResult.cacheHit ?? false;
               if (!searchCacheHit) recordUsage("exa");
+              cbSuccess("exa");
             } catch (exaErr) {
+              cbFailure("exa");
               exaError = exaErr instanceof Error ? exaErr.message : "Exa search failed";
+              errors.push(classifyError(exaErr, "exa"));
             }
           }
         }
@@ -314,8 +378,38 @@ export async function POST(request: Request) {
           searchSignals = exaResult.signals;
           searchCacheHit = exaResult.cacheHit ?? false;
           if (!searchCacheHit) recordUsage("exa");
+          cbSuccess("exa");
         } catch (err) {
+          cbFailure("exa");
           exaError = err instanceof Error ? err.message : "Exa search failed";
+          errors.push(classifyError(err, "exa"));
+        }
+      }
+    }
+
+    // Phase 5A: Auto-rephrase on empty results (one attempt only)
+    if (searchCompanies.length === 0 && freeText) {
+      const simplified = simplifyQuery(freeText);
+      if (simplified !== freeText.trim() && simplified.length > 0) {
+        try {
+          if (searchEngine === "parallel" && isParallelAvailable()) {
+            const retryResult = await searchParallel(simplified, numResults);
+            searchCompanies = retryResult.companies;
+            searchSignals = retryResult.signals;
+          } else if (isExaAvailable()) {
+            const retryResult = await searchExa({ query: simplified, numResults });
+            searchCompanies = retryResult.companies;
+            searchSignals = retryResult.signals;
+          } else if (isSerperAvailable()) {
+            const retryResult = await searchSerper(simplified, numResults);
+            searchCompanies = retryResult.companies;
+          }
+          if (searchCompanies.length > 0) {
+            querySimplified = true;
+            warnings.push(`No exact results for "${freeText}". Showing results for: "${simplified}"`);
+          }
+        } catch {
+          // Simplified retry also failed — continue with empty results
         }
       }
     }
@@ -332,26 +426,42 @@ export async function POST(request: Request) {
 
     // Apollo structured enrichment — runs in parallel on Exa domains
     // Smart Enrich: only top N by Exa relevance (admin-configurable, default 10)
+    // Skip if less than 2s remaining on the search deadline
     const enrichLimits = await getEnrichmentLimits();
     const apolloStart = Date.now();
     let apolloEnriched: Company[] = [];
-    try {
-      apolloEnriched = await apolloStructuredSearch(exaCompanies, enrichLimits.maxSearchEnrich);
-    } catch (err) {
-      apolloError = err instanceof Error ? err.message : "Apollo enrichment failed";
-      apolloEnriched = [];
+    if (remainingMs() < 2000) {
+      console.warn("[Search] Skipping Apollo enrichment — deadline pressure (%dms left)", remainingMs());
+    } else {
+      try {
+        apolloEnriched = await apolloStructuredSearch(exaCompanies, enrichLimits.maxSearchEnrich);
+      } catch (err) {
+        apolloError = err instanceof Error ? err.message : "Apollo enrichment failed";
+        errors.push(classifyError(err, "apollo"));
+        apolloEnriched = [];
+      }
     }
     apolloDurationMs = Date.now() - apolloStart;
     apolloEnrichedCount = apolloEnriched.length;
 
     // Build final company list: Apollo-enriched where available, raw Exa otherwise
-    const enrichedDomains = new Set(apolloEnriched.map((c) => c.domain));
+    const enrichedDomains = new Set(apolloEnriched.map((c) => getRootDomain(c.domain)));
     const merged = exaCompanies.map(
       (c) =>
-        enrichedDomains.has(c.domain)
-          ? apolloEnriched.find((e) => e.domain === c.domain)!
+        enrichedDomains.has(getRootDomain(c.domain))
+          ? apolloEnriched.find((e) => getRootDomain(e.domain) === getRootDomain(c.domain))!
           : c
     );
+
+    // Lightweight text-based firmographic extraction for unenriched companies (Phase 4A)
+    let textExtractedCount = 0;
+    for (const c of merged) {
+      if (!enrichedDomains.has(getRootDomain(c.domain)) && c.description) {
+        const extracted = extractFirmographicsFromDescription(c.description);
+        if (extracted.employeeCount && !c.employeeCount) { c.employeeCount = extracted.employeeCount; textExtractedCount++; }
+        if (extracted.location && !c.location) c.location = extracted.location;
+      }
+    }
 
     // Deduplicate by root domain — keep entry with highest employeeCount
     const seenRoots = new Map<string, number>();
@@ -404,8 +514,9 @@ export async function POST(request: Request) {
     }
 
     // NL ICP scoring — only for discovery queries, not company name lookups
+    // Skip if less than 1.5s remaining on the search deadline
     let nlIcpCriteria: NLICPCriteria | null = null;
-    if (!isNameQuery && freeText) {
+    if (!isNameQuery && freeText && remainingMs() >= 1500) {
       const nlStart = Date.now();
       try {
         nlIcpCriteria = await extractICPCriteria(freeText);
@@ -422,6 +533,7 @@ export async function POST(request: Request) {
         }
       } catch (err) {
         nlIcpError = err instanceof Error ? err.message : "NL ICP scoring failed";
+        errors.push(classifyError(err, "nl-icp"));
         console.warn("[Search] NL ICP scoring failed, using rule-based:", err);
       }
       nlIcpScoringMs = Date.now() - nlStart;
@@ -504,6 +616,10 @@ export async function POST(request: Request) {
           nl_icp_error: nlIcpError,
           query_text: freeText || null,
           search_engine: searchEngine,
+          engine_errors: errors.length > 0 ? errors : [],
+          warnings: warnings.length > 0 ? warnings : [],
+          query_simplified: querySimplified,
+          unenriched_count: companies.length - apolloEnrichedCount,
         })
         .then(({ error: histErr }) => {
           if (histErr) console.warn("[Search] Failed to log history:", histErr);
@@ -521,14 +637,31 @@ export async function POST(request: Request) {
       excludedCount,
       searchEngine,
       usageSummary,
+      errors,
+      warnings,
+      searchMeta: {
+        totalDurationMs,
+        engineUsed: searchEngine,
+        enrichedCount: apolloEnrichedCount,
+        unenrichedCount: companies.length - apolloEnrichedCount,
+      },
     });
   } catch (err) {
     console.error("[Search] search failed:", err);
+    const fatalError = classifyError(err, searchEngine);
     return NextResponse.json({
       companies: [],
       signals: [],
       reformulatedQueries,
       error: "Search failed. Please try again.",
+      errors: [fatalError],
+      warnings: [],
+      searchMeta: {
+        totalDurationMs: Date.now() - searchStart,
+        engineUsed: searchEngine,
+        enrichedCount: 0,
+        unenrichedCount: 0,
+      },
     }, { status: 500 });
   }
 }
