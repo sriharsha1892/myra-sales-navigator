@@ -8,6 +8,7 @@ import { IcpScoreBadge } from "@/components/navigator/badges";
 import { CompanyStatusBadge } from "@/components/navigator/dossier/CompanyStatusBadge";
 import { useStore } from "@/lib/navigator/store";
 import { ContactPreviewPopover } from "./ContactPreviewPopover";
+import { RelevanceFeedbackPopover } from "./RelevanceFeedbackPopover";
 import { Tooltip } from "@/components/navigator/shared/Tooltip";
 import type { Contact } from "@/lib/navigator/types";
 import { logEmailCopy } from "@/lib/navigator/logEmailCopy";
@@ -109,6 +110,14 @@ export function CompanyCard({
   const addToast = useStore((s) => s.addToast);
   const selectCompany = useStore((s) => s.selectCompany);
   const setScrollToContactId = useStore((s) => s.setScrollToContactId);
+  const rfEntry = useStore((s) => s.relevanceFeedback?.[company.domain]);
+  const setRelevanceFeedback = useStore((s) => s.setRelevanceFeedback);
+  const clearRelevanceFeedback = useStore((s) => s.clearRelevanceFeedback);
+  const showHiddenResults = useStore((s) => s.showHiddenResults);
+  const setSimilarResults = useStore((s) => s.setSimilarResults);
+  const setSimilarLoading = useStore((s) => s.setSimilarLoading);
+  const similarLoading = useStore((s) => s.similarLoading);
+  const [rfPopoverOpen, setRfPopoverOpen] = useState(false);
   const [logoError, setLogoError] = useState(false);
   const [inlineContactsLoading, setInlineContactsLoading] = useState(false);
   const [showMoreContacts, setShowMoreContacts] = useState(false);
@@ -207,7 +216,8 @@ export function CompanyCard({
         isChecked && "ring-1 ring-accent-highlight/30",
         isPrefetching && "ring-1 ring-accent-secondary/20 animate-pulse",
         companyDecision === "interested" && !isSelected && "border-success/30",
-        isInProspectList && !isSelected && "border-l-accent-secondary/50"
+        isInProspectList && !isSelected && "border-l-accent-secondary/50",
+        rfEntry?.feedback === "not_relevant" && showHiddenResults && "opacity-40"
       )}
     >
       {/* Top row: checkbox + logo + name */}
@@ -401,6 +411,116 @@ export function CompanyCard({
                   </svg>
                 </button>
               </Tooltip>
+              {!company.exactMatch && (
+                <>
+                  <div className="h-3 w-px bg-surface-3" />
+                  <Tooltip text={rfEntry?.feedback === "relevant" ? "Remove relevant" : "Relevant"}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (rfEntry?.feedback === "relevant") {
+                          clearRelevanceFeedback(company.domain);
+                        } else {
+                          setRelevanceFeedback(company.domain, "relevant");
+                        }
+                      }}
+                      aria-label="Mark as relevant"
+                      className={cn(
+                        "rounded p-0.5 transition-colors",
+                        rfEntry?.feedback === "relevant"
+                          ? "text-green-400"
+                          : "text-text-tertiary hover:text-green-400"
+                      )}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M7 10v12" /><path d="M15 5.88L14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z" />
+                      </svg>
+                    </button>
+                  </Tooltip>
+                  <div className="relative">
+                    <Tooltip text={rfEntry?.feedback === "not_relevant" ? "Remove not-relevant" : "Not relevant"}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (rfEntry?.feedback === "not_relevant") {
+                            clearRelevanceFeedback(company.domain);
+                          } else {
+                            setRfPopoverOpen((prev) => !prev);
+                          }
+                        }}
+                        aria-label="Mark as not relevant"
+                        className={cn(
+                          "rounded p-0.5 transition-colors",
+                          rfEntry?.feedback === "not_relevant"
+                            ? "text-red-400"
+                            : "text-text-tertiary hover:text-red-400"
+                        )}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M17 14V2" /><path d="M9 18.12L10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22h0a3.13 3.13 0 0 1-3-3.88Z" />
+                        </svg>
+                      </button>
+                    </Tooltip>
+                    {rfPopoverOpen && (
+                      <RelevanceFeedbackPopover
+                        domain={company.domain}
+                        onSelect={(reason) => {
+                          setRelevanceFeedback(company.domain, "not_relevant", reason);
+                          setRfPopoverOpen(false);
+                        }}
+                        onClose={() => setRfPopoverOpen(false)}
+                      />
+                    )}
+                  </div>
+                  <div className="h-3 w-px bg-surface-3" />
+                  <Tooltip text="Find similar companies">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (similarLoading) return;
+                        setSimilarLoading(true);
+                        fetch("/api/search/similar", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            domain: company.domain,
+                            name: company.name,
+                            industry: company.industry || undefined,
+                            region: company.region || undefined,
+                            employeeCount: company.employeeCount || undefined,
+                            description: company.description || undefined,
+                          }),
+                        })
+                          .then(async (res) => {
+                            if (!res.ok) throw new Error(`${res.status}`);
+                            const data = await res.json();
+                            setSimilarResults({
+                              seedDomain: company.domain,
+                              seedName: company.name,
+                              companies: data.companies,
+                            });
+                          })
+                          .catch(() => {
+                            addToast({ message: "Failed to find similar companies", type: "error", duration: 3000 });
+                          })
+                          .finally(() => setSimilarLoading(false));
+                      }}
+                      aria-label="Find similar companies"
+                      className={cn(
+                        "rounded p-0.5 transition-colors",
+                        similarLoading
+                          ? "text-accent-secondary animate-pulse"
+                          : "text-text-tertiary hover:text-accent-secondary"
+                      )}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="10" height="10" rx="1.5" />
+                        <rect x="11" y="11" width="10" height="10" rx="1.5" />
+                      </svg>
+                    </button>
+                  </Tooltip>
+                </>
+              )}
             </div>
             {/* Decision badge (visible when not hovering) */}
             {companyDecision && (

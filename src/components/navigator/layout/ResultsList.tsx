@@ -63,6 +63,12 @@ export function ResultsList() {
   const prospectList = useStore((s) => s.prospectList);
   const demoMode = useStore((s) => s.demoMode);
   const setContactsForDomain = useStore((s) => s.setContactsForDomain);
+  const relevanceFeedback = useStore((s) => s.relevanceFeedback);
+  const showHiddenResults = useStore((s) => s.showHiddenResults);
+  const setShowHiddenResults = useStore((s) => s.setShowHiddenResults);
+  const similarResults = useStore((s) => s.similarResults);
+  const similarLoading = useStore((s) => s.similarLoading);
+  const setSimilarResults = useStore((s) => s.setSimilarResults);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -73,6 +79,12 @@ export function ResultsList() {
   const [previousResultCount, setPreviousResultCount] = useState(6);
 
   const companies = filteredCompanies();
+
+  // Count how many search results are hidden by not_relevant feedback
+  const hiddenCount = useMemo(() => {
+    if (!searchResults) return 0;
+    return searchResults.filter((c) => relevanceFeedback?.[c.domain]?.feedback === "not_relevant").length;
+  }, [searchResults, relevanceFeedback]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
@@ -437,6 +449,65 @@ export function ResultsList() {
                 );
               })()}
             </div>
+            {hiddenCount > 0 && (
+              <div className="mt-2 flex justify-center">
+                <button
+                  onClick={() => setShowHiddenResults(!showHiddenResults)}
+                  className="text-xs text-text-tertiary hover:text-text-secondary px-2 py-1 transition-colors duration-[180ms]"
+                >
+                  {showHiddenResults
+                    ? "Hide not-relevant results"
+                    : `Show ${hiddenCount} hidden result${hiddenCount === 1 ? "" : "s"}`}
+                </button>
+              </div>
+            )}
+            {(similarResults || similarLoading) && (
+              <div className="border-t border-accent-secondary/30 mt-4 pt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-secondary">
+                    Similar to {similarResults?.seedName ?? "..."}
+                  </span>
+                  <button
+                    onClick={() => setSimilarResults(null)}
+                    className="text-[10px] text-text-tertiary hover:text-text-secondary transition-colors"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+                {similarLoading ? (
+                  <div className="space-y-1.5">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <SkeletonCard key={`similar-skel-${i}`} />
+                    ))}
+                  </div>
+                ) : similarResults && similarResults.companies.length > 0 ? (
+                  <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
+                    {similarResults.companies.map((company, idx) => (
+                      <div
+                        key={company.domain}
+                        className="animate-fadeInUp"
+                        style={{ animationDelay: `${Math.min(idx, 10) * 40}ms` }}
+                      >
+                        <CompanyCard
+                          company={company}
+                          isSelected={selectedCompanyDomain === company.domain}
+                          isChecked={selectedCompanyDomains.has(company.domain)}
+                          onSelect={() => selectCompany(company.domain)}
+                          onToggleCheck={() => toggleCompanySelection(company.domain)}
+                        />
+                        {expandedContactsDomain === company.domain && (
+                          <InlineContacts domain={company.domain} companyName={company.name} />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : similarResults ? (
+                  <p className="text-xs text-text-tertiary italic py-2">
+                    No similar companies found
+                  </p>
+                ) : null}
+              </div>
+            )}
             </>
           )
         ) : null}

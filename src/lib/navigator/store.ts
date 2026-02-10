@@ -26,6 +26,8 @@ import type {
   UserConfig,
   TriageDecision,
   TriageFilter,
+  RelevanceFeedback,
+  RelevanceFeedbackReason,
 } from "./types";
 import { DEFAULT_PIPELINE_STAGES } from "./types";
 import {
@@ -216,6 +218,19 @@ interface AppState {
   scrollToContactId: string | null;
   setScrollToContactId: (id: string | null) => void;
 
+  // Relevance feedback
+  relevanceFeedback: Record<string, { feedback: RelevanceFeedback; reason?: RelevanceFeedbackReason }>;
+  setRelevanceFeedback: (domain: string, feedback: RelevanceFeedback, reason?: RelevanceFeedbackReason) => void;
+  clearRelevanceFeedback: (domain: string) => void;
+  showHiddenResults: boolean;
+  setShowHiddenResults: (show: boolean) => void;
+
+  // Similar results (from "find similar" on relevant feedback)
+  similarResults: { seedDomain: string; seedName: string; companies: CompanyEnriched[] } | null;
+  setSimilarResults: (r: { seedDomain: string; seedName: string; companies: CompanyEnriched[] } | null) => void;
+  similarLoading: boolean;
+  setSimilarLoading: (l: boolean) => void;
+
   // CRM enrichment (batch post-search)
   updateCompanyCrmStatus: (domain: string, freshsalesStatus: string, freshsalesIntel: unknown, hubspotStatus: string) => void;
 
@@ -277,6 +292,15 @@ function loadDecisions(): Record<string, TriageDecision> {
   if (typeof window === "undefined") return {};
   try {
     const raw = localStorage.getItem("nav_company_decisions");
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+// Load persisted relevance feedback from localStorage
+function loadRelevanceFeedback(): Record<string, { feedback: RelevanceFeedback; reason?: RelevanceFeedbackReason }> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem("nav_relevance_feedback");
     return raw ? JSON.parse(raw) : {};
   } catch { return {}; }
 }
@@ -437,6 +461,56 @@ export const useStore = create<AppState>((set, get) => ({
   // Scroll-to-contact
   scrollToContactId: null,
   setScrollToContactId: (id) => set({ scrollToContactId: id }),
+
+  // Relevance feedback
+  relevanceFeedback: loadRelevanceFeedback(),
+  setRelevanceFeedback: (domain, feedback, reason) => {
+    const next = { ...get().relevanceFeedback, [domain]: { feedback, reason } };
+    set({ relevanceFeedback: next });
+    if (typeof window !== "undefined") {
+      localStorage.setItem("nav_relevance_feedback", JSON.stringify(next));
+    }
+    // Fire-and-forget to Supabase
+    const userName = get().userName ?? "Unknown";
+    const searchQuery = get().lastSearchQuery ?? undefined;
+    const company = (get().searchResults ?? get().companies).find((c) => c.domain === domain);
+    fetch("/api/relevance-feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        domain,
+        feedback,
+        reason,
+        userName,
+        searchQuery,
+        companyIndustry: company?.industry,
+        companyRegion: company?.region,
+        companySizeBucket: company?.employeeCount ? getSizeBucket(company.employeeCount) : undefined,
+        icpScore: company?.icpScore,
+      }),
+    }).catch(() => { /* silent */ });
+  },
+  clearRelevanceFeedback: (domain) => {
+    const next = { ...get().relevanceFeedback };
+    delete next[domain];
+    set({ relevanceFeedback: next });
+    if (typeof window !== "undefined") {
+      localStorage.setItem("nav_relevance_feedback", JSON.stringify(next));
+    }
+    fetch("/api/relevance-feedback", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ domain }),
+    }).catch(() => { /* silent */ });
+  },
+  showHiddenResults: false,
+  setShowHiddenResults: (show) => set({ showHiddenResults: show }),
+
+  // Similar results
+  similarResults: null,
+  setSimilarResults: (r) => set({ similarResults: r }),
+  similarLoading: false,
+  setSimilarLoading: (l) => set({ similarLoading: l }),
 
   // CRM enrichment
   updateCompanyCrmStatus: (domain, freshsalesStatus, freshsalesIntel, hubspotStatus) => {
@@ -1092,7 +1166,7 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
-  setSearchResults: (companies) => set({ searchResults: companies }),
+  setSearchResults: (companies) => set({ searchResults: companies, similarResults: null }),
   setSearchError: (error) => set({ searchError: error }),
   setUserCopyFormat: (formatId) => set({ userCopyFormat: formatId }),
   setExportState: (s) => set({ exportState: s }),
@@ -1193,6 +1267,12 @@ export const useStore = create<AppState>((set, get) => ({
 
     if (filters.hideExcluded) {
       result = result.filter((c) => !c.excluded);
+    }
+
+    // Hide "not_relevant" companies unless showHiddenResults is on
+    if (!get().showHiddenResults) {
+      const rf = get().relevanceFeedback;
+      result = result.filter((c) => rf[c.domain]?.feedback !== "not_relevant");
     }
 
     // Skip filtering when ALL options in a category are selected (treat as "no filter")

@@ -100,6 +100,9 @@ export type TriageDecision = "interested" | "pass" | "skip";
 
 export type TriageFilter = "all" | "unreviewed" | "interested";
 
+export type RelevanceFeedback = "relevant" | "not_relevant";
+export type RelevanceFeedbackReason = "wrong_industry" | "wrong_region" | "wrong_size" | "no_actionable_contacts" | "irrelevant_signals";
+
 export type SortField = "icp_score" | "name" | "employee_count" | "relevance";
 
 export type SortDirection = "asc" | "desc";

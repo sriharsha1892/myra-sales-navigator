@@ -53,6 +53,7 @@ const DateRangeSelector = dynamic(() => import("@/components/navigator/admin/ana
 const KpiTargetEditor = dynamic(() => import("@/components/navigator/admin/analytics/KpiTargetEditor").then((m) => ({ default: m.KpiTargetEditor })));
 const HealthDashboard = dynamic(() => import("@/components/navigator/admin/health/HealthDashboard").then((m) => ({ default: m.HealthDashboard })));
 const UsageAnalytics = dynamic(() => import("@/components/navigator/admin/analytics/UsageAnalytics").then((m) => ({ default: m.UsageAnalytics })));
+const RelevanceInsightsSection = dynamic(() => import("@/components/navigator/admin/RelevanceInsightsSection").then((m) => ({ default: m.RelevanceInsightsSection })));
 
 function getTabFromHash(): string {
   if (typeof window === "undefined") return "general";
@@ -286,6 +287,16 @@ export default function AdminPage() {
               <FilterHeatmap data={analytics?.filterHeatmap ?? null} />
               <ExclusionInsights data={analytics?.exclusions ?? null} />
               <UsageAnalytics />
+              <RelevanceInsightsSection
+                dateRange={Math.max(
+                  1,
+                  Math.round(
+                    (new Date(dateRange.to).getTime() -
+                      new Date(dateRange.from).getTime()) /
+                      86400000
+                  )
+                )}
+              />
             </>
           )}
         </div>

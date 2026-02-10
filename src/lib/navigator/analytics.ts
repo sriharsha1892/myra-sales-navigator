@@ -11,7 +11,8 @@ export type UsageEventType =
   | "dossier_view"
   | "export"
   | "draft"
-  | "enrollment";
+  | "enrollment"
+  | "find_similar";
 
 /**
  * Client-side: sends a POST to /api/analytics/events.
