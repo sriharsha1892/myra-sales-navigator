@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useAuth } from "@/providers/AuthProvider";
 import { useStore } from "@/lib/navigator/store";
 import { useBrowserNotifications } from "@/hooks/navigator/useBrowserNotifications";
-import { getTheme, setTheme, type Theme } from "@/lib/theme";
 import type { ViewMode, SortField } from "@/lib/navigator/types";
 
 const SHORTCUTS = [
@@ -27,10 +26,6 @@ export default function SettingsPage() {
   const demoMode = useStore((s) => s.demoMode);
   const setDemoMode = useStore((s) => s.setDemoMode);
   const { enabled: notificationsEnabled, permission: notifPermission, toggleEnabled } = useBrowserNotifications();
-
-  const [currentTheme, setCurrentTheme] = useState<Theme>(() =>
-    typeof window !== "undefined" ? getTheme() : "light"
-  );
 
   // Workflow preference: skip reveal confirm
   const [skipReveal, setSkipReveal] = useState(() =>
@@ -213,21 +208,11 @@ export default function SettingsPage() {
 
         {/* Appearance */}
         <Section title="Appearance">
-          <SettingField label="Theme" hint="Switch between light and dark mode.">
+          <SettingField label="Theme" hint="Dark mode only per design spec.">
             <div className="flex gap-2">
-              {(["light", "dark"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => { setTheme(t); setCurrentTheme(t); }}
-                  className={`rounded-input border px-4 py-2 text-sm font-medium capitalize transition-all duration-[180ms] ${
-                    currentTheme === t
-                      ? "border-accent-primary bg-accent-primary-light text-text-primary"
-                      : "border-surface-3 bg-surface-2 text-text-secondary hover:border-accent-primary/40"
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
+              <span className="rounded-input border border-accent-primary bg-accent-primary-light px-4 py-2 text-sm font-medium capitalize text-text-primary">
+                Dark
+              </span>
             </div>
           </SettingField>
         </Section>

@@ -7,7 +7,7 @@ import { CACHE_TTLS } from "../cache-config";
 // Legal entity suffix stripping
 // ---------------------------------------------------------------------------
 
-const LEGAL_SUFFIXES = /\b(SE|AG|GmbH|Ltd|Inc|Corp|LLC|PLC|SA|NV|BV|SRL|Pty|Co|KG|KGaA|S\.A\.|S\.r\.l\.|S\.p\.A\.)\b\.?$/i;
+const LEGAL_SUFFIXES = /\b(SE|AG|GmbH|Ltd|Inc|Corporation|Corp|LLC|PLC|SA|NV|BV|SRL|Pty|Co|KG|KGaA|S\.A\.|S\.r\.l\.|S\.p\.A\.)\b\.?$/i;
 
 /**
  * Strip common legal entity suffixes from a query string.

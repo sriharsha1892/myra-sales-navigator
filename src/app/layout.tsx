@@ -38,7 +38,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem("nav_theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);else document.documentElement.setAttribute("data-theme","dark")}catch(e){document.documentElement.setAttribute("data-theme","dark")}})()` }} />
+        <script dangerouslySetInnerHTML={{ __html: `(function(){document.documentElement.setAttribute("data-theme","dark")})()` }} />
       </head>
       <body
         className={`${satoshi.variable} ${geistMono.variable} antialiased bg-surface-0`}

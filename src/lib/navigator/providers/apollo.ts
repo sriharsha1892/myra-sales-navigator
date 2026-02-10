@@ -203,7 +203,8 @@ export async function findContacts(domain: string): Promise<Contact[]> {
           seniority: mapSeniority((p.seniority as string) || (p.title as string)),
           lastVerified: null,
           _orgDomain: (org.primary_domain as string) || (org.website_url as string) || null,
-        } as Contact & { _orgDomain: string | null };
+          _orgName: (org.name as string) || null,
+        } as Contact & { _orgDomain: string | null; _orgName: string | null };
       }
     );
 
@@ -211,17 +212,28 @@ export async function findContacts(domain: string): Promise<Contact[]> {
     const contacts: Contact[] = [];
     let filteredOut = 0;
     for (const c of allContacts) {
-      const orgDomain = (c as Contact & { _orgDomain: string | null })._orgDomain;
+      const ext = c as Contact & { _orgDomain: string | null; _orgName: string | null };
+      const orgDomain = ext._orgDomain;
       if (orgDomain) {
         const contactRoot = getRootDomain(normalizeDomain(orgDomain));
         if (contactRoot !== queriedRoot) {
           filteredOut++;
           continue;
         }
+      } else {
+        // orgDomain is null — fall back to org name check
+        const orgName = ext._orgName?.toLowerCase() ?? "";
+        const domainWord = queriedRoot.split(".")[0];
+        if (orgName && !orgName.includes(domainWord) && !domainWord.includes(orgName.split(" ")[0])) {
+          filteredOut++;
+          continue;
+        }
       }
-      // Strip internal field before caching
+      // Strip internal fields before caching
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       delete (c as any)._orgDomain;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (c as any)._orgName;
       contacts.push(c);
     }
 

@@ -236,31 +236,31 @@ export function SlideOverPane() {
                 </DossierErrorBoundary>
               </div>
               <div className="animate-fadeInUp" style={{ animationDelay: "60ms" }}>
-                <DossierErrorBoundary sectionName="Freshsales">
-                  <DossierFreshsales company={company} />
-                </DossierErrorBoundary>
-              </div>
-              <div className="animate-fadeInUp" style={{ animationDelay: "120ms" }}>
-                <DossierErrorBoundary sectionName="Signals">
-                  <DossierSignals signals={dossier.signals.length > 0 ? dossier.signals : (company.signals ?? [])} />
-                </DossierErrorBoundary>
-              </div>
-              <div className="animate-fadeInUp" style={{ animationDelay: "180ms" }}>
                 <DossierErrorBoundary sectionName="Contacts">
                   <DossierContacts key={company.domain} companyDomain={company.domain} contacts={dossier.contacts} />
                 </DossierErrorBoundary>
               </div>
-              <div className="animate-fadeInUp" style={{ animationDelay: "210ms" }}>
+              <div className="animate-fadeInUp" style={{ animationDelay: "120ms" }}>
+                <DossierErrorBoundary sectionName="Freshsales">
+                  <DossierFreshsales company={company} />
+                </DossierErrorBoundary>
+              </div>
+              <div className="animate-fadeInUp" style={{ animationDelay: "180ms" }}>
+                <DossierErrorBoundary sectionName="Signals">
+                  <DossierSignals signals={dossier.signals.length > 0 ? dossier.signals : (company.signals ?? [])} />
+                </DossierErrorBoundary>
+              </div>
+              <div className="animate-fadeInUp" style={{ animationDelay: "240ms" }}>
                 <DossierErrorBoundary sectionName="HubSpot">
                   <DossierHubspot company={company} />
                 </DossierErrorBoundary>
               </div>
-              <div className="animate-fadeInUp" style={{ animationDelay: "270ms" }}>
+              <div className="animate-fadeInUp" style={{ animationDelay: "300ms" }}>
                 <DossierErrorBoundary sectionName="Notes">
                   <CompanyNotes companyDomain={company.domain} />
                 </DossierErrorBoundary>
               </div>
-              <div className="animate-fadeInUp" style={{ animationDelay: "330ms" }}>
+              <div className="animate-fadeInUp" style={{ animationDelay: "360ms" }}>
                 <DossierErrorBoundary sectionName="Similar Companies">
                   <DossierSimilarCompanies domain={company.domain} employeeCount={company.employeeCount} region={company.region} />
                 </DossierErrorBoundary>

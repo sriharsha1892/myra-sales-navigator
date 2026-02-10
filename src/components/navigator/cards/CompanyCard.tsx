@@ -167,6 +167,11 @@ export function CompanyCard({
     return [...contactsForDomain]
       .filter((c) => !TITLE_FILTER_RE.test(c.title ?? ""))
       .sort((a, b) => {
+        // Freshsales contacts first
+        const aFS = a.sources.includes("freshsales" as import("@/lib/navigator/types").ResultSource) ? 0 : 1;
+        const bFS = b.sources.includes("freshsales" as import("@/lib/navigator/types").ResultSource) ? 0 : 1;
+        if (aFS !== bFS) return aFS - bFS;
+        // Then by seniority
         const sa = SENIORITY_ORDER[a.seniority] ?? 5;
         const sb = SENIORITY_ORDER[b.seniority] ?? 5;
         if (sa !== sb) return sa - sb;
@@ -212,7 +217,7 @@ export function CompanyCard({
         "group card-interactive cursor-pointer rounded-card border-[1.5px] px-4 py-3",
         isSelected
           ? "border-accent-primary bg-accent-primary-light shadow-sm"
-          : "bg-surface-1 border-surface-3 shadow-sm",
+          : "bg-surface-1 border-surface-3 shadow-sm hover:border-accent-primary/30",
         isChecked && "ring-1 ring-accent-highlight/30",
         isPrefetching && "ring-1 ring-accent-secondary/20 animate-pulse",
         companyDecision === "interested" && !isSelected && "border-success/30",
@@ -550,7 +555,7 @@ export function CompanyCard({
                   {inlineContacts.map((contact) => (
                     <div
                       key={contact.id}
-                      className="flex items-center gap-2 rounded px-1 py-0.5 text-[11px] transition-colors hover:bg-surface-2/50"
+                      className="flex items-center gap-2 rounded px-1 py-0.5 text-[11px] transition-colors hover:bg-surface-2"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <button
@@ -625,7 +630,7 @@ export function CompanyCard({
                         </Tooltip>
                       )}
                       {contact.sources.includes("freshsales" as import("@/lib/navigator/types").ResultSource) && (
-                        <span className="flex-shrink-0 rounded-pill bg-[#d4a012]/15 px-1 py-px text-[8px] font-semibold text-[#d4a012]">
+                        <span className="flex-shrink-0 rounded-pill bg-[#d4a012]/15 px-1 py-px text-[9px] font-semibold text-[#d4a012] ring-1 ring-[#d4a012]/20">
                           Warm
                         </span>
                       )}
