@@ -3,10 +3,15 @@
 import { useEffect, useRef } from "react";
 import { useStore } from "@/lib/navigator/store";
 import { useAuth } from "@/providers/AuthProvider";
+import { useBrowserNotifications } from "@/hooks/navigator/useBrowserNotifications";
+import type { SearchPreset } from "@/lib/navigator/types";
+
+const PRESET_NOTIFIED_KEY = "nav_preset_notified_session";
 
 export function HydrationBridge() {
   const { userName } = useAuth();
   const hydrated = useRef(false);
+  const { notify } = useBrowserNotifications();
 
   useEffect(() => {
     if (!userName || hydrated.current) return;
@@ -26,6 +31,23 @@ export function HydrationBridge() {
       .then((data) => {
         if (data?.presets) {
           useStore.getState().setPresets(data.presets);
+
+          // Fire browser notification for presets with new results (once per session)
+          const alreadyNotified = sessionStorage.getItem(PRESET_NOTIFIED_KEY);
+          if (!alreadyNotified) {
+            const presetsWithNew = (data.presets as SearchPreset[]).filter(
+              (p) => (p.newResultCount ?? 0) > 0
+            );
+            if (presetsWithNew.length > 0) {
+              sessionStorage.setItem(PRESET_NOTIFIED_KEY, "1");
+              for (const p of presetsWithNew) {
+                notify(
+                  `${p.newResultCount} new result${p.newResultCount === 1 ? "" : "s"} for "${p.name}"`,
+                  "Click to view updated search results."
+                );
+              }
+            }
+          }
         }
       })
       .catch(() => {});
@@ -41,7 +63,7 @@ export function HydrationBridge() {
         }
       })
       .catch(() => {});
-  }, [userName]);
+  }, [userName, notify]);
 
   return null;
 }

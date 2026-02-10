@@ -14,6 +14,7 @@ import { getCached, setCached, getRootDomain } from "@/lib/cache";
 import { extractICPCriteria, scoreCompaniesAgainstICP } from "@/lib/navigator/llm/icpPrompts";
 import { pickDiscoveryEngine, pickNameEngine, recordUsage, isExaFallbackAllowed, getUsageSummary } from "@/lib/navigator/routing/smartRouter";
 import { CACHE_TTLS } from "@/lib/navigator/cache-config";
+import { trackUsageEventServer } from "@/lib/navigator/analytics-server";
 import type { Company, FilterState, IcpWeights, NLICPCriteria } from "@/lib/navigator/types";
 
 // ---------------------------------------------------------------------------
@@ -467,6 +468,18 @@ export async function POST(request: Request) {
     // Compute high-fit count + total duration
     highFitCount = companies.filter((c) => c.icpScore >= 70).length;
     const totalDurationMs = Date.now() - searchStart;
+
+    // Track usage event (fire-and-forget)
+    if (body.userName) {
+      trackUsageEventServer("search", body.userName, {
+        query: freeText || null,
+        isNameQuery,
+        searchEngine,
+        resultCount: companies.length,
+        highFitCount,
+        totalDurationMs,
+      });
+    }
 
     // Log search to history (fire-and-forget) with perf fields
     if (body.userName) {

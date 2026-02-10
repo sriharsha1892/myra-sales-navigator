@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useStore } from "@/lib/navigator/store";
 import { ContactCard } from "./ContactCard";
 import type { Contact } from "@/lib/navigator/types";
@@ -75,13 +75,13 @@ export function InlineContacts({ domain, companyName }: InlineContactsProps) {
     );
   }
 
-  // Sort by seniority, then by email confidence
-  const sorted = [...contacts].sort((a, b) => {
+  // Sort by seniority, then by email confidence (memoized)
+  const sorted = useMemo(() => [...contacts].sort((a, b) => {
     const sa = SENIORITY_ORDER[a.seniority] ?? 5;
     const sb = SENIORITY_ORDER[b.seniority] ?? 5;
     if (sa !== sb) return sa - sb;
     return b.emailConfidence - a.emailConfidence;
-  });
+  }), [contacts]);
 
   const visible = showAll ? sorted : sorted.slice(0, 5);
   const hiddenCount = sorted.length - 5;

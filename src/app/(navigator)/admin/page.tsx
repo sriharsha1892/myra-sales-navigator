@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useAuth } from "@/providers/AuthProvider";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { AdminTabs, ADMIN_TABS } from "@/components/navigator/admin/AdminTabs";
@@ -8,51 +9,50 @@ import { AdminSaveBar } from "@/components/navigator/admin/AdminSaveBar";
 import { useStore } from "@/lib/navigator/store";
 import { cn } from "@/lib/cn";
 
-// Existing sections
-import { IcpWeightsSection } from "@/components/navigator/admin/IcpWeightsSection";
-import { VerticalConfigSection } from "@/components/navigator/admin/VerticalConfigSection";
-import { SizeSweetSpotSection } from "@/components/navigator/admin/SizeSweetSpotSection";
-import { SignalTypesSection } from "@/components/navigator/admin/SignalTypesSection";
-import { TeamMembersSection } from "@/components/navigator/admin/TeamMembersSection";
-import { CacheSettingsSection } from "@/components/navigator/admin/CacheSettingsSection";
-import { CopyFormatSection } from "@/components/navigator/admin/CopyFormatSection";
-import { ExclusionManagerSection } from "@/components/navigator/admin/ExclusionManagerSection";
-import { PresetManagerSection } from "@/components/navigator/admin/PresetManagerSection";
+// Lazy-loaded admin section components — only loaded when their tab is active
+const IcpWeightsSection = dynamic(() => import("@/components/navigator/admin/IcpWeightsSection").then((m) => ({ default: m.IcpWeightsSection })));
+const VerticalConfigSection = dynamic(() => import("@/components/navigator/admin/VerticalConfigSection").then((m) => ({ default: m.VerticalConfigSection })));
+const SizeSweetSpotSection = dynamic(() => import("@/components/navigator/admin/SizeSweetSpotSection").then((m) => ({ default: m.SizeSweetSpotSection })));
+const SignalTypesSection = dynamic(() => import("@/components/navigator/admin/SignalTypesSection").then((m) => ({ default: m.SignalTypesSection })));
+const TeamMembersSection = dynamic(() => import("@/components/navigator/admin/TeamMembersSection").then((m) => ({ default: m.TeamMembersSection })));
+const CacheSettingsSection = dynamic(() => import("@/components/navigator/admin/CacheSettingsSection").then((m) => ({ default: m.CacheSettingsSection })));
+const CopyFormatSection = dynamic(() => import("@/components/navigator/admin/CopyFormatSection").then((m) => ({ default: m.CopyFormatSection })));
+const ExclusionManagerSection = dynamic(() => import("@/components/navigator/admin/ExclusionManagerSection").then((m) => ({ default: m.ExclusionManagerSection })));
+const PresetManagerSection = dynamic(() => import("@/components/navigator/admin/PresetManagerSection").then((m) => ({ default: m.PresetManagerSection })));
+const ApiKeysSection = dynamic(() => import("@/components/navigator/admin/ApiKeysSection").then((m) => ({ default: m.ApiKeysSection })));
+const DataSourcesSection = dynamic(() => import("@/components/navigator/admin/DataSourcesSection").then((m) => ({ default: m.DataSourcesSection })));
+const ExportSettingsSection = dynamic(() => import("@/components/navigator/admin/ExportSettingsSection").then((m) => ({ default: m.ExportSettingsSection })));
+const EmailVerificationSection = dynamic(() => import("@/components/navigator/admin/EmailVerificationSection").then((m) => ({ default: m.EmailVerificationSection })));
+const ScoringTuningSection = dynamic(() => import("@/components/navigator/admin/ScoringTuningSection").then((m) => ({ default: m.ScoringTuningSection })));
+const RateLimitSection = dynamic(() => import("@/components/navigator/admin/RateLimitSection").then((m) => ({ default: m.RateLimitSection })));
+const NotificationSection = dynamic(() => import("@/components/navigator/admin/NotificationSection").then((m) => ({ default: m.NotificationSection })));
+const DataRetentionSection = dynamic(() => import("@/components/navigator/admin/DataRetentionSection").then((m) => ({ default: m.DataRetentionSection })));
+const AuthSettingsSection = dynamic(() => import("@/components/navigator/admin/AuthSettingsSection").then((m) => ({ default: m.AuthSettingsSection })));
+const AuthActivityLog = dynamic(() => import("@/components/navigator/admin/AuthActivityLog").then((m) => ({ default: m.AuthActivityLog })));
+const UiPreferencesSection = dynamic(() => import("@/components/navigator/admin/UiPreferencesSection").then((m) => ({ default: m.UiPreferencesSection })));
+const EmailPromptsSection = dynamic(() => import("@/components/navigator/admin/EmailPromptsSection").then((m) => ({ default: m.EmailPromptsSection })));
+const EmailTemplatesSection = dynamic(() => import("@/components/navigator/admin/EmailTemplatesSection").then((m) => ({ default: m.EmailTemplatesSection })));
+const OutreachChannelsSection = dynamic(() => import("@/components/navigator/admin/OutreachChannelsSection").then((m) => ({ default: m.OutreachChannelsSection })));
+const OutreachSuggestionsSection = dynamic(() => import("@/components/navigator/admin/OutreachSuggestionsSection").then((m) => ({ default: m.OutreachSuggestionsSection })));
+const ActionRecommendationsSection = dynamic(() => import("@/components/navigator/admin/ActionRecommendationsSection").then((m) => ({ default: m.ActionRecommendationsSection })));
+const PipelineStagesSection = dynamic(() => import("@/components/navigator/admin/PipelineStagesSection").then((m) => ({ default: m.PipelineStagesSection })));
+const ChatbotConfigSection = dynamic(() => import("@/components/navigator/admin/ChatbotConfigSection").then((m) => ({ default: m.ChatbotConfigSection })));
+const FreshsalesSettingsSection = dynamic(() => import("@/components/navigator/admin/FreshsalesSettingsSection").then((m) => ({ default: m.FreshsalesSettingsSection })));
+const EnrichmentConfigSection = dynamic(() => import("@/components/navigator/admin/EnrichmentConfigSection").then((m) => ({ default: m.EnrichmentConfigSection })));
+const UserActivitySection = dynamic(() => import("@/components/navigator/admin/UserActivitySection").then((m) => ({ default: m.UserActivitySection })));
+const IcpProfilesSection = dynamic(() => import("@/components/navigator/admin/IcpProfilesSection").then((m) => ({ default: m.IcpProfilesSection })));
 
-// New sections
-import { ApiKeysSection } from "@/components/navigator/admin/ApiKeysSection";
-import { DataSourcesSection } from "@/components/navigator/admin/DataSourcesSection";
-import { ExportSettingsSection } from "@/components/navigator/admin/ExportSettingsSection";
-import { EmailVerificationSection } from "@/components/navigator/admin/EmailVerificationSection";
-import { ScoringTuningSection } from "@/components/navigator/admin/ScoringTuningSection";
-import { RateLimitSection } from "@/components/navigator/admin/RateLimitSection";
-import { NotificationSection } from "@/components/navigator/admin/NotificationSection";
-import { DataRetentionSection } from "@/components/navigator/admin/DataRetentionSection";
-import { AuthSettingsSection } from "@/components/navigator/admin/AuthSettingsSection";
-import { AuthActivityLog } from "@/components/navigator/admin/AuthActivityLog";
-import { UiPreferencesSection } from "@/components/navigator/admin/UiPreferencesSection";
-import { EmailPromptsSection } from "@/components/navigator/admin/EmailPromptsSection";
-import { EmailTemplatesSection } from "@/components/navigator/admin/EmailTemplatesSection";
-import { OutreachChannelsSection } from "@/components/navigator/admin/OutreachChannelsSection";
-import { OutreachSuggestionsSection } from "@/components/navigator/admin/OutreachSuggestionsSection";
-import { ActionRecommendationsSection } from "@/components/navigator/admin/ActionRecommendationsSection";
-import { PipelineStagesSection } from "@/components/navigator/admin/PipelineStagesSection";
-import { ChatbotConfigSection } from "@/components/navigator/admin/ChatbotConfigSection";
-import { FreshsalesSettingsSection } from "@/components/navigator/admin/FreshsalesSettingsSection";
-import { EnrichmentConfigSection } from "@/components/navigator/admin/EnrichmentConfigSection";
-import { UserActivitySection } from "@/components/navigator/admin/UserActivitySection";
-import { IcpProfilesSection } from "@/components/navigator/admin/IcpProfilesSection";
-
-// Analytics dashboard
-import { WeeklyKpiCards } from "@/components/navigator/admin/analytics/WeeklyKpiCards";
-import { DiscoveryFunnel } from "@/components/navigator/admin/analytics/DiscoveryFunnel";
-import { TeamActivity } from "@/components/navigator/admin/analytics/TeamActivity";
-import { SourcePerformance } from "@/components/navigator/admin/analytics/SourcePerformance";
-import { FilterHeatmap } from "@/components/navigator/admin/analytics/FilterHeatmap";
-import { ExclusionInsights } from "@/components/navigator/admin/analytics/ExclusionInsights";
-import { DateRangeSelector } from "@/components/navigator/admin/analytics/DateRangeSelector";
-import { KpiTargetEditor } from "@/components/navigator/admin/analytics/KpiTargetEditor";
-import { HealthDashboard } from "@/components/navigator/admin/health/HealthDashboard";
+// Analytics dashboard — lazy-loaded
+const WeeklyKpiCards = dynamic(() => import("@/components/navigator/admin/analytics/WeeklyKpiCards").then((m) => ({ default: m.WeeklyKpiCards })));
+const DiscoveryFunnel = dynamic(() => import("@/components/navigator/admin/analytics/DiscoveryFunnel").then((m) => ({ default: m.DiscoveryFunnel })));
+const TeamActivity = dynamic(() => import("@/components/navigator/admin/analytics/TeamActivity").then((m) => ({ default: m.TeamActivity })));
+const SourcePerformance = dynamic(() => import("@/components/navigator/admin/analytics/SourcePerformance").then((m) => ({ default: m.SourcePerformance })));
+const FilterHeatmap = dynamic(() => import("@/components/navigator/admin/analytics/FilterHeatmap").then((m) => ({ default: m.FilterHeatmap })));
+const ExclusionInsights = dynamic(() => import("@/components/navigator/admin/analytics/ExclusionInsights").then((m) => ({ default: m.ExclusionInsights })));
+const DateRangeSelector = dynamic(() => import("@/components/navigator/admin/analytics/DateRangeSelector").then((m) => ({ default: m.DateRangeSelector })));
+const KpiTargetEditor = dynamic(() => import("@/components/navigator/admin/analytics/KpiTargetEditor").then((m) => ({ default: m.KpiTargetEditor })));
+const HealthDashboard = dynamic(() => import("@/components/navigator/admin/health/HealthDashboard").then((m) => ({ default: m.HealthDashboard })));
+const UsageAnalytics = dynamic(() => import("@/components/navigator/admin/analytics/UsageAnalytics").then((m) => ({ default: m.UsageAnalytics })));
 
 function getTabFromHash(): string {
   if (typeof window === "undefined") return "general";
@@ -285,6 +285,7 @@ export default function AdminPage() {
               <SourcePerformance data={analytics?.sourcePerformance ?? null} />
               <FilterHeatmap data={analytics?.filterHeatmap ?? null} />
               <ExclusionInsights data={analytics?.exclusions ?? null} />
+              <UsageAnalytics />
             </>
           )}
         </div>

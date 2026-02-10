@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useStore } from "@/lib/navigator/store";
 import { ConfirmDialog } from "@/components/navigator/shared/ConfirmDialog";
 import { useExport } from "@/hooks/navigator/useExport";
@@ -8,6 +8,7 @@ import { ExportContactPicker } from "@/components/navigator/export/ExportContact
 import { VerificationProgress } from "@/components/navigator/export/VerificationProgress";
 import { BulkStatusDropdown } from "./BulkStatusDropdown";
 import { BulkNoteInput } from "./BulkNoteInput";
+import { BulkSequenceEnrollModal } from "@/components/navigator/outreach/BulkSequenceEnrollModal";
 import { cn } from "@/lib/cn";
 import { AnimatedNumber } from "./AnimatedNumber";
 import { Tooltip } from "@/components/navigator/shared/Tooltip";
@@ -29,6 +30,7 @@ export function BulkActionBar() {
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [showExcludeConfirm, setShowExcludeConfirm] = useState(false);
+  const [showEnrollModal, setShowEnrollModal] = useState(false);
 
   const filteredCompanies = useStore((s) => s.filteredCompanies);
   const contactsByDomain = useStore((s) => s.contactsByDomain);
@@ -42,6 +44,20 @@ export function BulkActionBar() {
 
   const addUndoToast = useStore((s) => s.addUndoToast);
   const undoExclude = useStore((s) => s.undoExclude);
+
+  // Build contacts list from selected companies for bulk enrollment
+  const enrollableContacts = useMemo(() => {
+    const contacts: Array<{ contactId: string; companyDomain: string }> = [];
+    for (const domain of domains) {
+      const domainContacts = contactsByDomain[domain];
+      if (domainContacts) {
+        for (const c of domainContacts) {
+          contacts.push({ contactId: c.id, companyDomain: domain });
+        }
+      }
+    }
+    return contacts;
+  }, [domains, contactsByDomain]);
 
   const handleBulkExclude = useCallback(async () => {
     setShowExcludeConfirm(false);
@@ -151,6 +167,10 @@ export function BulkActionBar() {
                 <BulkButton onClick={() => initiateExport("excel")} label="Excel" />
                 {viewMode === "companies" && (
                   <>
+                    <BulkButton
+                      onClick={() => setShowEnrollModal(true)}
+                      label={`Enroll${enrollableContacts.length > 0 ? ` (${enrollableContacts.length})` : ""}`}
+                    />
                     <BulkButton onClick={requestBulkExclude} label="Exclude" variant="danger" />
                     <BulkButton onClick={() => setShowStatusDropdown(true)} label="Set Status" />
                     <BulkButton onClick={() => setShowNoteInput(true)} label="Add Note" />
@@ -191,6 +211,13 @@ export function BulkActionBar() {
         onCancel={() => setShowExcludeConfirm(false)}
         destructive
       />
+
+      {showEnrollModal && (
+        <BulkSequenceEnrollModal
+          contacts={enrollableContacts}
+          onClose={() => setShowEnrollModal(false)}
+        />
+      )}
     </>
   );
 }

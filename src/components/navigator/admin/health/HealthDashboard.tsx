@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Fragment, useState } from "react";
+import { Fragment, useState, useMemo } from "react";
 import { useStore } from "@/lib/navigator/store";
 
 // ---------------------------------------------------------------------------
@@ -40,6 +40,21 @@ interface ProviderCredit {
 interface CreditsData {
   providers: Record<string, ProviderCredit>;
   apolloReplenishDate?: string;
+}
+
+interface HourBucket {
+  hour: string;
+  avgMs: number;
+  errorRate: number;
+}
+
+interface ProviderTrend {
+  provider: string;
+  data: HourBucket[];
+}
+
+interface LatencyTrendsData {
+  trends: ProviderTrend[];
 }
 
 // ---------------------------------------------------------------------------
@@ -114,6 +129,23 @@ function creditPercent(available: number, total: number): number {
   return Math.round((available / total) * 100);
 }
 
+function formatHourLabel(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+function latencyColor(ms: number): string {
+  if (ms < 500) return "bg-success";
+  if (ms <= 1500) return "bg-warning";
+  return "bg-danger";
+}
+
+function latencyTextColor(ms: number): string {
+  if (ms < 500) return "text-success";
+  if (ms <= 1500) return "text-warning";
+  return "text-danger";
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -145,6 +177,30 @@ export function HealthDashboard() {
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
+
+  // Latency trends (last 24h, refreshes every 5 min)
+  const { data: latencyData } = useQuery<LatencyTrendsData>({
+    queryKey: ["latency-trends"],
+    queryFn: async () => {
+      const res = await fetch("/api/health/latency-trends?hours=24");
+      if (!res.ok) throw new Error("Failed to fetch latency trends");
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  // Compute the global max latency across all trends for proportional bar widths
+  const maxLatency = useMemo(() => {
+    if (!latencyData?.trends) return 1000;
+    let max = 0;
+    for (const t of latencyData.trends) {
+      for (const b of t.data) {
+        if (b.avgMs > max) max = b.avgMs;
+      }
+    }
+    return Math.max(max, 100); // floor at 100ms to avoid division issues
+  }, [latencyData]);
 
   // Admin-configured cache durations
   const cacheDurations = useStore((s) => s.adminConfig?.cacheDurations);
@@ -266,6 +322,92 @@ export function HealthDashboard() {
             );
           })}
         </div>
+      </div>
+
+      {/* ----------------------------------------------------------------- */}
+      {/* Section A2: Latency Trends (24h)                                  */}
+      {/* ----------------------------------------------------------------- */}
+      <div>
+        <h3 className="mb-3 text-sm font-semibold text-text-primary">
+          Latency Trends (24h)
+        </h3>
+        {!latencyData?.trends || latencyData.trends.length === 0 ? (
+          <p className="text-xs text-text-tertiary">
+            No latency data available for the last 24 hours.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {latencyData.trends.map((trend) => (
+              <div
+                key={trend.provider}
+                className="rounded-card border border-surface-3 bg-surface-1 p-3"
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-text-primary capitalize">
+                    {SOURCE_LABELS[trend.provider] ?? trend.provider}
+                  </span>
+                  <span className="text-[10px] text-text-tertiary">
+                    {trend.data.length} hour{trend.data.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  {trend.data.map((bucket) => (
+                    <div
+                      key={bucket.hour}
+                      className="flex items-center gap-2"
+                    >
+                      <span className="w-10 shrink-0 text-right font-mono text-[10px] text-text-tertiary">
+                        {formatHourLabel(bucket.hour)}
+                      </span>
+                      <div className="relative flex-1 h-4 rounded bg-surface-3/50">
+                        <div
+                          className={`h-full rounded transition-all duration-300 ${latencyColor(bucket.avgMs)}`}
+                          style={{
+                            width: `${Math.max((bucket.avgMs / maxLatency) * 100, 2)}%`,
+                          }}
+                        />
+                        {bucket.errorRate > 0 && (
+                          <div
+                            className="absolute right-0 top-0 h-full w-1 rounded-r bg-danger"
+                            title={`Error rate: ${bucket.errorRate}%`}
+                          />
+                        )}
+                      </div>
+                      <span
+                        className={`w-14 shrink-0 text-right font-mono text-[10px] ${latencyTextColor(bucket.avgMs)}`}
+                      >
+                        {bucket.avgMs}ms
+                      </span>
+                      {bucket.errorRate > 0 && (
+                        <span className="w-10 shrink-0 text-right font-mono text-[10px] text-danger">
+                          {bucket.errorRate}%
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <div className="flex items-center gap-4 px-1">
+              <div className="flex items-center gap-1.5">
+                <div className="h-2 w-4 rounded bg-success" />
+                <span className="text-[10px] text-text-tertiary">&lt;500ms</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-2 w-4 rounded bg-warning" />
+                <span className="text-[10px] text-text-tertiary">500-1500ms</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-2 w-4 rounded bg-danger" />
+                <span className="text-[10px] text-text-tertiary">&gt;1500ms</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-1 w-4 rounded bg-danger" />
+                <span className="text-[10px] text-text-tertiary">Error rate indicator</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ----------------------------------------------------------------- */}

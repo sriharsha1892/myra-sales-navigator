@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { trackUsageEventServer } from "@/lib/navigator/analytics-server";
 
 interface ContactPayload {
   firstName: string;
@@ -103,6 +104,15 @@ export async function POST(request: NextRequest) {
           })
         ).catch(() => {});
       }
+    }
+
+    // Track usage event (fire-and-forget)
+    if (userName) {
+      trackUsageEventServer("export", userName, {
+        destination: "clipboard",
+        contactCount: contacts.length,
+        domains,
+      });
     }
 
     return NextResponse.json({ text, count: contacts.length, skipped: rawContacts.length - contacts.length });

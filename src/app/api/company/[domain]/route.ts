@@ -7,6 +7,7 @@ import { getFreshsalesIntel, isFreshsalesAvailable } from "@/lib/navigator/provi
 import { calculateIcpScore } from "@/lib/navigator/scoring";
 import { createServerClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
+import { trackUsageEventServer } from "@/lib/navigator/analytics-server";
 import type { CompanyEnriched, IcpWeights } from "@/lib/navigator/types";
 import { CACHE_TTLS } from "@/lib/navigator/cache-config";
 
@@ -101,6 +102,12 @@ export async function GET(
       // Don't fail the response if anchor tracking fails
       console.warn("[Company] Anchor tracking failed:", anchorErr);
     }
+
+    // Track usage event (fire-and-forget)
+    trackUsageEventServer("dossier_view", userName, {
+      domain: normalized,
+      companyName: (company?.name as string) || normalized,
+    });
 
     // ICP scoring for dossier view
     let icpWeights: Partial<IcpWeights> = {};

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { trackUsageEventServer } from "@/lib/navigator/analytics-server";
 import { cookies } from "next/headers";
 import type { OutreachEnrollment, SequenceStep } from "@/lib/navigator/types";
 
@@ -205,6 +206,13 @@ export async function POST(request: NextRequest) {
         // Silent — CRM sync is best-effort
       }
     })();
+
+    // Track usage event (fire-and-forget)
+    trackUsageEventServer("enrollment", userName, {
+      sequenceId: body.sequenceId,
+      contactId: body.contactId,
+      companyDomain: body.companyDomain,
+    });
 
     return NextResponse.json(mapRow(enrollment), { status: 201 });
   } catch (err) {

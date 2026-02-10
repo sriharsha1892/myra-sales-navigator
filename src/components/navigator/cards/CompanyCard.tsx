@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/cn";
 import type { CompanyEnriched } from "@/lib/navigator/types";
@@ -152,8 +152,8 @@ export function CompanyCard({
 
   const logoSrc = company.logoUrl ?? (company.domain ? `https://www.google.com/s2/favicons?domain=${company.domain}&sz=40` : null);
 
-  // Compute top 3 contacts for inline display
-  const inlineContacts = (() => {
+  // Compute top contacts for inline display (memoized to avoid re-sorting on every render)
+  const inlineContacts = useMemo(() => {
     if (!contactsForDomain || contactsForDomain.length === 0) return [];
     return [...contactsForDomain]
       .filter((c) => !TITLE_FILTER_RE.test(c.title ?? ""))
@@ -164,7 +164,7 @@ export function CompanyCard({
         return b.emailConfidence - a.emailConfidence;
       })
       .slice(0, showMoreContacts ? 10 : 3);
-  })();
+  }, [contactsForDomain, showMoreContacts]);
 
   const hasContactsLoaded = !!contactsForDomain;
   const totalContactsCount = contactsForDomain?.length ?? 0;

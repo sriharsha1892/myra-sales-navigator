@@ -6,6 +6,7 @@ import { getCached, setCached } from "@/lib/cache";
 import { CACHE_TTLS } from "@/lib/navigator/cache-config";
 import type { OutreachDraftRequest, OutreachDraftResponse, EmailPromptsConfig } from "@/lib/navigator/types";
 import { CHANNEL_CONSTRAINTS } from "@/lib/navigator/outreach/channelConfig";
+import { trackUsageEventServer } from "@/lib/navigator/analytics-server";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -109,6 +110,13 @@ export async function POST(request: Request) {
     if (!draft.message) {
       return NextResponse.json({ error: "LLM returned incomplete draft" }, { status: 502 });
     }
+
+    // Track usage event (fire-and-forget)
+    trackUsageEventServer("draft", body.contactName || "unknown", {
+      channel: body.channel,
+      tone: body.tone,
+      companyName: body.companyName,
+    });
 
     // Fire-and-forget log to outreach_drafts
     const sb = getSupabase();

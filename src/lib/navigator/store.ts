@@ -148,6 +148,7 @@ interface AppState {
   loadPreset: (presetId: string) => void;
   savePreset: (name: string) => void;
   deletePreset: (id: string) => void;
+  clearPresetNotification: (id: string) => void;
   setSearchResults: (companies: CompanyEnriched[] | null) => void;
   setSearchError: (error: string | null) => void;
   setUserCopyFormat: (formatId: string) => void;
@@ -244,6 +245,10 @@ interface AppState {
   dismissSimilarSearch: () => void;
   mergeTeamActivity: (data: Record<string, { viewers: { user: string; at: string }[]; exporters: { user: string; at: string; count: number }[]; decisions: { user: string; decision: string; at: string }[] }>) => void;
 
+  // Demo mode
+  demoMode: boolean;
+  setDemoMode: (on: boolean) => void;
+
   // Computed / derived
   filteredCompanies: () => CompanyEnriched[];
   selectedCompany: () => CompanyEnriched | null;
@@ -274,6 +279,15 @@ function loadDecisions(): Record<string, TriageDecision> {
     const raw = localStorage.getItem("nav_company_decisions");
     return raw ? JSON.parse(raw) : {};
   } catch { return {}; }
+}
+
+// Load persisted demo mode from localStorage (default true)
+function loadDemoMode(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    const raw = localStorage.getItem("nav_demo_mode");
+    return raw === null ? true : raw === "1";
+  } catch { return true; }
 }
 
 // Load persisted prospect list from localStorage
@@ -480,6 +494,15 @@ export const useStore = create<AppState>((set, get) => ({
   sessionSearchCount: 0,
   sessionTriageCount: 0,
   incrementSessionSearchCount: () => set((state) => ({ sessionSearchCount: state.sessionSearchCount + 1 })),
+
+  // Demo mode
+  demoMode: loadDemoMode(),
+  setDemoMode: (on) => {
+    set({ demoMode: on });
+    if (typeof window !== "undefined") {
+      localStorage.setItem("nav_demo_mode", on ? "1" : "0");
+    }
+  },
 
   // Follow-up nudges
   followUpNudgesDismissed: false,
@@ -997,7 +1020,25 @@ export const useStore = create<AppState>((set, get) => ({
     const preset = get().presets.find((p) => p.id === presetId);
     if (preset) {
       set({ filters: { ...preset.filters }, pendingFilterSearch: true });
+      // Clear notification badge when user clicks the preset
+      if (preset.newResultCount && preset.newResultCount > 0) {
+        get().clearPresetNotification(presetId);
+      }
     }
+  },
+
+  clearPresetNotification: (id) => {
+    set((state) => ({
+      presets: state.presets.map((p) =>
+        p.id === id ? { ...p, newResultCount: 0 } : p
+      ),
+    }));
+    // Persist to API
+    fetch("/api/presets", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    }).catch(() => { /* silent */ });
   },
 
   savePreset: (name) => {

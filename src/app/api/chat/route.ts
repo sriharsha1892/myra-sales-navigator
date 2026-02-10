@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import Groq from "groq-sdk";
 import { buildChatSystemPrompt } from "@/lib/navigator/llm/chatSystemPrompt";
 import type { ChatbotConfig } from "@/lib/navigator/types";
 import { createServerClient } from "@/lib/supabase/server";
@@ -67,6 +66,7 @@ export async function POST(request: NextRequest) {
     const temperature = config?.temperature ?? 0.4;
     const maxHistory = config?.maxHistoryMessages ?? 20;
 
+    const { default: Groq } = await import("groq-sdk");
     const groq = new Groq({ apiKey });
 
     const trimmedMessages = messages.slice(-maxHistory);

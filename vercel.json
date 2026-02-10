@@ -1,6 +1,7 @@
 {
   "crons": [
     { "path": "/api/cron/teams-daily", "schedule": "30 3 * * *" },
-    { "path": "/api/cron/teams-weekly", "schedule": "30 3 * * 1" }
+    { "path": "/api/cron/teams-weekly", "schedule": "30 3 * * 1" },
+    { "path": "/api/cron/preset-check", "schedule": "0 */6 * * *" }
   ]
 }

@@ -18,6 +18,7 @@ import { DueStepsWidget } from "@/components/navigator/outreach/DueStepsWidget";
 import { SimilarSearchBanner } from "@/components/navigator/banners/SimilarSearchBanner";
 import { ResultsTabBar } from "./ResultsTabBar";
 import { ResultsHeader } from "./ResultsHeader";
+import { SEED_COMPANIES, SEED_CONTACTS } from "@/lib/navigator/seed-data";
 
 const exampleQueries = [
   "chemicals in Europe",
@@ -55,10 +56,13 @@ export function ResultsList() {
   const allContactsViewActive = useStore((s) => s.allContactsViewActive);
   const setAllContactsViewActive = useStore((s) => s.setAllContactsViewActive);
   const presets = useStore((s) => s.presets);
+  const loadPreset = useStore((s) => s.loadPreset);
   const lastExcludedCount = useStore((s) => s.lastExcludedCount);
   const deselectAllCompanies = useStore((s) => s.deselectAllCompanies);
   const activeResultIndex = useStore((s) => s.activeResultIndex);
   const prospectList = useStore((s) => s.prospectList);
+  const demoMode = useStore((s) => s.demoMode);
+  const setContactsForDomain = useStore((s) => s.setContactsForDomain);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -81,12 +85,26 @@ export function ResultsList() {
     });
   }, [searchResults]);
 
+  // Seed contacts into store when demo mode is active
+  const seedContactsLoaded = useRef(false);
+  useEffect(() => {
+    if (demoMode && !hasSearchedRef.current && !seedContactsLoaded.current) {
+      for (const [domain, contacts] of Object.entries(SEED_CONTACTS)) {
+        setContactsForDomain(domain, contacts);
+      }
+      seedContactsLoaded.current = true;
+    }
+  }, [demoMode, setContactsForDomain]);
+  const hasSearchedRef = useRef(false);
+  if (searchResults !== null) hasSearchedRef.current = true;
+
   const dismissOnboarding = () => {
     setShowOnboarding(false);
     localStorage.setItem("nav_onboarded", "1");
   };
 
   const hasSearched = searchResults !== null;
+  const showDemoData = demoMode && !hasSearched && !searchLoading;
 
   const handleSortChange = useCallback((field: SortField) => {
     if (sortField === field) {
@@ -180,67 +198,128 @@ export function ResultsList() {
           <ProspectListView />
         ) : !hasSearched ? (
           /* Welcome state — before first search */
-          <div className="flex h-full flex-col items-center justify-center">
-            {showOnboarding && (
-              <OnboardingTour onDismiss={dismissOnboarding} />
-            )}
-            <SessionStarterCard />
-            <FollowUpNudges />
-            <h2 className="animate-fadeInUp font-display text-2xl text-text-primary" style={{ animationDelay: "0ms" }}>
-              Search for companies
-            </h2>
-            <p className="animate-fadeInUp mt-2 text-sm text-text-secondary" style={{ animationDelay: "60ms" }}>
-              A specific company, an industry, or a description of your ideal prospect
-            </p>
-
-            {sessionCompaniesReviewed > 0 && (
-              <p className="animate-fadeInUp mt-1.5 text-xs text-text-tertiary" style={{ animationDelay: "100ms" }}>
-                This session: reviewed {sessionCompaniesReviewed} companies{sessionContactsExported > 0 ? `, exported ${sessionContactsExported} contacts` : ""}
-              </p>
-            )}
-
-            <div className="mt-6 flex flex-wrap justify-center gap-2.5">
-              {quickStartChips.map((chip, i) => (
-                <button
-                  key={`${chip.label}-${i}`}
-                  onClick={chip.onClick}
-                  className="btn-press animate-fadeInUp rounded-pill border border-surface-3 bg-surface-1 px-5 py-2.5 text-sm font-medium text-text-secondary shadow-sm transition-all duration-[180ms] hover:-translate-y-0.5 hover:shadow-md hover:text-text-primary"
-                  style={{ animationDelay: `${120 + i * 60}ms` }}
-                >
-                  {chip.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Team presets */}
-            {presets.length > 0 && (
-              <div className="mt-6 w-full max-w-lg animate-fadeInUp" style={{ animationDelay: "400ms" }}>
-                <p className="mb-2 text-center text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">Team Presets</p>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {presets.slice(0, 6).map((preset) => (
-                    <button
-                      key={preset.id}
-                      onClick={() => {
-                        setFilters(preset.filters);
-                        setPendingFilterSearch(true);
-                      }}
-                      className="rounded-pill border border-accent-primary/20 bg-accent-primary/5 px-3 py-1.5 text-xs text-accent-primary transition-colors hover:bg-accent-primary/10 hover:border-accent-primary/40"
-                    >
-                      {preset.name}
-                    </button>
-                  ))}
-                </div>
+          showDemoData ? (
+            /* ======== Demo data mode ======== */
+            <div className="space-y-3">
+              {/* Demo badge */}
+              <div className="animate-fadeInUp flex items-center justify-center gap-2 rounded-card border border-surface-3 bg-surface-1/60 px-4 py-2.5">
+                <span className="rounded-pill border border-accent-secondary/30 bg-accent-secondary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent-secondary">
+                  Demo data
+                </span>
+                <span className="text-xs text-text-tertiary">
+                  Showing sample companies — run a search to see real results
+                </span>
               </div>
-            )}
 
-            {/* Steps due today */}
-            <div className="mt-6 w-full max-w-lg animate-fadeInUp" style={{ animationDelay: "460ms" }}>
-              <DueStepsWidget />
+              {/* Quick start chips */}
+              <div className="flex flex-wrap justify-center gap-2 pb-1">
+                {quickStartChips.slice(0, 4).map((chip, i) => (
+                  <button
+                    key={`${chip.label}-${i}`}
+                    onClick={chip.onClick}
+                    className="btn-press animate-fadeInUp rounded-pill border border-surface-3 bg-surface-1 px-4 py-2 text-xs font-medium text-text-secondary shadow-sm transition-all duration-[180ms] hover:-translate-y-0.5 hover:shadow-md hover:text-text-primary"
+                    style={{ animationDelay: `${60 + i * 40}ms` }}
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Seed company cards */}
+              <div role="listbox" aria-label="Demo company results" className="space-y-1.5">
+                {SEED_COMPANIES.map((company, idx) => (
+                  <div
+                    key={company.domain}
+                    className="animate-fadeInUp"
+                    style={{ animationDelay: `${100 + idx * 50}ms` }}
+                  >
+                    <CompanyCard
+                      company={company}
+                      isSelected={selectedCompanyDomain === company.domain}
+                      isChecked={selectedCompanyDomains.has(company.domain)}
+                      onSelect={() => selectCompany(company.domain)}
+                      onToggleCheck={() => toggleCompanySelection(company.domain)}
+                    />
+                    {expandedContactsDomain === company.domain && (
+                      <InlineContacts domain={company.domain} companyName={company.name} />
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="mt-8 flex w-full justify-center">
-              <MyProspects />
+          ) : (
+            /* ======== Standard welcome state (demo off) ======== */
+            <div className="flex h-full flex-col items-center justify-center">
+              {showOnboarding && (
+                <OnboardingTour onDismiss={dismissOnboarding} />
+              )}
+              <SessionStarterCard />
+              <FollowUpNudges />
+              <h2 className="animate-fadeInUp font-display text-2xl text-text-primary" style={{ animationDelay: "0ms" }}>
+                Search for companies
+              </h2>
+              <p className="animate-fadeInUp mt-2 text-sm text-text-secondary" style={{ animationDelay: "60ms" }}>
+                A specific company, an industry, or a description of your ideal prospect
+              </p>
+
+              {sessionCompaniesReviewed > 0 && (
+                <p className="animate-fadeInUp mt-1.5 text-xs text-text-tertiary" style={{ animationDelay: "100ms" }}>
+                  This session: reviewed {sessionCompaniesReviewed} companies{sessionContactsExported > 0 ? `, exported ${sessionContactsExported} contacts` : ""}
+                </p>
+              )}
+
+              <div className="mt-6 flex flex-wrap justify-center gap-2.5">
+                {quickStartChips.map((chip, i) => (
+                  <button
+                    key={`${chip.label}-${i}`}
+                    onClick={chip.onClick}
+                    className="btn-press animate-fadeInUp rounded-pill border border-surface-3 bg-surface-1 px-5 py-2.5 text-sm font-medium text-text-secondary shadow-sm transition-all duration-[180ms] hover:-translate-y-0.5 hover:shadow-md hover:text-text-primary"
+                    style={{ animationDelay: `${120 + i * 60}ms` }}
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Team presets */}
+              {presets.length > 0 && (
+                <div className="mt-6 w-full max-w-lg animate-fadeInUp" style={{ animationDelay: "400ms" }}>
+                  <div className="mb-2 flex items-center justify-center gap-1.5">
+                    <p className="text-center text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">Team Presets</p>
+                    {presets.some((p) => (p.newResultCount ?? 0) > 0) && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-accent-primary animate-pulse" />
+                    )}
+                  </div>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {presets.slice(0, 6).map((preset) => (
+                      <button
+                        key={preset.id}
+                        onClick={() => {
+                          loadPreset(preset.id);
+                        }}
+                        className="relative rounded-pill border border-accent-primary/20 bg-accent-primary/5 px-3 py-1.5 text-xs text-accent-primary transition-colors hover:bg-accent-primary/10 hover:border-accent-primary/40"
+                      >
+                        {preset.name}
+                        {(preset.newResultCount ?? 0) > 0 && (
+                          <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-accent-primary px-1 font-mono text-[9px] font-bold text-surface-0">
+                            {preset.newResultCount}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Steps due today */}
+              <div className="mt-6 w-full max-w-lg animate-fadeInUp" style={{ animationDelay: "460ms" }}>
+                <DueStepsWidget />
+              </div>
+              <div className="mt-8 flex w-full justify-center">
+                <MyProspects />
+              </div>
             </div>
-          </div>
+          )
         ) : allContactsViewActive && viewMode === "companies" ? (
           <AllContactsView />
         ) : viewMode === "companies" ? (

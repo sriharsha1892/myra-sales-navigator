@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useStore } from "@/lib/navigator/store";
 import { cn } from "@/lib/cn";
@@ -69,7 +69,7 @@ interface ContactRowProps {
   exportInfo?: { exportedBy: string; exportedAt: string };
 }
 
-export function ContactRow({
+export const ContactRow = React.memo(function ContactRow({
   contact,
   selected,
   isFocused,
@@ -319,4 +319,4 @@ export function ContactRow({
       </div>
     </div>
   );
-}
+});

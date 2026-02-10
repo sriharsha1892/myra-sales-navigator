@@ -1,12 +1,13 @@
 "use client";
 
+import React from "react";
 import { cn } from "@/lib/cn";
 
 interface SkeletonCardProps {
   className?: string;
 }
 
-export function SkeletonCard({ className }: SkeletonCardProps) {
+export const SkeletonCard = React.memo(function SkeletonCard({ className }: SkeletonCardProps) {
   return (
     <div className={cn("rounded-card border-[1.5px] border-surface-3 bg-surface-1 px-4 py-3", className)}>
       <div className="flex items-start gap-2.5">
@@ -55,4 +56,4 @@ export function SkeletonCard({ className }: SkeletonCardProps) {
       </div>
     </div>
   );
-}
+});

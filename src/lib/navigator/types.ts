@@ -308,6 +308,12 @@ export interface SearchPreset {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  /** Number of results from last cron check */
+  lastResultCount?: number;
+  /** New results since last user click */
+  newResultCount?: number;
+  /** ISO timestamp of last cron check */
+  lastCheckedAt?: string;
 }
 
 export interface CompanyNote {

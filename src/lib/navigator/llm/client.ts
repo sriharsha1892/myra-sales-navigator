@@ -1,5 +1,5 @@
-import Groq from "groq-sdk";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import type Groq from "groq-sdk";
+import type { GoogleGenerativeAI } from "@google/generative-ai";
 import { apiCallBreadcrumb } from "@/lib/sentry";
 import { logApiCall } from "../health";
 
@@ -26,17 +26,18 @@ class GroqProvider implements LLMProvider {
   readonly name = "groq";
   private client: Groq | null = null;
 
-  private getClient(): Groq {
+  private async getClient(): Promise<Groq> {
     if (!this.client) {
       const apiKey = process.env.GROQ_API_KEY;
       if (!apiKey) throw new Error("GROQ_API_KEY not configured");
-      this.client = new Groq({ apiKey });
+      const { default: GroqSDK } = await import("groq-sdk");
+      this.client = new GroqSDK({ apiKey });
     }
     return this.client;
   }
 
   async complete(prompt: string, options?: LLMOptions): Promise<string> {
-    const client = this.getClient();
+    const client = await this.getClient();
     apiCallBreadcrumb("groq", "complete", { promptLen: prompt.length, json: !!options?.json });
     const _start = Date.now();
     try {
@@ -72,17 +73,18 @@ class GeminiProvider implements LLMProvider {
   readonly name = "gemini";
   private ai: GoogleGenerativeAI | null = null;
 
-  private getAI(): GoogleGenerativeAI {
+  private async getAI(): Promise<GoogleGenerativeAI> {
     if (!this.ai) {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) throw new Error("GEMINI_API_KEY not configured");
-      this.ai = new GoogleGenerativeAI(apiKey);
+      const { GoogleGenerativeAI: GenAI } = await import("@google/generative-ai");
+      this.ai = new GenAI(apiKey);
     }
     return this.ai;
   }
 
   async complete(prompt: string, options?: LLMOptions): Promise<string> {
-    const ai = this.getAI();
+    const ai = await this.getAI();
     apiCallBreadcrumb("gemini", "complete", { promptLen: prompt.length, json: !!options?.json });
     const _start = Date.now();
     try {
