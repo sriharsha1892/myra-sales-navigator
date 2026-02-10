@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { AppShell } from "@/components/navigator/layout/AppShell";
 import { CommandPalette } from "@/components/navigator/command/CommandPalette";
 import { BulkActionBar } from "@/components/navigator/shared";
@@ -15,6 +15,10 @@ import { useStore } from "@/lib/navigator/store";
 import { MentionNotifications } from "@/components/navigator/MentionNotifications";
 import { ChatWidget } from "@/components/navigator/chat/ChatWidget";
 import { TeamPulseWidget } from "@/components/navigator/shared/TeamPulseWidget";
+import { SearchTypeahead } from "@/components/navigator/search/SearchTypeahead";
+import type { SearchTypeaheadHandle } from "@/components/navigator/search/SearchTypeahead";
+import { useTypeahead } from "@/hooks/navigator/useTypeahead";
+import type { TypeaheadItem } from "@/hooks/navigator/useTypeahead";
 
 const hintQueries = [
   "food ingredients expanding to Asia",
@@ -37,6 +41,40 @@ export default function Home() {
     () => lastSearchQuery ?? ""
   );
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const typeaheadRef = useRef<SearchTypeaheadHandle>(null);
+  const [typeaheadVisible, setTypeaheadVisible] = useState(false);
+  const typeaheadDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [debouncedInput, setDebouncedInput] = useState("");
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const { recentSearches, matchingPresets, matchingCompanies } = useTypeahead(debouncedInput);
+
+  const handleTypeaheadSelect = useCallback((item: TypeaheadItem) => {
+    setTypeaheadVisible(false);
+    if (item.type === "recent") {
+      const entry = item.entry;
+      if (entry) {
+        const hasFilters = entry.filters && (
+          (entry.filters.verticals?.length > 0) ||
+          (entry.filters.regions?.length > 0) ||
+          (entry.filters.sizes?.length > 0) ||
+          (entry.filters.signals?.length > 0)
+        );
+        if (hasFilters) {
+          useStore.getState().setFilters(entry.filters);
+          useStore.getState().setPendingFilterSearch(true);
+        } else {
+          setSearchInput(item.label);
+          useStore.getState().setPendingFreeTextSearch(item.label);
+        }
+      }
+    } else if (item.type === "preset" && item.preset) {
+      useStore.getState().loadPreset(item.preset.id);
+    } else if (item.type === "company" && item.company) {
+      setSearchInput(item.label);
+      useStore.getState().setPendingFreeTextSearch(item.label);
+    }
+  }, []);
 
   // Typing effect state
   const [typingText, setTypingText] = useState("");
@@ -92,7 +130,7 @@ export default function Home() {
     return () => { cancelled = true; };
   }, []);
 
-  // Stop typing on focus
+  // Stop typing on focus + show typeahead
   const handleSearchFocus = () => {
     if (typingActive) {
       setTypingActive(false);
@@ -100,6 +138,12 @@ export default function Home() {
       setShowGlow(false);
       localStorage.setItem("nav_search_hinted", "1");
     }
+    setTypeaheadVisible(true);
+  };
+
+  const handleSearchBlur = () => {
+    if (typeaheadDismissTimerRef.current) clearTimeout(typeaheadDismissTimerRef.current);
+    typeaheadDismissTimerRef.current = setTimeout(() => setTypeaheadVisible(false), 200);
   };
 
   if (isLoading) {
@@ -159,11 +203,34 @@ export default function Home() {
             ref={searchInputRef}
             type="text"
             value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
+            onChange={(e) => {
+              setSearchInput(e.target.value);
+              // Debounce typeahead query
+              if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+              debounceTimerRef.current = setTimeout(() => setDebouncedInput(e.target.value), 150);
+              if (!typeaheadVisible) setTypeaheadVisible(true);
+            }}
             onFocus={handleSearchFocus}
+            onBlur={handleSearchBlur}
             onKeyDown={(e) => {
+              if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                if (typeaheadVisible) {
+                  e.preventDefault();
+                  typeaheadRef.current?.handleArrowKey(e.key === "ArrowDown" ? "down" : "up");
+                  return;
+                }
+              }
               if (e.key === "Enter" && searchInput.trim()) {
+                if (typeaheadVisible && typeaheadRef.current?.hasActiveItem()) {
+                  e.preventDefault();
+                  typeaheadRef.current.selectActive();
+                  return;
+                }
+                setTypeaheadVisible(false);
                 useStore.getState().setPendingFreeTextSearch(searchInput.trim());
+              }
+              if (e.key === "Escape") {
+                setTypeaheadVisible(false);
               }
               if (e.key === "k" && e.metaKey) {
                 e.preventDefault();
@@ -179,6 +246,15 @@ export default function Home() {
           >
             &#8984;K
           </kbd>
+          <SearchTypeahead
+            ref={typeaheadRef}
+            recentSearches={recentSearches}
+            matchingPresets={matchingPresets}
+            matchingCompanies={matchingCompanies}
+            visible={typeaheadVisible}
+            onSelect={handleTypeaheadSelect}
+            onDismiss={() => setTypeaheadVisible(false)}
+          />
         </div>
 
         <div className="flex items-center gap-3">

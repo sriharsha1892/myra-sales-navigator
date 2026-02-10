@@ -269,8 +269,13 @@ interface AppState {
   mergeTeamActivity: (data: Record<string, { viewers: { user: string; at: string }[]; exporters: { user: string; at: string; count: number }[]; decisions: { user: string; decision: string; at: string }[] }>) => void;
 
   // Card density
-  cardDensity: "comfortable" | "compact";
-  setCardDensity: (density: "comfortable" | "compact") => void;
+  cardDensity: "comfortable" | "compact" | "table";
+  setCardDensity: (density: "comfortable" | "compact" | "table") => void;
+
+  // Enrichment progress
+  enrichmentProgress: { total: number; completed: number } | null;
+  setEnrichmentProgress: (p: { total: number; completed: number } | null) => void;
+  incrementEnrichmentCompleted: () => void;
 
   // Demo mode
   demoMode: boolean;
@@ -299,6 +304,15 @@ import { pick } from "./ui-copy";
 let toastCounter = 0;
 const sessionViewedDomains = new Set<string>();
 
+// Module-level stale refresh tracking (not in store to avoid Set selector instability)
+const staleRefreshedDomains = new Set<string>();
+export function hasStaleRefreshed(domain: string): boolean {
+  return staleRefreshedDomains.has(domain);
+}
+export function markStaleRefreshed(domain: string): void {
+  staleRefreshedDomains.add(domain);
+}
+
 // Load persisted triage decisions from localStorage
 function loadDecisions(): Record<string, TriageDecision> {
   if (typeof window === "undefined") return {};
@@ -318,11 +332,12 @@ function loadRelevanceFeedback(): Record<string, { feedback: RelevanceFeedback; 
 }
 
 // Load persisted card density from localStorage
-function loadCardDensity(): "comfortable" | "compact" {
+function loadCardDensity(): "comfortable" | "compact" | "table" {
   if (typeof window === "undefined") return "comfortable";
   try {
-    const raw = localStorage.getItem("nav_card_density") as "comfortable" | "compact" | null;
-    return raw === "compact" ? "compact" : "comfortable";
+    const raw = localStorage.getItem("nav_card_density") as "comfortable" | "compact" | "table" | null;
+    if (raw === "compact" || raw === "table") return raw;
+    return "comfortable";
   } catch { return "comfortable"; }
 }
 
@@ -600,6 +615,18 @@ export const useStore = create<AppState>((set, get) => ({
     if (typeof window !== "undefined") {
       localStorage.setItem("nav_card_density", density);
     }
+  },
+
+  // Enrichment progress
+  enrichmentProgress: null,
+  setEnrichmentProgress: (p) => set({ enrichmentProgress: p }),
+  incrementEnrichmentCompleted: () => {
+    const current = get().enrichmentProgress;
+    if (!current) return;
+    const completed = current.completed + 1;
+    set({
+      enrichmentProgress: completed >= current.total ? null : { ...current, completed },
+    });
   },
 
   // Demo mode

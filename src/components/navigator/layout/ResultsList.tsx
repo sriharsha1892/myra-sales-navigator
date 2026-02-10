@@ -15,6 +15,7 @@ import { SessionStarterCard } from "@/components/navigator/home/SessionStarterCa
 import { SimilarSearchBanner } from "@/components/navigator/banners/SimilarSearchBanner";
 import { ResultsTabBar } from "./ResultsTabBar";
 import { ResultsHeader } from "./ResultsHeader";
+import { CompanyTable } from "@/components/navigator/table/CompanyTable";
 import { SEED_COMPANIES, SEED_CONTACTS } from "@/lib/navigator/seed-data";
 
 const exampleQueries = [
@@ -65,6 +66,8 @@ export function ResultsList() {
   const similarLoading = useStore((s) => s.similarLoading);
   const setSimilarResults = useStore((s) => s.setSimilarResults);
   const cardDensity = useStore((s) => s.cardDensity);
+  const contactsByDomain = useStore((s) => s.contactsByDomain);
+  const selectAllCompanies = useStore((s) => s.selectAllCompanies);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -317,6 +320,28 @@ export function ResultsList() {
           )
         ) : allContactsViewActive && viewMode === "companies" ? (
           <AllContactsView />
+        ) : viewMode === "companies" && cardDensity === "table" ? (
+          companies.length === 0 ? (
+            searchError ? (
+              <EmptyState icon="search" title="Search failed" description="Something went wrong with the search. Check the error above and try again." />
+            ) : (
+              <NoResultsSuggestions />
+            )
+          ) : (
+            <>
+              <SimilarSearchBanner />
+              <CompanyTable
+                companies={companies}
+                selectedCompanyDomain={selectedCompanyDomain}
+                selectedCompanyDomains={selectedCompanyDomains}
+                contactsByDomain={contactsByDomain}
+                onSelectCompany={selectCompany}
+                onToggleCheck={toggleCompanySelection}
+                onSelectAll={selectAllCompanies}
+                onDeselectAll={deselectAllCompanies}
+              />
+            </>
+          )
         ) : viewMode === "companies" ? (
           companies.length === 0 ? (
             searchError ? (

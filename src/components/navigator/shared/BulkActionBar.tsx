@@ -13,6 +13,7 @@ import { cn } from "@/lib/cn";
 import { AnimatedNumber } from "./AnimatedNumber";
 import { Tooltip } from "@/components/navigator/shared/Tooltip";
 import { pick } from "@/lib/navigator/ui-copy";
+import { CompanyComparisonModal } from "@/components/navigator/comparison/CompanyComparisonModal";
 
 export function BulkActionBar() {
   const viewMode = useStore((s) => s.viewMode);
@@ -31,6 +32,7 @@ export function BulkActionBar() {
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [showExcludeConfirm, setShowExcludeConfirm] = useState(false);
   const [showEnrollModal, setShowEnrollModal] = useState(false);
+  const [showComparison, setShowComparison] = useState(false);
 
   const filteredCompanies = useStore((s) => s.filteredCompanies);
   const contactsByDomain = useStore((s) => s.contactsByDomain);
@@ -184,6 +186,9 @@ export function BulkActionBar() {
                 </Tooltip>
                 {viewMode === "companies" && (
                   <>
+                    {count >= 2 && count <= 3 && (
+                      <BulkButton onClick={() => setShowComparison(true)} label="Compare" />
+                    )}
                     <BulkButton
                       onClick={() => setShowEnrollModal(true)}
                       label={`Enroll${enrollableContacts.length > 0 ? ` (${enrollableContacts.length})` : ""}`}
@@ -233,6 +238,13 @@ export function BulkActionBar() {
         <BulkSequenceEnrollModal
           contacts={enrollableContacts}
           onClose={() => setShowEnrollModal(false)}
+        />
+      )}
+
+      {showComparison && (
+        <CompanyComparisonModal
+          domains={domains}
+          onClose={() => setShowComparison(false)}
         />
       )}
     </>

@@ -25,6 +25,7 @@ export const ResultsHeader = React.memo(function ResultsHeader({
   const searchErrors = useStore((s) => s.searchErrors);
   const searchWarnings = useStore((s) => s.searchWarnings);
   const retryLastSearch = useStore((s) => s.retryLastSearch);
+  const enrichmentProgress = useStore((s) => s.enrichmentProgress);
 
   const hasStructuredErrors = searchErrors.length > 0;
 
@@ -32,13 +33,28 @@ export const ResultsHeader = React.memo(function ResultsHeader({
     <>
       {/* Persistent search query header */}
       {(hasSearched || searchLoading) && lastSearchQuery && (
-        <div className="sticky top-0 z-20 flex flex-shrink-0 items-center gap-2 border-b border-surface-3 bg-surface-1/80 backdrop-blur-sm px-4 py-1.5">
-          <span className="text-xs text-text-tertiary">Results for</span>
-          <span className="max-w-[360px] truncate inline-block align-bottom font-mono text-xs text-text-secondary" title={lastSearchQuery ?? undefined}>&ldquo;{lastSearchQuery}&rdquo;</span>
-          {!searchLoading && companyCount > 0 && (
-            <span className="text-xs text-text-tertiary">
-              ({companyCount} companies{lastExcludedCount > 0 ? `, ${lastExcludedCount} excluded` : ""})
-            </span>
+        <div className="sticky top-0 z-20 flex flex-shrink-0 flex-col border-b border-surface-3 bg-surface-1/80 backdrop-blur-sm px-4 py-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-text-tertiary">Results for</span>
+            <span className="max-w-[360px] truncate inline-block align-bottom font-mono text-xs text-text-secondary" title={lastSearchQuery ?? undefined}>&ldquo;{lastSearchQuery}&rdquo;</span>
+            {!searchLoading && companyCount > 0 && (
+              <span className="text-xs text-text-tertiary">
+                ({companyCount} companies{lastExcludedCount > 0 ? `, ${lastExcludedCount} excluded` : ""})
+              </span>
+            )}
+          </div>
+          {enrichmentProgress && (
+            <div className="mt-1">
+              <span className="text-[10px] text-text-tertiary">
+                Enriching contacts {enrichmentProgress.completed}/{enrichmentProgress.total}...
+              </span>
+              <div className="mt-0.5 h-1 w-full overflow-hidden rounded-full bg-surface-3">
+                <div
+                  className="h-full bg-accent-secondary transition-all duration-300 ease-out rounded-full"
+                  style={{ width: `${(enrichmentProgress.completed / enrichmentProgress.total) * 100}%` }}
+                />
+              </div>
+            </div>
           )}
         </div>
       )}

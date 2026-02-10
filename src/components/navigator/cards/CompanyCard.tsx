@@ -15,6 +15,9 @@ import { logEmailCopy } from "@/lib/navigator/logEmailCopy";
 import { TeamActivityBadge } from "@/components/navigator/badges/TeamActivityBadge";
 import { pick } from "@/lib/navigator/ui-copy";
 import { DossierPreviewPopover } from "./DossierPreviewPopover";
+import { isStale } from "@/lib/navigator/staleness";
+import { formatTimeAgo } from "@/components/navigator/shared/StalenessIndicator";
+import { hasStaleRefreshed, markStaleRefreshed } from "@/lib/navigator/store";
 
 interface CompanyCardProps {
   company: CompanyEnriched;
@@ -131,6 +134,7 @@ export function CompanyCard({
   const queryClient = useQueryClient();
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stale = isStale(company.lastRefreshed);
 
   const handleMouseEnter = useCallback(() => {
     hoverTimerRef.current = setTimeout(() => {
@@ -157,7 +161,13 @@ export function CompanyCard({
       Promise.all([p1, p2]).finally(() => setIsPrefetching(false));
     }, 500);
     previewTimerRef.current = setTimeout(() => setShowPreview(true), 800);
-  }, [company.domain, queryClient]);
+
+    // Stale data: fire-and-forget background refresh on first hover this session
+    if (stale && !hasStaleRefreshed(company.domain)) {
+      markStaleRefreshed(company.domain);
+      fetch(`/api/company/${encodeURIComponent(company.domain)}`).catch(() => {});
+    }
+  }, [company.domain, queryClient, stale]);
 
   const handleMouseLeave = useCallback(() => {
     if (hoverTimerRef.current) {
@@ -292,6 +302,15 @@ export function CompanyCard({
         <span className="text-xs text-text-secondary">{company.employeeCount?.toLocaleString("en-US") ?? "—"}</span>
         <span className="text-xs text-text-tertiary">&middot;</span>
         <span className="max-w-[100px] truncate text-xs text-text-secondary">{company.location}</span>
+        {stale && (
+          <>
+            <span className="text-xs text-text-tertiary">&middot;</span>
+            <span className="text-[10px] text-warning flex-shrink-0" title={formatTimeAgo(company.lastRefreshed)}>
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline -mt-px mr-px"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+              24h+
+            </span>
+          </>
+        )}
         {crmPill && (
           <span className="flex-shrink-0 rounded-pill px-1.5 py-0.5 text-[10px] font-medium" style={{ backgroundColor: crmPill.colors.bg, color: crmPill.colors.text }}>
             {crmPill.label}
@@ -490,6 +509,15 @@ export function CompanyCard({
             )}
             <span className="text-text-tertiary">&middot;</span>
             <span>{company.location}</span>
+            {stale && (
+              <>
+                <span className="text-text-tertiary">&middot;</span>
+                <span className="text-[10px] text-warning flex-shrink-0" title={formatTimeAgo(company.lastRefreshed)}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline -mt-px mr-px"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                  24h+
+                </span>
+              </>
+            )}
           </div>
 
           {/* Signal headline */}

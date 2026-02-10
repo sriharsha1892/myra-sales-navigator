@@ -83,10 +83,13 @@ export function SearchBridge() {
     const limit = pLimit(3);
     const store = useStore.getState();
 
-    for (const company of top10) {
-      // Skip if contacts already cached
-      if (store.contactsByDomain[company.domain]?.length) continue;
+    // Filter to companies needing pre-warm
+    const needPreWarm = top10.filter((c) => !store.contactsByDomain[c.domain]?.length);
+    if (needPreWarm.length > 0) {
+      store.setEnrichmentProgress({ total: needPreWarm.length, completed: 0 });
+    }
 
+    for (const company of needPreWarm) {
       limit(async () => {
         if (controller.signal.aborted) return;
         try {
@@ -104,6 +107,8 @@ export function SearchBridge() {
           }
         } catch {
           // Silent — pre-warming is best-effort
+        } finally {
+          useStore.getState().incrementEnrichmentCompleted();
         }
       });
     }
@@ -161,6 +166,7 @@ export function SearchBridge() {
       setLastSearchQuery(text);
       setLastICPCriteria(null);
       setLastSearchParams({ freeText: text });
+      useStore.getState().setEnrichmentProgress(null);
       search(
         { freeText: text, signal: controller.signal },
         {
@@ -199,6 +205,7 @@ export function SearchBridge() {
       setLastSearchQuery(summarizeFilters(currentFilters));
       setLastICPCriteria(null);
       setLastSearchParams({ filters: currentFilters });
+      useStore.getState().setEnrichmentProgress(null);
       search(
         { filters: currentFilters, signal: controller.signal },
         {

@@ -34,6 +34,8 @@ export const ResultsTabBar = React.memo(function ResultsTabBar({
   onSortDirectionToggle,
   onDeselectAll,
 }: ResultsTabBarProps) {
+  const cardDensity = useStore((s) => s.cardDensity);
+
   return (
     <div className="ambient-header relative bg-surface-0 border-b border-surface-3 flex flex-shrink-0 flex-wrap items-center gap-3 px-4 py-2.5">
       {searchLoading && (
@@ -69,39 +71,41 @@ export const ResultsTabBar = React.memo(function ResultsTabBar({
       <div className="ml-auto flex items-center gap-3">
         {viewMode === "companies" && (
           <>
-            {/* Sort — dot-separated text links */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs uppercase tracking-[0.06em] text-text-secondary">Sort</span>
-              <div className="flex items-center">
-                {(["icp_score", "name", "employee_count"] as SortField[]).map((field, i) => {
-                  const labels: Record<SortField, string> = { icp_score: "Score", name: "Name", employee_count: "Size", relevance: "Relevance" };
-                  const sortIcons: Record<SortField, string> = { icp_score: "\u2605", name: "Az", employee_count: "\u2195", relevance: "\u2261" };
-                  const isActive = sortField === field;
-                  return (
-                    <span key={field} className="flex items-center">
-                      {i > 0 && <span className="mx-1 text-text-tertiary/40">&middot;</span>}
-                      <button
-                        onClick={() => onSortChange(field)}
-                        className={`rounded px-1.5 py-0.5 text-xs transition-all duration-[180ms] ${
-                          isActive
-                            ? "bg-surface-2 font-semibold text-text-primary"
-                            : "text-text-secondary hover:bg-surface-2 hover:text-text-primary"
-                        }`}
-                      >
-                        <span className="mr-0.5 opacity-60">{sortIcons[field]}</span>{labels[field]}
-                      </button>
-                    </span>
-                  );
-                })}
+            {/* Sort — dot-separated text links (hidden in table mode — table has column headers) */}
+            {cardDensity !== "table" && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs uppercase tracking-[0.06em] text-text-secondary">Sort</span>
+                <div className="flex items-center">
+                  {(["icp_score", "name", "employee_count"] as SortField[]).map((field, i) => {
+                    const labels: Record<SortField, string> = { icp_score: "Score", name: "Name", employee_count: "Size", relevance: "Relevance" };
+                    const sortIcons: Record<SortField, string> = { icp_score: "\u2605", name: "Az", employee_count: "\u2195", relevance: "\u2261" };
+                    const isActive = sortField === field;
+                    return (
+                      <span key={field} className="flex items-center">
+                        {i > 0 && <span className="mx-1 text-text-tertiary/40">&middot;</span>}
+                        <button
+                          onClick={() => onSortChange(field)}
+                          className={`rounded px-1.5 py-0.5 text-xs transition-all duration-[180ms] ${
+                            isActive
+                              ? "bg-surface-2 font-semibold text-text-primary"
+                              : "text-text-secondary hover:bg-surface-2 hover:text-text-primary"
+                          }`}
+                        >
+                          <span className="mr-0.5 opacity-60">{sortIcons[field]}</span>{labels[field]}
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+                <button
+                  onClick={onSortDirectionToggle}
+                  className="btn-press text-xs text-text-tertiary hover:text-text-primary transition-colors duration-[180ms]"
+                  aria-label={sortDirection === "desc" ? "Descending" : "Ascending"}
+                >
+                  {sortDirection === "desc" ? "\u2193" : "\u2191"}
+                </button>
               </div>
-              <button
-                onClick={onSortDirectionToggle}
-                className="btn-press text-xs text-text-tertiary hover:text-text-primary transition-colors duration-[180ms]"
-                aria-label={sortDirection === "desc" ? "Descending" : "Ascending"}
-              >
-                {sortDirection === "desc" ? "\u2193" : "\u2191"}
-              </button>
-            </div>
+            )}
             <DensityToggle />
           </>
         )}
@@ -114,16 +118,37 @@ export const ResultsTabBar = React.memo(function ResultsTabBar({
 function DensityToggle() {
   const cardDensity = useStore((s) => s.cardDensity);
   const setCardDensity = useStore((s) => s.setCardDensity);
-  const isCompact = cardDensity === "compact";
+
+  const cycleNext = () => {
+    const order = ["comfortable", "compact", "table"] as const;
+    const idx = order.indexOf(cardDensity);
+    setCardDensity(order[(idx + 1) % order.length]);
+  };
+
+  const labels: Record<string, string> = {
+    comfortable: "Compact view",
+    compact: "Table view",
+    table: "Comfortable view",
+  };
 
   return (
-    <Tooltip text={isCompact ? "Comfortable view" : "Compact view"}>
+    <Tooltip text={labels[cardDensity] ?? "Change view"}>
       <button
-        onClick={() => setCardDensity(isCompact ? "comfortable" : "compact")}
+        onClick={cycleNext}
         className="btn-press text-text-tertiary hover:text-text-primary transition-colors duration-[180ms]"
-        aria-label={isCompact ? "Switch to comfortable view" : "Switch to compact view"}
+        aria-label={labels[cardDensity]}
       >
-        {isCompact ? (
+        {cardDensity === "table" ? (
+          /* 4x3 grid — spreadsheet icon */
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <rect x="2" y="2" width="4" height="3" rx="0.5" />
+            <rect x="8" y="2" width="4" height="3" rx="0.5" />
+            <rect x="2" y="7" width="4" height="3" rx="0.5" />
+            <rect x="8" y="7" width="4" height="3" rx="0.5" />
+            <rect x="2" y="12" width="4" height="2" rx="0.5" />
+            <rect x="8" y="12" width="4" height="2" rx="0.5" />
+          </svg>
+        ) : cardDensity === "compact" ? (
           /* 4 thin evenly spaced lines — compact icon */
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
             <line x1="2" y1="3" x2="14" y2="3" />

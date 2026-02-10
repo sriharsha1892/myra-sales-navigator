@@ -10,7 +10,7 @@ interface StalenessIndicatorProps {
   className?: string;
 }
 
-function formatTimeAgo(dateStr: string): string {
+export function formatTimeAgo(dateStr: string): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();
   const diffMs = now - then;

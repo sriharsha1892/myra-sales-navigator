@@ -53,7 +53,11 @@ vi.mock("@/lib/navigator/store", async () => {
   useStore.getState = store.getState;
   useStore.setState = store.setState;
   useStore.subscribe = store.subscribe;
-  return { useStore };
+  return {
+    useStore,
+    hasStaleRefreshed: () => false,
+    markStaleRefreshed: () => {},
+  };
 });
 
 // ---------------------------------------------------------------------------
