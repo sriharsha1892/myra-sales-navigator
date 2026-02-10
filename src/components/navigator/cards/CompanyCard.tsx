@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/cn";
 import type { CompanyEnriched } from "@/lib/navigator/types";
@@ -14,6 +14,7 @@ import type { Contact } from "@/lib/navigator/types";
 import { logEmailCopy } from "@/lib/navigator/logEmailCopy";
 import { TeamActivityBadge } from "@/components/navigator/badges/TeamActivityBadge";
 import { pick } from "@/lib/navigator/ui-copy";
+import { DossierPreviewPopover } from "./DossierPreviewPopover";
 
 interface CompanyCardProps {
   company: CompanyEnriched;
@@ -21,6 +22,7 @@ interface CompanyCardProps {
   isChecked: boolean;
   onSelect: () => void;
   onToggleCheck: () => void;
+  compact?: boolean;
 }
 
 const signalPillColors: Record<string, string> = {
@@ -96,6 +98,7 @@ export function CompanyCard({
   isChecked,
   onSelect,
   onToggleCheck,
+  compact,
 }: CompanyCardProps) {
   const setExpandedContactsDomain = useStore((s) => s.setExpandedContactsDomain);
   const contactsForDomain = useStore((s) => s.contactsByDomain[company.domain]);
@@ -123,8 +126,11 @@ export function CompanyCard({
   const [showMoreContacts, setShowMoreContacts] = useState(false);
   const [isPrefetching, setIsPrefetching] = useState(false);
   const [copiedContactId, setCopiedContactId] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [copiedBestEmail, setCopiedBestEmail] = useState(false);
   const queryClient = useQueryClient();
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleMouseEnter = useCallback(() => {
     hoverTimerRef.current = setTimeout(() => {
@@ -150,6 +156,7 @@ export function CompanyCard({
       });
       Promise.all([p1, p2]).finally(() => setIsPrefetching(false));
     }, 500);
+    previewTimerRef.current = setTimeout(() => setShowPreview(true), 800);
   }, [company.domain, queryClient]);
 
   const handleMouseLeave = useCallback(() => {
@@ -157,6 +164,11 @@ export function CompanyCard({
       clearTimeout(hoverTimerRef.current);
       hoverTimerRef.current = null;
     }
+    if (previewTimerRef.current) {
+      clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = null;
+    }
+    setShowPreview(false);
   }, []);
 
   const logoSrc = company.logoUrl ?? (company.domain ? `https://www.google.com/s2/favicons?domain=${company.domain}&sz=40` : null);
@@ -204,6 +216,125 @@ export function CompanyCard({
     setScrollToContactId(contactId);
   };
 
+  // Best email for quick-copy button (first Freshsales contact with email, else first with email)
+  const bestContact = inlineContacts.find((c) => c.email);
+  const bestEmail = bestContact?.email ?? null;
+
+  // Auto-load contacts for exact match companies (Freshsales prominence)
+  const autoLoadFiredRef = useRef(false);
+  useEffect(() => {
+    if (company.exactMatch && !hasContactsLoaded && !inlineContactsLoading && !autoLoadFiredRef.current) {
+      autoLoadFiredRef.current = true;
+      setInlineContactsLoading(true);
+      const nameParam = company.name && company.name !== company.domain ? `?name=${encodeURIComponent(company.name)}` : "";
+      fetch(`/api/company/${encodeURIComponent(company.domain)}/contacts${nameParam}`)
+        .then(async (res) => {
+          if (!res.ok) throw new Error(`${res.status}`);
+          const data = await res.json();
+          setContactsForDomain(company.domain, data.contacts ?? []);
+        })
+        .catch(() => { /* silent */ })
+        .finally(() => setInlineContactsLoading(false));
+    }
+  }, [company.exactMatch, company.domain, company.name, hasContactsLoaded, inlineContactsLoading, setContactsForDomain]);
+
+  // Split inline contacts into CRM (Freshsales) and other for visual separation
+  const crmContacts = useMemo(() => inlineContacts.filter((c) => c.sources.includes("freshsales" as import("@/lib/navigator/types").ResultSource)), [inlineContacts]);
+  const otherContacts = useMemo(() => inlineContacts.filter((c) => !c.sources.includes("freshsales" as import("@/lib/navigator/types").ResultSource)), [inlineContacts]);
+
+  // ─── Compact mode ─── early return with minimal card
+  if (compact) {
+    const crmPill = company.freshsalesStatus && company.freshsalesStatus !== "none"
+      ? { label: freshsalesLabels[company.freshsalesStatus] ?? company.freshsalesStatus, colors: crmStatusColors[company.freshsalesStatus] ?? { bg: "rgba(107,114,128,0.12)", text: "#6b7280" } }
+      : company.hubspotStatus && company.hubspotStatus !== "none"
+        ? { label: hubspotLabels[company.hubspotStatus] || company.hubspotStatus, colors: crmStatusColors[company.hubspotStatus] ?? { bg: "rgba(107,114,128,0.12)", text: "#6b7280" } }
+        : null;
+
+    return (
+      <div
+        id={`company-${company.domain}`}
+        role="option"
+        aria-selected={isSelected}
+        tabIndex={-1}
+        onClick={onSelect}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        className={cn(
+          "group relative flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-1.5 transition-colors",
+          isSelected ? "border-accent-primary bg-accent-primary-light" : "border-surface-3 bg-surface-1 hover:border-accent-primary/30",
+          isChecked && "ring-1 ring-accent-highlight/30"
+        )}
+      >
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleCheck(); }}
+          tabIndex={-1}
+          aria-label={isChecked ? `Deselect ${company.name}` : `Select ${company.name}`}
+          className={cn(
+            "flex h-3 w-3 flex-shrink-0 items-center justify-center rounded transition-all duration-150",
+            isChecked ? "bg-accent-primary text-white" : "border border-surface-3 hover:border-accent-primary"
+          )}
+        >
+          {isChecked && (
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          )}
+        </button>
+        {logoSrc && !logoError && (
+          <img src={logoSrc} alt="" width={16} height={16} className="h-4 w-4 flex-shrink-0 rounded" onError={() => setLogoError(true)} />
+        )}
+        <span className="min-w-0 max-w-[180px] truncate text-sm font-medium text-text-primary" title={company.name}>
+          {company.name}
+        </span>
+        <span className="text-xs text-text-tertiary">&middot;</span>
+        <span className="max-w-[120px] truncate text-xs text-text-secondary">{company.industry}</span>
+        <span className="text-xs text-text-tertiary">&middot;</span>
+        <span className="text-xs text-text-secondary">{company.employeeCount?.toLocaleString("en-US") ?? "—"}</span>
+        <span className="text-xs text-text-tertiary">&middot;</span>
+        <span className="max-w-[100px] truncate text-xs text-text-secondary">{company.location}</span>
+        {crmPill && (
+          <span className="flex-shrink-0 rounded-pill px-1.5 py-0.5 text-[10px] font-medium" style={{ backgroundColor: crmPill.colors.bg, color: crmPill.colors.text }}>
+            {crmPill.label}
+          </span>
+        )}
+        <div className="ml-auto flex items-center gap-1.5">
+          <IcpScoreBadge score={company.icpScore} breakdown={company.icpBreakdown} showBreakdown />
+          {bestEmail && (
+            <Tooltip text={`Copy: ${bestEmail}`}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigator.clipboard.writeText(bestEmail).then(() => {
+                    setCopiedBestEmail(true);
+                    addToast({ message: `Copied ${bestEmail}`, type: "success", duration: 1500, dedupKey: "quick-copy" });
+                    setTimeout(() => setCopiedBestEmail(false), 1500);
+                    logEmailCopy(bestEmail, `${bestContact!.firstName} ${bestContact!.lastName}`, company.domain);
+                  });
+                }}
+                aria-label="Copy best email"
+                className="flex-shrink-0 text-text-tertiary transition-colors hover:text-accent-primary"
+              >
+                {copiedBestEmail ? (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-success"><polyline points="20 6 9 17 4 12" /></svg>
+                ) : (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                )}
+              </button>
+            </Tooltip>
+          )}
+        </div>
+        {showPreview && !isSelected && (
+          <DossierPreviewPopover
+            domain={company.domain}
+            company={company}
+            onMouseEnter={() => { if (previewTimerRef.current) clearTimeout(previewTimerRef.current); }}
+            onMouseLeave={handleMouseLeave}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       id={`company-${company.domain}`}
@@ -214,7 +345,7 @@ export function CompanyCard({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       className={cn(
-        "group card-interactive cursor-pointer rounded-card border-[1.5px] px-4 py-3",
+        "group relative card-interactive cursor-pointer rounded-card border-[1.5px] px-4 py-3",
         isSelected
           ? "border-accent-primary bg-accent-primary-light shadow-sm"
           : "bg-surface-1 border-surface-3 shadow-sm hover:border-accent-primary/30",
@@ -276,6 +407,29 @@ export function CompanyCard({
               {company.name}
             </h3>
             <div className="flex items-center gap-1.5">
+              {bestEmail && (
+                <Tooltip text={`Copy: ${bestEmail}`}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigator.clipboard.writeText(bestEmail).then(() => {
+                        setCopiedBestEmail(true);
+                        addToast({ message: `Copied ${bestEmail}`, type: "success", duration: 1500, dedupKey: "quick-copy" });
+                        setTimeout(() => setCopiedBestEmail(false), 1500);
+                        logEmailCopy(bestEmail, `${bestContact!.firstName} ${bestContact!.lastName}`, company.domain);
+                      });
+                    }}
+                    aria-label="Copy best email"
+                    className="flex-shrink-0 text-text-tertiary transition-colors hover:text-accent-primary"
+                  >
+                    {copiedBestEmail ? (
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-success"><polyline points="20 6 9 17 4 12" /></svg>
+                    ) : (
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                    )}
+                  </button>
+                </Tooltip>
+              )}
               {company.teamActivity && <TeamActivityBadge activity={company.teamActivity} />}
               <IcpScoreBadge score={company.icpScore} breakdown={company.icpBreakdown} showBreakdown />
               {company.nlIcpReasoning && (
@@ -551,8 +705,13 @@ export function CompanyCard({
           {hasContactsLoaded ? (
             inlineContacts.length > 0 ? (
               <div className="mt-2 border-t border-surface-3 pt-2">
+                {crmContacts.length > 0 && (
+                  <span className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-[#d4a012]">
+                    CRM Contacts
+                  </span>
+                )}
                 <div className="space-y-1">
-                  {inlineContacts.map((contact) => (
+                  {(crmContacts.length > 0 ? [...crmContacts, ...otherContacts] : inlineContacts).map((contact) => (
                     <div
                       key={contact.id}
                       className="flex items-center gap-2 rounded px-1 py-0.5 text-[11px] transition-colors hover:bg-surface-2"
@@ -686,6 +845,14 @@ export function CompanyCard({
           )}
         </div>
       </div>
+      {showPreview && !isSelected && (
+        <DossierPreviewPopover
+          domain={company.domain}
+          company={company}
+          onMouseEnter={() => { if (previewTimerRef.current) clearTimeout(previewTimerRef.current); }}
+          onMouseLeave={handleMouseLeave}
+        />
+      )}
     </div>
   );
 }

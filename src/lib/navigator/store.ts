@@ -268,6 +268,10 @@ interface AppState {
   dismissSimilarSearch: () => void;
   mergeTeamActivity: (data: Record<string, { viewers: { user: string; at: string }[]; exporters: { user: string; at: string; count: number }[]; decisions: { user: string; decision: string; at: string }[] }>) => void;
 
+  // Card density
+  cardDensity: "comfortable" | "compact";
+  setCardDensity: (density: "comfortable" | "compact") => void;
+
   // Demo mode
   demoMode: boolean;
   setDemoMode: (on: boolean) => void;
@@ -311,6 +315,15 @@ function loadRelevanceFeedback(): Record<string, { feedback: RelevanceFeedback; 
     const raw = localStorage.getItem("nav_relevance_feedback");
     return raw ? JSON.parse(raw) : {};
   } catch { return {}; }
+}
+
+// Load persisted card density from localStorage
+function loadCardDensity(): "comfortable" | "compact" {
+  if (typeof window === "undefined") return "comfortable";
+  try {
+    const raw = localStorage.getItem("nav_card_density") as "comfortable" | "compact" | null;
+    return raw === "compact" ? "compact" : "comfortable";
+  } catch { return "comfortable"; }
 }
 
 // Load persisted demo mode from localStorage (default true)
@@ -579,6 +592,15 @@ export const useStore = create<AppState>((set, get) => ({
   sessionSearchCount: 0,
   sessionTriageCount: 0,
   incrementSessionSearchCount: () => set((state) => ({ sessionSearchCount: state.sessionSearchCount + 1 })),
+
+  // Card density
+  cardDensity: loadCardDensity(),
+  setCardDensity: (density) => {
+    set({ cardDensity: density });
+    if (typeof window !== "undefined") {
+      localStorage.setItem("nav_card_density", density);
+    }
+  },
 
   // Demo mode
   demoMode: loadDemoMode(),

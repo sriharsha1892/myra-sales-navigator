@@ -64,6 +64,7 @@ export function ResultsList() {
   const similarResults = useStore((s) => s.similarResults);
   const similarLoading = useStore((s) => s.similarLoading);
   const setSimilarResults = useStore((s) => s.setSimilarResults);
+  const cardDensity = useStore((s) => s.cardDensity);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -245,6 +246,7 @@ export function ResultsList() {
                       isChecked={selectedCompanyDomains.has(company.domain)}
                       onSelect={() => selectCompany(company.domain)}
                       onToggleCheck={() => toggleCompanySelection(company.domain)}
+                      compact={cardDensity === "compact"}
                     />
                     {expandedContactsDomain === company.domain && (
                       <InlineContacts domain={company.domain} companyName={company.name} />
@@ -362,6 +364,7 @@ export function ResultsList() {
                         isChecked={selectedCompanyDomains.has(company.domain)}
                         onSelect={() => selectCompany(company.domain)}
                         onToggleCheck={() => toggleCompanySelection(company.domain)}
+                        compact={cardDensity === "compact"}
                       />
                       {expandedContactsDomain === company.domain && (
                         <InlineContacts domain={company.domain} companyName={company.name} />
@@ -388,6 +391,7 @@ export function ResultsList() {
                         isChecked={selectedCompanyDomains.has(exactMatch.domain)}
                         onSelect={() => selectCompany(exactMatch.domain)}
                         onToggleCheck={() => toggleCompanySelection(exactMatch.domain)}
+                        compact={cardDensity === "compact"}
                       />
                       {expandedContactsDomain === exactMatch.domain && (
                         <InlineContacts domain={exactMatch.domain} companyName={exactMatch.name} />
@@ -477,6 +481,7 @@ export function ResultsList() {
                           isChecked={selectedCompanyDomains.has(company.domain)}
                           onSelect={() => selectCompany(company.domain)}
                           onToggleCheck={() => toggleCompanySelection(company.domain)}
+                          compact={cardDensity === "compact"}
                         />
                         {expandedContactsDomain === company.domain && (
                           <InlineContacts domain={company.domain} companyName={company.name} />
@@ -576,6 +581,7 @@ function ProspectListView() {
   const selectedCompanyDomains = useStore((s) => s.selectedCompanyDomains);
   const toggleCompanySelection = useStore((s) => s.toggleCompanySelection);
   const expandedContactsDomain = useStore((s) => s.expandedContactsDomain);
+  const cardDensity = useStore((s) => s.cardDensity);
 
   const domains = useMemo(() => [...prospectList], [prospectList]);
 
@@ -627,6 +633,7 @@ function ProspectListView() {
               isChecked={selectedCompanyDomains.has(company.domain)}
               onSelect={() => selectCompany(company.domain)}
               onToggleCheck={() => toggleCompanySelection(company.domain)}
+              compact={cardDensity === "compact"}
             />
             {expandedContactsDomain === company.domain && (
               <InlineContacts domain={company.domain} companyName={company.name} />

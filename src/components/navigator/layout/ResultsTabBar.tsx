@@ -2,7 +2,9 @@
 
 import React from "react";
 import { ViewToggle } from "@/components/navigator/shared";
+import { Tooltip } from "@/components/navigator/shared/Tooltip";
 import { CreditUsageIndicator } from "@/components/navigator/CreditUsageIndicator";
+import { useStore } from "@/lib/navigator/store";
 import type { SortField, ViewMode } from "@/lib/navigator/types";
 
 interface ResultsTabBarProps {
@@ -100,6 +102,7 @@ export const ResultsTabBar = React.memo(function ResultsTabBar({
                 {sortDirection === "desc" ? "\u2193" : "\u2191"}
               </button>
             </div>
+            <DensityToggle />
           </>
         )}
         <CreditUsageIndicator />
@@ -107,3 +110,36 @@ export const ResultsTabBar = React.memo(function ResultsTabBar({
     </div>
   );
 });
+
+function DensityToggle() {
+  const cardDensity = useStore((s) => s.cardDensity);
+  const setCardDensity = useStore((s) => s.setCardDensity);
+  const isCompact = cardDensity === "compact";
+
+  return (
+    <Tooltip text={isCompact ? "Comfortable view" : "Compact view"}>
+      <button
+        onClick={() => setCardDensity(isCompact ? "comfortable" : "compact")}
+        className="btn-press text-text-tertiary hover:text-text-primary transition-colors duration-[180ms]"
+        aria-label={isCompact ? "Switch to comfortable view" : "Switch to compact view"}
+      >
+        {isCompact ? (
+          /* 4 thin evenly spaced lines — compact icon */
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <line x1="2" y1="3" x2="14" y2="3" />
+            <line x1="2" y1="6.33" x2="14" y2="6.33" />
+            <line x1="2" y1="9.67" x2="14" y2="9.67" />
+            <line x1="2" y1="13" x2="14" y2="13" />
+          </svg>
+        ) : (
+          /* 3 lines with different lengths — comfortable/list icon */
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <line x1="2" y1="4" x2="14" y2="4" />
+            <line x1="2" y1="8" x2="11" y2="8" />
+            <line x1="2" y1="12" x2="13" y2="12" />
+          </svg>
+        )}
+      </button>
+    </Tooltip>
+  );
+}

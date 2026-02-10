@@ -73,9 +73,12 @@ export function SearchBridge() {
     const controller = new AbortController();
     preWarmAbortRef.current = controller;
 
-    const top10 = [...companies]
+    const exactMatches = companies.filter((c) => c.exactMatch);
+    const rest = [...companies]
+      .filter((c) => !c.exactMatch)
       .sort((a, b) => b.icpScore - a.icpScore)
-      .slice(0, 10);
+      .slice(0, 10 - exactMatches.length);
+    const top10 = [...exactMatches, ...rest];
 
     const limit = pLimit(3);
     const store = useStore.getState();
