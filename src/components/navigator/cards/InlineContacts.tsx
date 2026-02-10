@@ -26,6 +26,17 @@ export function InlineContacts({ domain, companyName }: InlineContactsProps) {
   const [showAll, setShowAll] = useState(false);
   const [expandedContactId, setExpandedContactId] = useState<string | null>(null);
 
+  // Sort by seniority, then by email confidence (must be before early returns)
+  const sorted = useMemo(() => {
+    if (!contacts || contacts.length === 0) return [];
+    return [...contacts].sort((a, b) => {
+      const sa = SENIORITY_ORDER[a.seniority] ?? 5;
+      const sb = SENIORITY_ORDER[b.seniority] ?? 5;
+      if (sa !== sb) return sa - sb;
+      return b.emailConfidence - a.emailConfidence;
+    });
+  }, [contacts]);
+
   useEffect(() => {
     if (contacts) return; // already cached in store
 
@@ -74,14 +85,6 @@ export function InlineContacts({ domain, companyName }: InlineContactsProps) {
       </div>
     );
   }
-
-  // Sort by seniority, then by email confidence (memoized)
-  const sorted = useMemo(() => [...contacts].sort((a, b) => {
-    const sa = SENIORITY_ORDER[a.seniority] ?? 5;
-    const sb = SENIORITY_ORDER[b.seniority] ?? 5;
-    if (sa !== sb) return sa - sb;
-    return b.emailConfidence - a.emailConfidence;
-  }), [contacts]);
 
   const visible = showAll ? sorted : sorted.slice(0, 5);
   const hiddenCount = sorted.length - 5;
