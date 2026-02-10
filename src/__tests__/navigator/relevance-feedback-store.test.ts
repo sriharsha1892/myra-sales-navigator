@@ -18,7 +18,6 @@ vi.stubGlobal("fetch", mockFetch);
 
 function makeCompany(overrides: Partial<CompanyEnriched> = {}): CompanyEnriched {
   return {
-    id: overrides.domain ?? "acme.com",
     name: "Acme Corp",
     domain: "acme.com",
     industry: "Tech",
@@ -40,9 +39,9 @@ function makeCompany(overrides: Partial<CompanyEnriched> = {}): CompanyEnriched 
   } as CompanyEnriched;
 }
 
-const companyA = makeCompany({ domain: "acme.com", name: "Acme Corp", id: "acme.com" });
-const companyB = makeCompany({ domain: "beta.com", name: "Beta Corp", id: "beta.com" });
-const companyC = makeCompany({ domain: "gamma.com", name: "Gamma Inc", id: "gamma.com" });
+const companyA = makeCompany({ domain: "acme.com", name: "Acme Corp" });
+const companyB = makeCompany({ domain: "beta.com", name: "Beta Corp" });
+const companyC = makeCompany({ domain: "gamma.com", name: "Gamma Inc" });
 
 // ---------------------------------------------------------------------------
 // Store reset helper

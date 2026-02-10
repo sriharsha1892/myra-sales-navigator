@@ -35,10 +35,8 @@ export function CommandPalette() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    // Reset when palette closes or search is too short
+    // Cleanup only when palette closes or search is too short
     if (!open || search.length < 3) {
-      setApiContacts([]);
-      setApiSearching(false);
       if (debounceRef.current) clearTimeout(debounceRef.current);
       apiAbortRef.current?.abort();
       return;
@@ -87,11 +85,12 @@ export function CommandPalette() {
   const allContacts = Object.values(contactsByDomain).flat();
 
   // Merge local + API contacts, dedup by id, local first
+  // Only include API contacts when search is long enough (avoids stale flash)
+  const showApi = search.length >= 3;
   const localContactIds = new Set(allContacts.map((c) => c.id));
-  const mergedContacts = [
-    ...allContacts,
-    ...apiContacts.filter((c) => !localContactIds.has(c.id)),
-  ];
+  const mergedContacts = showApi
+    ? [...allContacts, ...apiContacts.filter((c) => !localContactIds.has(c.id))]
+    : allContacts;
 
   const handleExaSearch = () => {
     setPendingFreeTextSearch(search);
@@ -255,7 +254,7 @@ export function CommandPalette() {
             </Command.Group>
 
             {/* Contacts */}
-            <Command.Group heading={apiSearching ? "Contacts \u2014 Searching\u2026" : "Contacts"}>
+            <Command.Group heading={showApi && apiSearching ? "Contacts \u2014 Searching\u2026" : "Contacts"}>
               {mergedContacts.slice(0, 8).map((ct) => (
                 <CommandItem
                   key={ct.id}
