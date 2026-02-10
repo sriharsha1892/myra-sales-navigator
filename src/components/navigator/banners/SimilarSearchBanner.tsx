@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { useStore } from "@/lib/navigator/store";
 
 export function SimilarSearchBanner() {
@@ -8,8 +9,9 @@ export function SimilarSearchBanner() {
 
   if (!match) return null;
 
+  const now = useRef(Date.now()).current;
   const daysAgo = Math.floor(
-    (Date.now() - new Date(match.at).getTime()) / 86400000
+    (now - new Date(match.at).getTime()) / 86400000
   );
   const timeLabel =
     daysAgo === 0 ? "today" : daysAgo === 1 ? "yesterday" : `${daysAgo} days ago`;

@@ -1,5 +1,7 @@
 "use client";
 
+import { useRef } from "react";
+
 interface TeamActivityBadgeProps {
   activity: {
     viewers: { user: string; at: string }[];
@@ -36,8 +38,9 @@ export function TeamActivityBadge({ activity }: TeamActivityBadgeProps) {
     return "bg-surface-2 text-text-tertiary";
   };
 
+  const now = useRef(Date.now()).current;
   const daysAgo = (dateStr: string) => {
-    const d = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+    const d = Math.floor((now - new Date(dateStr).getTime()) / 86400000);
     return d === 0 ? "today" : d === 1 ? "1d ago" : `${d}d ago`;
   };
 

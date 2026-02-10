@@ -72,7 +72,7 @@ export async function GET(
   }
 
   // 5. Resolve CRM
-  let crm: BriefingData["crm"] = {
+  const crm: BriefingData["crm"] = {
     status: "none", warmth: "cold", lastContactDate: null, topDeal: null, lastActivity: null,
   };
   if (freshsalesCache.status === "fulfilled" && freshsalesCache.value) {
