@@ -262,7 +262,7 @@ export function SlideOverPane() {
               </div>
               <div className="animate-fadeInUp" style={{ animationDelay: "330ms" }}>
                 <DossierErrorBoundary sectionName="Similar Companies">
-                  <DossierSimilarCompanies domain={company.domain} />
+                  <DossierSimilarCompanies domain={company.domain} employeeCount={company.employeeCount} region={company.region} />
                 </DossierErrorBoundary>
               </div>
             </div>

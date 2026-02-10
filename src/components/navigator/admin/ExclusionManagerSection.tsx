@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from "react";
 import { useStore } from "@/lib/navigator/store";
 import { AdminSection } from "./AdminSection";
 import type { Exclusion } from "@/lib/navigator/types";
+import { pick } from "@/lib/navigator/ui-copy";
 
 interface CsvEntry {
   type: Exclusion["type"];
@@ -167,6 +168,7 @@ export function ExclusionManagerSection() {
     setImporting(true);
 
     const progress = addProgressToast(`Importing ${csvPreview.length} exclusions...`);
+    const snapshotBeforeImport = exclusions;
 
     try {
       const res = await fetch("/api/exclusions", {
@@ -189,14 +191,37 @@ export function ExclusionManagerSection() {
       setCsvPreview(null);
 
       // Refresh exclusions from server
+      let newExclusions: Exclusion[] = [];
       try {
         const listRes = await fetch("/api/exclusions");
         const listData = await listRes.json();
         if (listRes.ok && listData.exclusions) {
-          useStore.setState({ exclusions: listData.exclusions });
+          newExclusions = listData.exclusions;
+          useStore.setState({ exclusions: newExclusions });
         }
       } catch {
         // non-critical — list will be stale until page reload
+      }
+
+      // Undo toast: find newly added exclusion IDs and delete them on undo
+      const oldIds = new Set(snapshotBeforeImport.map((e) => e.id));
+      const newlyAdded = newExclusions.filter((e) => !oldIds.has(e.id));
+      if (newlyAdded.length > 0) {
+        addUndoToast(
+          `Imported ${newlyAdded.length} exclusions`,
+          async () => {
+            // Restore local state immediately
+            useStore.setState({ exclusions: snapshotBeforeImport });
+            // Delete newly added entries from server
+            for (const e of newlyAdded) {
+              fetch("/api/exclusions", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: e.id }),
+              }).catch(() => {});
+            }
+          }
+        );
       }
     } catch {
       progress.reject("Import failed");
@@ -252,7 +277,7 @@ export function ExclusionManagerSection() {
           </div>
         ))}
         {filtered.length === 0 && (
-          <p className="py-2 text-center text-xs italic text-text-tertiary">No exclusions found</p>
+          <p className="py-2 text-center text-xs italic text-text-tertiary">{pick("empty_exclusions")}</p>
         )}
       </div>
 

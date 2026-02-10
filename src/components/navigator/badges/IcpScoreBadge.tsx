@@ -44,6 +44,8 @@ export function IcpScoreBadge({ score, className, showHelp, breakdown, showBreak
   const badge = (
     <Tooltip text={tooltipText} placement="bottom">
       <span
+        role="img"
+        aria-label={tooltipText}
         className={cn("relative inline-flex items-center justify-center", className)}
         style={{ width: size, height: size }}
       >

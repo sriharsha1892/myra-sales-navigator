@@ -52,6 +52,8 @@ export function CompanyStatusBadge({ domain, currentStatus, size = "md" }: Compa
     <div ref={ref} className="relative">
       <button
         onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+        aria-expanded={open}
+        aria-label={`Pipeline status: ${currentStage?.label ?? "New"}. Click to change.`}
         className="flex items-center gap-1.5 rounded-pill border border-surface-3 px-2 py-0.5 text-xs font-medium transition-colors hover:bg-surface-hover"
       >
         <span

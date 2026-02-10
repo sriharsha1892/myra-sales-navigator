@@ -7,6 +7,7 @@ import { ExecutionModal } from "@/components/navigator/outreach/ExecutionModal";
 import { CallOutcomeModal } from "@/components/navigator/outreach/CallOutcomeModal";
 import { PreCallBriefingCard } from "./PreCallBriefingCard";
 import type { OutreachEnrollment, OutreachSequence, BriefingData } from "@/lib/navigator/types";
+import { pick } from "@/lib/navigator/ui-copy";
 
 interface DueStepItem {
   enrollment: OutreachEnrollment;
@@ -232,8 +233,8 @@ export function DueStepsWidget() {
         {!collapsed && (
           <div className="border-t border-surface-3 px-4 py-3">
             {items.length === 0 ? (
-              <p className="py-4 text-center text-xs text-text-tertiary">
-                No steps due today
+              <p className="py-4 text-center text-xs italic text-text-tertiary">
+                {pick("empty_steps_due")}
               </p>
             ) : (
               <div className="space-y-1.5">

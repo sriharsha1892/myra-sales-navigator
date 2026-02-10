@@ -12,7 +12,7 @@ interface PeersResponse {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ domain: string }> }
 ) {
   const { domain } = await params;
@@ -20,7 +20,23 @@ export async function GET(
     return NextResponse.json({ freshsalesPeers: [], exaPeers: [] });
   }
 
-  const cacheKey = `peers:${domain.toLowerCase()}`;
+  // Parse optional size/region query params
+  const url = new URL(request.url);
+  const minSizeParam = url.searchParams.get("minSize");
+  const maxSizeParam = url.searchParams.get("maxSize");
+  const regionParam = url.searchParams.get("region");
+
+  const minSize = minSizeParam ? parseInt(minSizeParam, 10) : undefined;
+  const maxSize = maxSizeParam ? parseInt(maxSizeParam, 10) : undefined;
+  const region = regionParam || undefined;
+
+  // Include size/region in cache key so different filter combos cache separately
+  const filterSuffix = [
+    minSize != null ? `min${minSize}` : "",
+    maxSize != null ? `max${maxSize}` : "",
+    region ? `r${region}` : "",
+  ].filter(Boolean).join(":");
+  const cacheKey = `peers:${domain.toLowerCase()}${filterSuffix ? `:${filterSuffix}` : ""}`;
   const cached = await getCached<PeersResponse>(cacheKey);
   if (cached) {
     return NextResponse.json(cached);
@@ -36,10 +52,29 @@ export async function GET(
       // Continue without industry
     }
 
+    // Build Exa query with size/region context
+    let exaQuery = `companies similar to ${domain}`;
+    if (minSize != null || maxSize != null) {
+      if (minSize != null && maxSize != null) {
+        exaQuery += ` with ${minSize} to ${maxSize} employees`;
+      } else if (minSize != null) {
+        exaQuery += ` with more than ${minSize} employees`;
+      } else if (maxSize != null) {
+        exaQuery += ` with fewer than ${maxSize} employees`;
+      }
+    }
+    if (region) {
+      exaQuery += ` in ${region}`;
+    }
+
+    const peerOptions = (minSize != null || maxSize != null || region)
+      ? { minSize, maxSize, region }
+      : undefined;
+
     const [freshsalesPeers, exaPeers] = await Promise.all([
-      // Freshsales peers: same industry
+      // Freshsales peers: same industry + optional size/region filters
       industry
-        ? getFreshsalesPeers(industry, domain, 10).then((peers) =>
+        ? getFreshsalesPeers(industry, domain, 10, peerOptions).then((peers) =>
             peers
               .filter((p) => p.domain && p.domain !== domain)
               .map((p) => ({
@@ -54,9 +89,9 @@ export async function GET(
               }))
           )
         : Promise.resolve([]),
-      // Exa peers: semantic similarity
+      // Exa peers: semantic similarity with optional size/region context
       isExaAvailable()
-        ? searchExa({ query: `companies similar to ${domain}`, numResults: 10 })
+        ? searchExa({ query: exaQuery, numResults: 10 })
             .then((result) =>
               result.companies
                 .filter((c) => c.domain !== domain)

@@ -122,7 +122,7 @@ describe("InlineContacts", () => {
     const InlineContacts = await importInlineContacts();
     render(<InlineContacts domain="test.com" />);
 
-    expect(screen.getByText("No contacts found")).toBeInTheDocument();
+    expect(screen.getByText(/No contacts found/)).toBeInTheDocument();
   });
 
   it("renders contacts from store without fetching when already cached", async () => {

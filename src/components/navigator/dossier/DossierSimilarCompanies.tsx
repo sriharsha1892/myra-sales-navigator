@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useStore } from "@/lib/navigator/store";
 import { IcpScoreBadge } from "@/components/navigator/badges";
@@ -16,22 +17,46 @@ interface PeersResponse {
   exaPeers: PeerCompany[];
 }
 
-async function fetchPeers(domain: string): Promise<PeersResponse> {
-  const res = await fetch(`/api/company/${encodeURIComponent(domain)}/peers`);
+async function fetchPeers(
+  domain: string,
+  options?: { minSize?: number; maxSize?: number; region?: string }
+): Promise<PeersResponse> {
+  const params = new URLSearchParams();
+  if (options?.minSize != null) params.set("minSize", String(options.minSize));
+  if (options?.maxSize != null) params.set("maxSize", String(options.maxSize));
+  if (options?.region) params.set("region", options.region);
+  const qs = params.toString();
+  const url = `/api/company/${encodeURIComponent(domain)}/peers${qs ? `?${qs}` : ""}`;
+  const res = await fetch(url);
   if (!res.ok) throw new Error("Failed to load peers");
   return res.json();
 }
 
 interface DossierSimilarCompaniesProps {
   domain: string;
+  employeeCount?: number;
+  region?: string;
 }
 
-export function DossierSimilarCompanies({ domain }: DossierSimilarCompaniesProps) {
+export function DossierSimilarCompanies({ domain, employeeCount, region }: DossierSimilarCompaniesProps) {
   const selectCompany = useStore((s) => s.selectCompany);
 
+  // Derive size range: +/-50% of current company's employee count
+  const peerOptions = useMemo(() => {
+    const opts: { minSize?: number; maxSize?: number; region?: string } = {};
+    if (employeeCount && employeeCount > 0) {
+      opts.minSize = Math.round(employeeCount * 0.5);
+      opts.maxSize = Math.round(employeeCount * 1.5);
+    }
+    if (region) {
+      opts.region = region;
+    }
+    return (opts.minSize != null || opts.maxSize != null || opts.region) ? opts : undefined;
+  }, [employeeCount, region]);
+
   const { data, isLoading } = useQuery({
-    queryKey: ["company-peers", domain],
-    queryFn: () => fetchPeers(domain),
+    queryKey: ["company-peers", domain, peerOptions],
+    queryFn: () => fetchPeers(domain, peerOptions),
     enabled: !!domain,
     staleTime: 30 * 60 * 1000, // 30min
   });

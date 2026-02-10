@@ -54,6 +54,8 @@ export interface FreshsalesIntel {
   deals: FreshsalesDeal[];
   recentActivity: FreshsalesActivity[];
   lastContactDate: string | null;
+  /** ISO timestamp of when this data was fetched from Freshsales */
+  fetchedAt?: string;
 }
 
 export interface FreshsalesSettings {

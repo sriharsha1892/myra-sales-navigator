@@ -112,10 +112,10 @@ export async function proxy(request: NextRequest) {
   if (legacyCookie) {
     const userName = decodeURIComponent(legacyCookie);
     // Basic admin check for legacy users
-    const seedAdmins = ["Adi", "JVS", "Reddy", "Sai"];
+    const adminNames = process.env.ADMIN_USERS?.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean) ?? [];
     if (
       (pathname === "/admin" || pathname.startsWith("/admin/")) &&
-      !seedAdmins.includes(userName)
+      !adminNames.includes(userName.toLowerCase())
     ) {
       return NextResponse.redirect(new URL("/", request.url));
     }

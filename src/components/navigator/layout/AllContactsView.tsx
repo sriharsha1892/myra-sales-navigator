@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useStore } from "@/lib/navigator/store";
 import { cn } from "@/lib/cn";
 import type { Contact } from "@/lib/navigator/types";
+import { pick } from "@/lib/navigator/ui-copy";
 
 const SENIORITY_ORDER: Record<string, number> = {
   c_level: 0, vp: 1, director: 2, manager: 3, staff: 4,
@@ -106,9 +107,8 @@ export function AllContactsView() {
   if (contacts.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center">
-        <p className="text-sm text-text-secondary">No contacts loaded yet</p>
-        <p className="mt-1 text-xs text-text-tertiary">
-          Click on company cards to load their contacts
+        <p className="text-sm italic text-text-tertiary">
+          {pick("empty_contacts_all")}
         </p>
       </div>
     );

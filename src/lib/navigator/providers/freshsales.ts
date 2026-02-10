@@ -317,6 +317,7 @@ export async function getFreshsalesIntel(
             deals: [],
             recentActivity: [],
             lastContactDate: null,
+            fetchedAt: new Date().toISOString(),
           };
           await setCached(cacheKey, result, cacheTtl);
           return result;
@@ -400,6 +401,7 @@ export async function getFreshsalesIntel(
       deals: dealsData,
       recentActivity: activitiesData,
       lastContactDate,
+      fetchedAt: new Date().toISOString(),
     };
 
     await setCached(cacheKey, result, cacheTtl);
@@ -794,16 +796,43 @@ export async function getFreshsalesStatus(domain: string, companyName?: string):
 export async function getFreshsalesPeers(
   industry: string,
   excludeDomain: string,
-  limit: number = 10
+  limit: number = 10,
+  options?: { minSize?: number; maxSize?: number; region?: string }
 ): Promise<FreshsalesIntel[]> {
   const settings = await getFreshsalesConfig();
   if (!isFreshsalesAvailable(settings)) return [];
 
   const baseUrl = getBaseUrl(settings);
   try {
-    const filterRule = [
+    const filterRule: unknown[] = [
       { attribute: "industry_type", operator: "contains", value: industry },
     ];
+
+    // Optional: filter by employee count range
+    if (options?.minSize != null) {
+      filterRule.push({
+        attribute: "number_of_employees",
+        operator: "is_greater_than",
+        value: options.minSize,
+      });
+    }
+    if (options?.maxSize != null) {
+      filterRule.push({
+        attribute: "number_of_employees",
+        operator: "is_less_than",
+        value: options.maxSize,
+      });
+    }
+
+    // Optional: filter by region/country
+    if (options?.region) {
+      filterRule.push({
+        attribute: "territory",
+        operator: "contains",
+        value: options.region,
+      });
+    }
+
     const accounts = await paginatedFilteredSearch(baseUrl, "sales_account", filterRule, 2);
 
     // Filter out the source company and limit results

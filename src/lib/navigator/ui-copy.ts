@@ -143,6 +143,51 @@ const copyBank: Record<string, string[]> = {
   export_fallback: [
     "Server export failed — used client-side fallback. Data may differ slightly.",
   ],
+  empty_exclusions: [
+    "No exclusions found. Add domains, companies, or emails to keep them out of future searches.",
+  ],
+  empty_contacts_inline: [
+    "No contacts found for this company. Open the dossier to search for contacts.",
+  ],
+  empty_contacts_panel: [
+    "No contacts found for this company. Try refreshing the dossier or searching directly.",
+  ],
+  empty_contacts_filtered: [
+    "No contacts match the current filters. Try adjusting your filter criteria.",
+  ],
+  empty_contacts_all: [
+    "No contacts loaded yet. Click on company cards to load their contacts.",
+  ],
+  empty_contacts_picker: [
+    "No contacts found. Contacts may still be loading — close and try again.",
+  ],
+  empty_contacts_no_email: [
+    "No contacts have email addresses. Try refreshing the dossier or using 'Find Email' on individual contacts.",
+  ],
+  empty_sequences: [
+    "No sequences created yet. Create one to get started.",
+  ],
+  empty_steps_due: [
+    "No steps due today. Check back later or create new enrollments.",
+  ],
+  empty_activity: [
+    "No activity recorded in this period.",
+  ],
+  empty_presets: [
+    "No presets saved yet. Save a search to create a reusable preset.",
+  ],
+  empty_prospects: [
+    "No companies in your list. Use the bookmark icon on company cards to add them.",
+  ],
+  empty_freshsales: [
+    "No Freshsales records found. This company may not be in the CRM yet.",
+  ],
+  empty_analytics: [
+    "No data yet. Activity will appear as the team uses the tool.",
+  ],
+  empty_export_timeout: [
+    "Contacts are taking too long to load. Close and try again.",
+  ],
 };
 
 export function pick(key: string, context?: Record<string, string>): string {

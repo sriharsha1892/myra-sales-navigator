@@ -306,6 +306,12 @@
   --color-source-exa: #9B7BFF;
   --color-source-apollo: #E0B030;
   --color-source-hubspot: #FF9580;
+  --color-source-clearout: #9A9A9A;
+  --color-source-clearout-light: rgba(154, 154, 154, 0.12);
+  --color-source-mordor: #3EA67B;
+  --color-source-mordor-light: rgba(62, 166, 123, 0.12);
+  --color-source-freshsales: #5CC99A;
+  --color-source-freshsales-light: rgba(92, 201, 154, 0.12);
 
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);

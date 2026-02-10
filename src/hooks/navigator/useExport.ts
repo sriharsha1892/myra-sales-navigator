@@ -114,12 +114,13 @@ export function useExport() {
           // H3: Fallback notification
           addToast({ message: pick("export_fallback"), type: "info", duration: 3000 });
           // Fallback: client-side formatting
-          const lines = contacts
-            .filter((c) => c.email)
-            .map((c) => applyTemplateLocal(template, c));
+          const withEmail = contacts.filter((c) => c.email);
+          const lines = withEmail.map((c) => applyTemplateLocal(template, c));
           await navigator.clipboard.writeText(lines.join("\n"));
-          handle.resolve(`Copied ${lines.length} contacts to clipboard`);
-          notify("Export complete", `Copied ${lines.length} contacts to clipboard`);
+          const skippedFallback = contacts.length - withEmail.length;
+          const skipMsgFallback = skippedFallback > 0 ? ` (${skippedFallback} skipped — no email)` : "";
+          handle.resolve(`Copied ${lines.length} contacts to clipboard${skipMsgFallback}`);
+          notify("Export complete", `Copied ${lines.length} contacts to clipboard${skipMsgFallback}`);
         }
       } else if (mode === "excel") {
         // Excel export using ExcelJS (client-side)
@@ -165,8 +166,11 @@ export function useExport() {
           a.download = `contacts-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
           a.click();
           URL.revokeObjectURL(url);
-          handle.resolve(`Exported ${contacts.length} contacts to Excel`);
-          notify("Export complete", `Exported ${contacts.length} contacts to Excel`);
+          const excelWithEmail = contacts.filter((c) => c.email).length;
+          const excelSkipped = contacts.length - excelWithEmail;
+          const excelSkipMsg = excelSkipped > 0 ? ` (${excelSkipped} skipped — no email)` : "";
+          handle.resolve(`Exported ${excelWithEmail} contacts to Excel${excelSkipMsg}`);
+          notify("Export complete", `Exported ${excelWithEmail} contacts to Excel${excelSkipMsg}`);
           // Log Excel export (fire-and-forget)
           fetch("/api/export/log", {
             method: "POST",
@@ -204,15 +208,19 @@ export function useExport() {
           a.download = `contacts-export-${new Date().toISOString().slice(0, 10)}.csv`;
           a.click();
           URL.revokeObjectURL(url);
-          handle.resolve(`Exported ${contacts.length} contacts to CSV`);
-          notify("Export complete", `Exported ${contacts.length} contacts to CSV`);
+          const csvWithEmail = contacts.filter((c) => c.email).length;
+          const csvSkipped = contacts.length - csvWithEmail;
+          const csvSkipMsg = csvSkipped > 0 ? ` (${csvSkipped} skipped — no email)` : "";
+          handle.resolve(`Exported ${csvWithEmail} contacts to CSV${csvSkipMsg}`);
+          notify("Export complete", `Exported ${csvWithEmail} contacts to CSV${csvSkipMsg}`);
         } catch {
           // H3: Fallback notification
           addToast({ message: pick("export_fallback"), type: "info", duration: 3000 });
           // Fallback: client-side CSV generation
+          const csvContactsWithEmail = contacts.filter((c) => c.email);
           const csvRows = [
             ["First Name", "Last Name", "Email", "Title", "Company", "Phone", "Confidence", "In Freshsales"].join(","),
-            ...contacts.map((c) =>
+            ...csvContactsWithEmail.map((c) =>
               [c.firstName, c.lastName, c.email ?? "", c.title, c.companyName, c.phone ?? "", String(c.emailConfidence), c.sources?.includes("freshsales") ? "Yes" : "No"].map(escapeCsvField).join(",")
             ),
           ];
@@ -223,8 +231,10 @@ export function useExport() {
           a.download = `contacts-export-${new Date().toISOString().slice(0, 10)}.csv`;
           a.click();
           URL.revokeObjectURL(url);
-          handle.resolve(`Exported ${contacts.length} contacts to CSV`);
-          notify("Export complete", `Exported ${contacts.length} contacts to CSV`);
+          const csvFallbackSkipped = contacts.length - csvContactsWithEmail.length;
+          const csvFallbackSkipMsg = csvFallbackSkipped > 0 ? ` (${csvFallbackSkipped} skipped — no email)` : "";
+          handle.resolve(`Exported ${csvContactsWithEmail.length} contacts to CSV${csvFallbackSkipMsg}`);
+          notify("Export complete", `Exported ${csvContactsWithEmail.length} contacts to CSV${csvFallbackSkipMsg}`);
         }
       }
     } catch (err) {

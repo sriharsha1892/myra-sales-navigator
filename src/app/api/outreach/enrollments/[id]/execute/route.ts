@@ -34,6 +34,32 @@ function mapStepLogRow(row: any): OutreachStepLog {
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
+/**
+ * Rollback helper: marks a step log as "failed" with an error message.
+ * Called when the enrollment update fails after the step log was already
+ * marked as "completed", so the two stay consistent.
+ */
+async function rollbackStepLog(
+  supabase: ReturnType<typeof createServerClient>,
+  enrollmentId: string,
+  stepIndex: number,
+  reason: string
+) {
+  try {
+    await supabase
+      .from("outreach_step_logs")
+      .update({
+        status: "failed",
+        notes: `Rollback: ${reason}`,
+      })
+      .eq("enrollment_id", enrollmentId)
+      .eq("step_index", stepIndex);
+  } catch (rollbackErr) {
+    // Log but don't throw — we're already in an error path
+    console.error("[Execute] Rollback step log failed:", rollbackErr);
+  }
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -326,7 +352,11 @@ export async function POST(
       (executionResult as Record<string, unknown>).draftMessage ??
       null;
 
-    await supabase
+    // --- Critical section: step log update → enrollment advance ---
+    // If step log update fails, don't advance enrollment.
+    // If enrollment advance fails after step log was updated, rollback the step log.
+
+    const { error: stepLogErr } = await supabase
       .from("outreach_step_logs")
       .update({
         status: "completed",
@@ -338,6 +368,18 @@ export async function POST(
       .eq("enrollment_id", id)
       .eq("step_index", currentStepIndex)
       .eq("status", "pending");
+
+    if (stepLogErr) {
+      console.error("[Execute] Step log update failed:", stepLogErr);
+      return NextResponse.json(
+        {
+          error: "Failed to update step log — enrollment not advanced",
+          detail: stepLogErr.message,
+          enrollmentState: "unchanged",
+        },
+        { status: 500 }
+      );
+    }
 
     // Advance to next step
     const nextStepIndex = currentStepIndex + 1;
@@ -360,7 +402,14 @@ export async function POST(
         .single();
 
       if (error || !data) {
-        return NextResponse.json({ error: "Failed to complete enrollment" }, { status: 500 });
+        await rollbackStepLog(supabase, id, currentStepIndex, "Enrollment completion failed");
+        return NextResponse.json(
+          {
+            error: "Failed to complete enrollment — step log rolled back to failed",
+            enrollmentState: "current_step not advanced",
+          },
+          { status: 500 }
+        );
       }
       updatedEnrollment = mapEnrollmentRow(data);
       completed = true;
@@ -371,12 +420,24 @@ export async function POST(
       nextDue.setDate(nextDue.getDate() + (nextStep.delayDays ?? 0));
 
       // Create next step log
-      await supabase.from("outreach_step_logs").insert({
+      const { error: nextLogErr } = await supabase.from("outreach_step_logs").insert({
         enrollment_id: id,
         step_index: nextStepIndex,
         channel: nextStep.channel,
         status: "pending",
       });
+
+      if (nextLogErr) {
+        await rollbackStepLog(supabase, id, currentStepIndex, "Next step log creation failed");
+        return NextResponse.json(
+          {
+            error: "Failed to create next step log — step log rolled back to failed",
+            detail: nextLogErr.message,
+            enrollmentState: "current_step not advanced",
+          },
+          { status: 500 }
+        );
+      }
 
       const { data, error } = await supabase
         .from("outreach_enrollments")
@@ -390,12 +451,26 @@ export async function POST(
         .single();
 
       if (error || !data) {
-        return NextResponse.json({ error: "Failed to advance enrollment" }, { status: 500 });
+        await rollbackStepLog(supabase, id, currentStepIndex, "Enrollment advance failed");
+        // Also clean up the next step log we just created
+        await supabase
+          .from("outreach_step_logs")
+          .delete()
+          .eq("enrollment_id", id)
+          .eq("step_index", nextStepIndex)
+          .eq("status", "pending");
+        return NextResponse.json(
+          {
+            error: "Failed to advance enrollment — step log rolled back to failed",
+            enrollmentState: "current_step not advanced",
+          },
+          { status: 500 }
+        );
       }
       updatedEnrollment = mapEnrollmentRow(data);
     }
 
-    // Fire-and-forget: sync activity to Freshsales CRM
+    // Fire-and-forget: sync activity to Freshsales CRM (no rollback on failure)
     (async () => {
       try {
         const { getCached, CacheKeys } = await import("@/lib/cache");

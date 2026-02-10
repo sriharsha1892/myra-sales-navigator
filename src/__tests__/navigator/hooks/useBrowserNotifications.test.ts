@@ -89,7 +89,9 @@ describe("useBrowserNotifications", () => {
     });
 
     it("returns denied when Notification API not available", () => {
-      // Must delete — setting to undefined still leaves key in `window`
+      // Must delete — setting to undefined still leaves key in `window`.
+      // `delete` on a typed global requires `as any` since TS doesn't allow
+      // deleting non-optional properties from typed objects.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       delete (globalThis as any).Notification;
       const { result } = renderHook(() => useBrowserNotifications());

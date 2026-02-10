@@ -28,6 +28,8 @@ export function SourceBadge({ source, className, showHelp }: SourceBadgeProps) {
   const badge = (
     <Tooltip text={fullName}>
       <span
+        role="img"
+        aria-label={`Source: ${fullName}`}
         className={cn(
           "inline-flex h-4 w-4 items-center justify-center rounded text-[10px] font-bold leading-none",
           color,

@@ -1,6 +1,7 @@
 "use client";
 
 import { AdminSection } from "../AdminSection";
+import { pick } from "@/lib/navigator/ui-copy";
 
 interface HeatmapData {
   verticals: Record<string, number>;
@@ -20,7 +21,7 @@ function HeatmapGrid({
         <p className="mb-2 text-[10px] uppercase tracking-wide text-text-tertiary">
           {label}
         </p>
-        <p className="text-xs text-text-tertiary">No data yet.</p>
+        <p className="text-xs italic text-text-tertiary">{pick("empty_analytics")}</p>
       </div>
     );
   }

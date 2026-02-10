@@ -106,7 +106,7 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
           <h3 className="font-display text-sm font-medium text-text-primary">
             Select Contacts to {mode === "csv" ? "Export" : "Copy"}
           </h3>
-          <button onClick={onCancel} className="text-text-tertiary hover:text-text-secondary">
+          <button onClick={onCancel} aria-label="Close" className="text-text-tertiary hover:text-text-secondary">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M18 6 6 18M6 6l12 12" />
             </svg>
@@ -117,8 +117,7 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
           {loading ? (
             timedOut ? (
               <div className="flex flex-col items-center justify-center py-8 text-center">
-                <p className="text-sm text-text-secondary">Contacts are taking too long to load</p>
-                <p className="mt-1 text-xs text-text-tertiary">Close and try again.</p>
+                <p className="text-sm italic text-text-tertiary">{pick("empty_export_timeout")}</p>
                 <button
                   onClick={onCancel}
                   className="mt-3 rounded-input border border-surface-3 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-2"
@@ -170,16 +169,14 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
           {/* Fix 1: Empty state when no contacts have email */}
           {relevantContacts.length > 0 && relevantContacts.every((c) => !c.email) ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              <p className="text-sm text-text-secondary">No contacts have email addresses</p>
-              <p className="mt-1 text-xs text-text-tertiary">
-                Try refreshing the company dossier or using &ldquo;Find Email&rdquo; on individual contacts.
+              <p className="text-sm italic text-text-tertiary">
+                {pick("empty_contacts_no_email")}
               </p>
             </div>
           ) : relevantContacts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              <p className="text-sm text-text-secondary">No contacts found</p>
-              <p className="mt-1 text-xs text-text-tertiary">
-                Contacts may still be loading. Close and try again.
+              <p className="text-sm italic text-text-tertiary">
+                {pick("empty_contacts_picker")}
               </p>
             </div>
           ) : (

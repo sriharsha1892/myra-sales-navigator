@@ -238,7 +238,7 @@ export function DossierContacts({ companyDomain, contacts: contactsProp }: Dossi
         <div className="space-y-2">
           {displayContacts.length === 0 ? (
             <p className="text-xs italic text-text-tertiary">
-              No contacts match the current filters.
+              {pick("empty_contacts_filtered")}
             </p>
           ) : (
             displayContacts.map((contact) => (

@@ -1,6 +1,7 @@
 "use client";
 
 import { AdminSection } from "../AdminSection";
+import { pick } from "@/lib/navigator/ui-copy";
 
 interface ExclusionData {
   byType: Record<string, number>;
@@ -29,7 +30,7 @@ export function ExclusionInsights({ data }: { data: ExclusionData | null }) {
   if (totalExclusions === 0) {
     return (
       <AdminSection title="Exclusion Insights">
-        <p className="text-xs text-text-tertiary">No exclusions recorded yet.</p>
+        <p className="text-xs italic text-text-tertiary">{pick("empty_exclusions")}</p>
       </AdminSection>
     );
   }

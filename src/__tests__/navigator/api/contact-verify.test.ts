@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
+import type { VerificationResult } from "@/lib/navigator/types";
 
 // ---------------------------------------------------------------------------
 // Mocks — Clearout provider
@@ -76,12 +77,11 @@ describe("POST /api/contact/verify", () => {
   });
 
   it("returns verification results for valid emails", async () => {
-    const mockResults = [
+    const mockResults: VerificationResult[] = [
       { email: "valid@test.com", status: "valid", score: 95 },
-      { email: "risky@test.com", status: "risky", score: 60 },
+      { email: "risky@test.com", status: "unknown", score: 60 },
     ];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(verifyEmails).mockResolvedValue(mockResults as any);
+    vi.mocked(verifyEmails).mockResolvedValue(mockResults);
 
     const res = await callPOST({
       emails: ["valid@test.com", "risky@test.com"],

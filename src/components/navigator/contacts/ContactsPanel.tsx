@@ -8,6 +8,7 @@ import { OutreachDraftModal } from "@/components/navigator/outreach/OutreachDraf
 import { useOutreachSuggestion } from "@/lib/navigator/outreach/useOutreachSuggestion";
 import { cn } from "@/lib/cn";
 import type { Contact, CompanyEnriched } from "@/lib/navigator/types";
+import { pick } from "@/lib/navigator/ui-copy";
 
 interface ContactsPanelProps {
   domain: string;
@@ -35,6 +36,7 @@ export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps)
   const toggleContactSelection = useStore((s) => s.toggleContactSelection);
 
   const [focusIndex, setFocusIndex] = useState(-1);
+  const [expandedIndex, setExpandedIndex] = useState(-1);
   const [draftContact, setDraftContact] = useState<Contact | null>(null);
   const [seniorityFilter, setSeniorityFilter] = useState<string>("all");
   const [hasEmailFilter, setHasEmailFilter] = useState(false);
@@ -120,6 +122,17 @@ export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps)
     setSlideOverMode("dossier");
   }, [setSlideOverMode]);
 
+  const hasSelection = selectedContactIds.size > 0 &&
+    filteredContacts.some((c) => selectedContactIds.has(c.id));
+
+  const deselectAll = useCallback(() => {
+    for (const c of filteredContacts) {
+      if (selectedContactIds.has(c.id)) {
+        toggleContactSelection(c.id);
+      }
+    }
+  }, [filteredContacts, selectedContactIds, toggleContactSelection]);
+
   // Keyboard navigation
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (filteredContacts.length === 0) return;
@@ -130,17 +143,33 @@ export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps)
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setFocusIndex((prev) => Math.max(prev - 1, 0));
-    } else if ((e.key === " " || e.key === "Enter") && focusIndex >= 0) {
+    } else if (e.key === " " && focusIndex >= 0) {
+      // Space: toggle checkbox
       e.preventDefault();
       toggleContactSelection(filteredContacts[focusIndex].id);
+    } else if (e.key === "Enter" && focusIndex >= 0) {
+      // Enter: expand/collapse focused contact's detail section
+      e.preventDefault();
+      setExpandedIndex((prev) => (prev === focusIndex ? -1 : focusIndex));
     } else if (e.key === "Escape") {
       e.preventDefault();
-      handleBackToDossier();
+      if (hasSelection) {
+        // First escape: clear selection
+        deselectAll();
+      } else {
+        // Second escape (or no selection): go back to dossier
+        handleBackToDossier();
+      }
+    } else if (e.key === "a" && (e.metaKey || e.ctrlKey) && e.shiftKey) {
+      // Cmd+Shift+A: deselect all
+      e.preventDefault();
+      deselectAll();
     } else if (e.key === "a" && (e.metaKey || e.ctrlKey)) {
+      // Cmd+A: select all
       e.preventDefault();
       toggleAll();
     }
-  }, [filteredContacts, focusIndex, toggleContactSelection, handleBackToDossier, toggleAll]);
+  }, [filteredContacts, focusIndex, toggleContactSelection, handleBackToDossier, toggleAll, hasSelection, deselectAll]);
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
@@ -189,7 +218,7 @@ export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps)
         <div className="flex flex-shrink-0 items-center gap-2 border-b border-surface-3 px-4 py-2">
           <select
             value={seniorityFilter}
-            onChange={(e) => { setSeniorityFilter(e.target.value); setFocusIndex(-1); }}
+            onChange={(e) => { setSeniorityFilter(e.target.value); setFocusIndex(-1); setExpandedIndex(-1); }}
             className="rounded-input border border-surface-3 bg-surface-2 px-1.5 py-0.5 text-[10px] text-text-primary focus:border-accent-primary focus:outline-none"
           >
             <option value="all">All levels</option>
@@ -199,7 +228,7 @@ export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps)
             <option value="manager">Manager</option>
           </select>
           <button
-            onClick={() => { setHasEmailFilter((v) => !v); setFocusIndex(-1); }}
+            onClick={() => { setHasEmailFilter((v) => !v); setFocusIndex(-1); setExpandedIndex(-1); }}
             className={`rounded-pill border px-2 py-0.5 text-[10px] font-medium transition-colors ${
               hasEmailFilter
                 ? "border-accent-secondary bg-accent-secondary/10 text-accent-secondary"
@@ -210,7 +239,7 @@ export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps)
           </button>
           {/* Source filter */}
           <button
-            onClick={() => { setSourceFilter(v => v === "freshsales" ? "all" : "freshsales"); setFocusIndex(-1); }}
+            onClick={() => { setSourceFilter(v => v === "freshsales" ? "all" : "freshsales"); setFocusIndex(-1); setExpandedIndex(-1); }}
             className={cn(
               "rounded-pill border px-2 py-0.5 text-[10px] font-medium transition-colors",
               sourceFilter === "freshsales"
@@ -222,7 +251,7 @@ export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps)
           </button>
           {/* Verified filter */}
           <button
-            onClick={() => { setVerifiedFilter(v => !v); setFocusIndex(-1); }}
+            onClick={() => { setVerifiedFilter(v => !v); setFocusIndex(-1); setExpandedIndex(-1); }}
             className={cn(
               "rounded-pill border px-2 py-0.5 text-[10px] font-medium transition-colors",
               verifiedFilter
@@ -235,7 +264,7 @@ export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps)
           {/* Sort dropdown */}
           <select
             value={sortBy}
-            onChange={(e) => { setSortBy(e.target.value as "seniority" | "email_confidence" | "last_contacted"); setFocusIndex(-1); }}
+            onChange={(e) => { setSortBy(e.target.value as "seniority" | "email_confidence" | "last_contacted"); setFocusIndex(-1); setExpandedIndex(-1); }}
             className="rounded-input border border-surface-3 bg-surface-1 px-1.5 py-0.5 text-[10px] text-text-secondary outline-none"
           >
             <option value="seniority">Sort: Seniority</option>
@@ -268,23 +297,38 @@ export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps)
       )}
 
       {/* Contact list */}
-      <div ref={containerRef} className="flex-1 space-y-1.5 overflow-y-auto px-4 py-2">
+      <div
+        ref={containerRef}
+        tabIndex={0}
+        role="listbox"
+        aria-label="Contacts list"
+        aria-activedescendant={focusIndex >= 0 ? `contact-item-${focusIndex}` : undefined}
+        className="flex-1 space-y-1.5 overflow-y-auto px-4 py-2 focus:outline-none"
+      >
         {contacts.length === 0 ? (
           <p className="py-8 text-center text-xs italic text-text-tertiary">
-            No contacts found for this company.
+            {pick("empty_contacts_panel")}
           </p>
         ) : filteredContacts.length === 0 ? (
           <p className="py-8 text-center text-xs italic text-text-tertiary">
-            No contacts match the current filters.
+            {pick("empty_contacts_filtered")}
           </p>
         ) : (
           filteredContacts.map((contact, i) => (
-            <div key={contact.id} data-contact-index={i}>
+            <div
+              key={contact.id}
+              id={`contact-item-${i}`}
+              data-contact-index={i}
+              className={cn(
+                "rounded-card transition-all duration-[180ms]",
+                focusIndex === i && "ring-1 ring-accent-secondary/40"
+              )}
+            >
               <ContactRow
                 contact={contact}
                 selected={selectedContactIds.has(contact.id)}
                 isFocused={focusIndex === i}
-                variant={focusIndex === i ? "expanded" : "compact"}
+                variant={expandedIndex === i ? "expanded" : "compact"}
                 onToggle={() => toggleContactSelection(contact.id)}
                 onDraftEmail={() => setDraftContact(contact)}
                 exportInfo={contact.email ? exportByEmail.get(contact.email) : undefined}

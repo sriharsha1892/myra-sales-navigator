@@ -95,7 +95,7 @@ export const ContactEmailDisplay = React.memo(function ContactEmailDisplay({
       <>
         <span className="truncate font-mono text-sm text-text-tertiary line-through" title={displayEmail ?? undefined}>{displayEmail}</span>
         <VerificationBadge status="invalid" />
-        <Tooltip text="Copy email"><button onClick={onCopyEmail} className="text-text-tertiary hover:text-accent-primary">
+        <Tooltip text="Copy email"><button onClick={onCopyEmail} aria-label="Copy email" className="text-text-tertiary hover:text-accent-primary">
           {copySuccess ? <CheckIcon /> : <CopyIcon />}
         </button></Tooltip>
       </>
@@ -108,7 +108,7 @@ export const ContactEmailDisplay = React.memo(function ContactEmailDisplay({
       <>
         <span className="truncate font-mono text-sm text-text-primary" title={displayEmail ?? undefined}>{displayEmail}</span>
         <VerificationBadge status={verification} safeToSend={contact.safeToSend} />
-        <Tooltip text="Copy email"><button onClick={onCopyEmail} className="text-text-tertiary hover:text-accent-primary">
+        <Tooltip text="Copy email"><button onClick={onCopyEmail} aria-label="Copy email" className="text-text-tertiary hover:text-accent-primary">
           {copySuccess ? <CheckIcon /> : <CopyIcon />}
         </button></Tooltip>
       </>
@@ -120,7 +120,7 @@ export const ContactEmailDisplay = React.memo(function ContactEmailDisplay({
     <>
       <span className="truncate font-mono text-sm text-text-secondary" title={displayEmail ?? undefined}>{displayEmail}</span>
       <VerificationBadge status="unverified" />
-      <Tooltip text="Copy email"><button onClick={onCopyEmail} className="text-text-tertiary hover:text-accent-primary">
+      <Tooltip text="Copy email"><button onClick={onCopyEmail} aria-label="Copy email" className="text-text-tertiary hover:text-accent-primary">
         {copySuccess ? <CheckIcon /> : <CopyIcon />}
       </button></Tooltip>
     </>

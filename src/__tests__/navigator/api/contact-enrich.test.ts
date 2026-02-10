@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
+import type { Contact } from "@/lib/navigator/types";
 
 // ---------------------------------------------------------------------------
 // Mocks — Apollo + Clearout providers
@@ -38,7 +39,7 @@ async function callPOST(body: Record<string, unknown>) {
   return POST(request);
 }
 
-function makeEnrichedContact(overrides: Record<string, unknown> = {}) {
+function makeEnrichedContact(overrides: Partial<Contact> = {}): Contact {
   return {
     id: "ct-1",
     companyDomain: "acme.com",
@@ -55,8 +56,7 @@ function makeEnrichedContact(overrides: Record<string, unknown> = {}) {
     lastVerified: null,
     sources: ["apollo"],
     ...overrides,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any;
+  };
 }
 
 // ---------------------------------------------------------------------------

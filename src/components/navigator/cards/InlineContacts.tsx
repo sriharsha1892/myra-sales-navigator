@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useStore } from "@/lib/navigator/store";
 import { ContactCard } from "./ContactCard";
 import type { Contact } from "@/lib/navigator/types";
+import { pick } from "@/lib/navigator/ui-copy";
 
 const SENIORITY_ORDER: Record<string, number> = {
   c_level: 0, vp: 1, director: 2, manager: 3, staff: 4,
@@ -69,7 +70,7 @@ export function InlineContacts({ domain, companyName }: InlineContactsProps) {
   if (!contacts || contacts.length === 0) {
     return (
       <div className="ml-8 mt-1 mb-2 border-l-2 border-surface-3 pl-3">
-        <p className="text-xs text-text-tertiary italic">No contacts found</p>
+        <p className="text-xs italic text-text-tertiary">{pick("empty_contacts_inline")}</p>
       </div>
     );
   }

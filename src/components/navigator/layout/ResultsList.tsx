@@ -462,7 +462,7 @@ function ProspectListView() {
       <EmptyState
         icon="search"
         title="No companies in your list"
-        description="Add companies to your list using the bookmark icon on company cards. Your list persists across searches and sessions."
+        description={pick("empty_prospects")}
       />
     );
   }

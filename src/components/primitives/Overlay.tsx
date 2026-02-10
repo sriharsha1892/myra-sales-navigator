@@ -34,10 +34,26 @@ export function Overlay({
 }: OverlayProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
+  const triggerRef = useRef<Element | null>(null);
 
   useEffect(() => {
     onCloseRef.current = onClose;
   });
+
+  // Capture the element that had focus when the modal opened,
+  // and restore focus to it when the modal closes.
+  useEffect(() => {
+    if (open) {
+      triggerRef.current = document.activeElement;
+    } else if (triggerRef.current) {
+      const el = triggerRef.current;
+      if (el instanceof HTMLElement) {
+        // Use rAF to defer focus restoration until after the portal unmounts
+        requestAnimationFrame(() => el.focus());
+      }
+      triggerRef.current = null;
+    }
+  }, [open]);
 
   // Scroll lock
   useEffect(() => {
@@ -123,6 +139,8 @@ export function Overlay({
   return createPortal(
     <div
       ref={overlayRef}
+      role="dialog"
+      aria-modal="true"
       className={cn("fixed inset-0 z-50 flex", placementClass)}
       data-state="open"
     >

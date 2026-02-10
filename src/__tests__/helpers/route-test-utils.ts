@@ -25,6 +25,8 @@ export function makeRequest(
     init.headers = options.headers;
   }
 
+  // NextRequest constructor expects NextRequestInit which is not publicly exported;
+  // RequestInit is structurally compatible at runtime but not at the type level.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return new NextRequest(url, init as any);
 }

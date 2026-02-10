@@ -3,7 +3,9 @@ import { signSessionToken } from "@/lib/navigator/auth";
 import { createServerClient } from "@/lib/supabase/server";
 import type { TeamMember } from "@/lib/navigator/types";
 
-const ADMIN_NAMES = ["SriHarsha", "Adi", "JVS", "Reddy", "Sai"];
+function getAdminNames(): string[] {
+  return process.env.ADMIN_USERS?.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean) ?? [];
+}
 
 // --- Brute-force rate limiting ---
 const MAX_ATTEMPTS = 5;
@@ -98,7 +100,7 @@ export async function POST(request: Request) {
   // Successful login — clear any failed attempt history
   clearFailedAttempts(ip);
 
-  const isAdmin = ADMIN_NAMES.includes(name);
+  const isAdmin = getAdminNames().includes(name.toLowerCase());
 
   // Update lastLoginAt in Supabase
   try {

@@ -2,6 +2,7 @@
 
 import React from "react";
 import type { OutreachSequence } from "@/lib/navigator/types";
+import { pick } from "@/lib/navigator/ui-copy";
 
 interface SequenceEnrollTabProps {
   contactFirstName: string;
@@ -35,7 +36,7 @@ export const SequenceEnrollTab = React.memo(function SequenceEnrollTab({
         </div>
       ) : !sequences?.length ? (
         <div className="py-6 text-center text-xs text-text-tertiary">
-          No sequences created yet. Create one from the Sequences page.
+          {pick("empty_sequences")}
         </div>
       ) : (
         <div className="max-h-[300px] space-y-1.5 overflow-y-auto">

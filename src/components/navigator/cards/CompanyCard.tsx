@@ -12,6 +12,7 @@ import { Tooltip } from "@/components/navigator/shared/Tooltip";
 import type { Contact } from "@/lib/navigator/types";
 import { logEmailCopy } from "@/lib/navigator/logEmailCopy";
 import { TeamActivityBadge } from "@/components/navigator/badges/TeamActivityBadge";
+import { pick } from "@/lib/navigator/ui-copy";
 
 interface CompanyCardProps {
   company: CompanyEnriched;
@@ -218,6 +219,7 @@ export function CompanyCard({
               onToggleCheck();
             }}
             tabIndex={-1}
+            aria-label={isChecked ? `Deselect ${company.name}` : `Select ${company.name}`}
             className={cn(
               "flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded transition-all duration-150",
               isChecked
@@ -350,6 +352,7 @@ export function CompanyCard({
               <Tooltip text="Interested">
                 <button
                   onClick={(e) => { e.stopPropagation(); setCompanyDecision(company.domain, "interested"); }}
+                  aria-label="Mark as interested"
                   className={cn(
                     "rounded p-0.5 transition-colors",
                     companyDecision === "interested"
@@ -365,6 +368,7 @@ export function CompanyCard({
               <Tooltip text="Pass">
                 <button
                   onClick={(e) => { e.stopPropagation(); setCompanyDecision(company.domain, "pass"); }}
+                  aria-label="Mark as pass"
                   className={cn(
                     "rounded p-0.5 transition-colors",
                     companyDecision === "pass"
@@ -384,6 +388,7 @@ export function CompanyCard({
                     if (isInProspectList) removeFromProspectList(company.domain);
                     else addToProspectList(company.domain);
                   }}
+                  aria-label={isInProspectList ? "Remove from prospect list" : "Add to prospect list"}
                   className={cn(
                     "rounded p-0.5 transition-colors",
                     isInProspectList
@@ -430,6 +435,7 @@ export function CompanyCard({
                     >
                       <button
                         onClick={(e) => { e.stopPropagation(); toggleContactSelection(contact.id); }}
+                        aria-label={selectedContactIds.has(contact.id) ? `Deselect ${contact.firstName} ${contact.lastName}` : `Select ${contact.firstName} ${contact.lastName}`}
                         className={cn(
                           "flex h-3 w-3 flex-shrink-0 items-center justify-center rounded transition-all duration-150",
                           selectedContactIds.has(contact.id)
@@ -460,7 +466,16 @@ export function CompanyCard({
                       )}>
                         {SENIORITY_LABELS[contact.seniority] ?? contact.seniority}
                       </span>
-                      <span className={cn("h-1.5 w-1.5 flex-shrink-0 rounded-full", getVerificationDotColor(contact))} />
+                      <span
+                        className={cn("h-1.5 w-1.5 flex-shrink-0 rounded-full", getVerificationDotColor(contact))}
+                        role="img"
+                        aria-label={
+                          contact.verificationStatus === "valid" ? "Email verified" :
+                          contact.verificationStatus === "valid_risky" ? "Email valid but risky" :
+                          contact.verificationStatus === "invalid" ? "Email invalid" :
+                          "Email unverified"
+                        }
+                      />
                       {contact.email && (
                         <Tooltip text="Copy email">
                           <button
@@ -473,6 +488,7 @@ export function CompanyCard({
                                 logEmailCopy(contact.email!, `${contact.firstName} ${contact.lastName}`, company.domain);
                               });
                             }}
+                            aria-label={`Copy email for ${contact.firstName} ${contact.lastName}`}
                             className="flex-shrink-0 text-text-tertiary transition-colors hover:text-accent-primary"
                           >
                             {copiedContactId === contact.id ? (
@@ -523,7 +539,7 @@ export function CompanyCard({
               </div>
             ) : (
               <div className="mt-2 border-t border-surface-3 pt-1.5">
-                <span className="text-[10px] italic text-text-tertiary">No contacts found</span>
+                <span className="text-[10px] italic text-text-tertiary">{pick("empty_contacts_inline")}</span>
               </div>
             )
           ) : (

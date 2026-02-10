@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { defaultFreshsalesSettings } from "@/lib/navigator/mock-data";
+import { adminConfigUpdateSchema, formatValidationErrors } from "@/lib/navigator/admin-config-schema";
 
 export async function GET() {
   try {
@@ -83,6 +84,17 @@ export async function GET() {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
+
+    // Validate incoming config payload
+    const parsed = adminConfigUpdateSchema.safeParse(body);
+    if (!parsed.success) {
+      const messages = formatValidationErrors(parsed.error);
+      return NextResponse.json(
+        { error: "Invalid admin config", details: messages },
+        { status: 400 }
+      );
+    }
+
     const supabase = createServerClient();
 
     // Map camelCase to snake_case for DB

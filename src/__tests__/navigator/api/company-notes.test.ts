@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
+import type { CompanyNote } from "@/lib/navigator/types";
 
 // ---------------------------------------------------------------------------
 // Mocks — Supabase db helpers
@@ -46,12 +47,11 @@ describe("GET /api/company/[domain]/notes", () => {
   });
 
   it("returns notes array from getNotesForCompany", async () => {
-    const mockNotes = [
+    const mockNotes: CompanyNote[] = [
       { id: "n1", content: "Great lead", authorName: "Adi", companyDomain: "acme.com", createdAt: "2026-01-28", updatedAt: "2026-01-28", mentions: [] },
       { id: "n2", content: "Followed up", authorName: "Satish", companyDomain: "acme.com", createdAt: "2026-01-29", updatedAt: "2026-01-29", mentions: [] },
     ];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(getNotesForCompany).mockResolvedValue(mockNotes as any);
+    vi.mocked(getNotesForCompany).mockResolvedValue(mockNotes);
 
     const res = await callGET("acme.com");
     expect(res.status).toBe(200);
@@ -82,14 +82,16 @@ describe("POST /api/company/[domain]/notes", () => {
   });
 
   it("creates a note with valid content and authorName", async () => {
-    const mockNote = {
+    const mockNote: CompanyNote = {
       id: "n1",
       content: "Promising prospect",
       authorName: "Adi",
+      companyDomain: "acme.com",
+      createdAt: "2026-01-28",
+      updatedAt: null,
       mentions: [],
     };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(addNote).mockResolvedValue(mockNote as any);
+    vi.mocked(addNote).mockResolvedValue(mockNote);
 
     const res = await callPOST("acme.com", {
       content: "Promising prospect",
@@ -108,14 +110,16 @@ describe("POST /api/company/[domain]/notes", () => {
   });
 
   it("passes mentions array to addNote when provided", async () => {
-    const mockNote = {
+    const mockNote: CompanyNote = {
       id: "n2",
       content: "Check with @Satish",
       authorName: "Adi",
+      companyDomain: "acme.com",
+      createdAt: "2026-01-29",
+      updatedAt: null,
       mentions: ["Satish"],
     };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(addNote).mockResolvedValue(mockNote as any);
+    vi.mocked(addNote).mockResolvedValue(mockNote);
 
     const res = await callPOST("acme.com", {
       content: "Check with @Satish",

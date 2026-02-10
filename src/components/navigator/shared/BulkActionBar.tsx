@@ -40,46 +40,45 @@ export function BulkActionBar() {
 
   const totalCount = filteredCompanies().length;
 
+  const addUndoToast = useStore((s) => s.addUndoToast);
+  const undoExclude = useStore((s) => s.undoExclude);
+
   const handleBulkExclude = useCallback(async () => {
     setShowExcludeConfirm(false);
     if (!userName) return;
+    // Snapshot domains before clearing selection
+    const domainsSnapshot = [...domains];
     // Optimistic local exclusion
-    for (const domain of domains) {
+    for (const domain of domainsSnapshot) {
       excludeCompany(domain);
     }
+    clearSelection();
+    // Show undo toast for all bulk exclusions
+    addUndoToast(
+      `Excluded ${domainsSnapshot.length} compan${domainsSnapshot.length === 1 ? "y" : "ies"}`,
+      () => { domainsSnapshot.forEach((d) => undoExclude(d)); }
+    );
     // Persist via bulk API
     try {
       await fetch("/api/bulk/exclude", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ domains, userName }),
+        body: JSON.stringify({ domains: domainsSnapshot, userName }),
       });
-      addToast({ message: pick("exclusion_success").replace("N", String(domains.length)), type: "success" });
     } catch {
       addToast({ message: pick("bulk_action_failed"), type: "error" });
     }
-    clearSelection();
-  }, [domains, userName, excludeCompany, addToast, clearSelection]);
-
-  const addUndoToast = useStore((s) => s.addUndoToast);
-  const undoExclude = useStore((s) => s.undoExclude);
+  }, [domains, userName, excludeCompany, addToast, clearSelection, addUndoToast, undoExclude]);
 
   const requestBulkExclude = useCallback(() => {
-    if (domains.length > 10) {
-      // High-risk: red modal
-      setShowExcludeConfirm(true);
-    } else if (domains.length > 3) {
-      // Medium: standard modal
+    if (domains.length > 3) {
+      // Medium/High-risk: show confirmation dialog, undo toast after confirm
       setShowExcludeConfirm(true);
     } else {
       // Low (1-3): execute immediately with undo toast
       handleBulkExclude();
-      addUndoToast(
-        `Excluded ${domains.length} compan${domains.length === 1 ? "y" : "ies"}`,
-        () => { domains.forEach((d) => undoExclude(d)); }
-      );
     }
-  }, [domains, handleBulkExclude, addUndoToast, undoExclude]);
+  }, [domains, handleBulkExclude]);
 
   const handleBulkStatus = async (status: string) => {
     if (!userName) return;

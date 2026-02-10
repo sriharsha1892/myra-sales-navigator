@@ -27,7 +27,7 @@ export function SignalStrengthBar({ signalCount, signalTypes }: SignalStrengthBa
 
   return (
     <Tooltip text={tooltipText} placement="bottom">
-      <div className="h-1 w-10 flex-shrink-0 rounded-full bg-surface-3">
+      <div role="img" aria-label={tooltipText} className="h-1 w-10 flex-shrink-0 rounded-full bg-surface-3">
         <div
           className={cn("h-full rounded-full transition-all duration-300", colorClass)}
           style={{ width: `${fill}%` }}

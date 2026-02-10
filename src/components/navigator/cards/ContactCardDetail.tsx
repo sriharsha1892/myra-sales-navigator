@@ -306,6 +306,8 @@ function CollapsibleSection({ title, defaultOpen = true, children }: { title: st
     <div className="mb-2">
       <button
         onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+        aria-expanded={open}
+        aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
         className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary hover:text-text-secondary"
       >
         <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className={`transition-transform duration-[180ms] ${open ? "" : "-rotate-90"}`}>

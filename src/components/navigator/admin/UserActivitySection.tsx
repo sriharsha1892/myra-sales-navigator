@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { AdminSection } from "./AdminSection";
 import { timeAgo } from "@/lib/utils";
+import { pick } from "@/lib/navigator/ui-copy";
 
 interface UserSummary {
   name: string;
@@ -95,7 +96,7 @@ export function UserActivitySection() {
         <div className="space-y-1.5">
           <h3 className="mb-2 text-xs font-medium text-text-primary">{selectedUser}&apos;s Activity</h3>
           {timeline.length === 0 ? (
-            <p className="text-xs text-text-tertiary">No activity in this period.</p>
+            <p className="text-xs text-text-tertiary">{pick("empty_activity")}</p>
           ) : (
             timeline.map((entry, i) => (
               <div key={i} className="flex items-start gap-2 py-1">
@@ -138,7 +139,7 @@ export function UserActivitySection() {
                 </tr>
               ))}
               {summary.length === 0 && (
-                <tr><td colSpan={6} className="py-4 text-center text-text-tertiary">No activity in this period.</td></tr>
+                <tr><td colSpan={6} className="py-4 text-center text-text-tertiary">{pick("empty_activity")}</td></tr>
               )}
             </tbody>
           </table>

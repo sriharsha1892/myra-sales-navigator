@@ -2,6 +2,7 @@
 
 import { useStore } from "@/lib/navigator/store";
 import { AdminSection } from "./AdminSection";
+import { pick } from "@/lib/navigator/ui-copy";
 
 export function PresetManagerSection() {
   const presets = useStore((s) => s.presets);
@@ -27,7 +28,7 @@ export function PresetManagerSection() {
           </div>
         ))}
         {presets.length === 0 && (
-          <p className="text-xs italic text-text-tertiary">No presets saved yet</p>
+          <p className="text-xs italic text-text-tertiary">{pick("empty_presets")}</p>
         )}
       </div>
     </AdminSection>

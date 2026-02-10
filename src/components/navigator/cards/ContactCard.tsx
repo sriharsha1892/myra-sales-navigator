@@ -258,6 +258,7 @@ export function ContactCard({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
+                  aria-label={`View ${contact.firstName} ${contact.lastName} on LinkedIn`}
                   className="flex-shrink-0 text-text-tertiary transition-colors hover:text-accent-secondary"
                 >
                   <LinkedInIcon />

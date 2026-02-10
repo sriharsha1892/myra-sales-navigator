@@ -7,6 +7,7 @@ import { useStore } from "@/lib/navigator/store";
 import { SequenceBuilder } from "./SequenceBuilder";
 import { CHANNEL_OPTIONS } from "@/lib/navigator/outreach/channelConfig";
 import type { OutreachSequence, SequenceStep } from "@/lib/navigator/types";
+import { pick } from "@/lib/navigator/ui-copy";
 
 interface SequenceEnrollModalProps {
   contactIds: string[];
@@ -198,7 +199,7 @@ export function SequenceEnrollModal({
               {/* Sequence list */}
               {sequences.length === 0 ? (
                 <p className="py-6 text-center text-xs text-text-tertiary">
-                  No sequences yet. Create one to get started.
+                  {pick("empty_sequences")}
                 </p>
               ) : (
                 <div className="space-y-1.5">

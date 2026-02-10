@@ -392,7 +392,7 @@ describe("ContactsPanel — Filtering & Sorting", () => {
     // Apply freshsales filter — this contact has only apollo source
     fireEvent.click(screen.getByText("In Freshsales"));
 
-    expect(screen.getByText("No contacts match the current filters.")).toBeInTheDocument();
+    expect(screen.getByText(/No contacts match the current filters/)).toBeInTheDocument();
   });
 
   it("'Has email' filter removes contacts without email", async () => {

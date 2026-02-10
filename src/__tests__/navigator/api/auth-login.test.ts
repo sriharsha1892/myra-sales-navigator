@@ -51,6 +51,7 @@ describe("POST /api/auth/login", () => {
     mockFrom.mockReset();
 
     vi.stubEnv("TEAM_PASSWORD", "correct-password");
+    vi.stubEnv("ADMIN_USERS", "sriharsha,adi,jvs,reddy,sai");
 
     // Default Supabase setup: admin_config returns team_members with a few members
     mockFrom.mockImplementation(() =>

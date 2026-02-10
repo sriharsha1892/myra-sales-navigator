@@ -7,6 +7,7 @@ import { useStore } from "@/lib/navigator/store";
 import { defaultFreshsalesSettings } from "@/lib/navigator/mock-data";
 import { MissingData } from "@/components/navigator/shared/MissingData";
 import { CreateTaskInline } from "@/components/navigator/freshsales/CreateTaskInline";
+import { pick } from "@/lib/navigator/ui-copy";
 
 interface DossierFreshsalesProps {
   company: CompanyEnriched;
@@ -49,6 +50,20 @@ function daysAgo(dateStr: string): number {
   return Math.floor((now.getTime() - then.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+function formatSyncTime(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  if (isNaN(then)) return "Unknown";
+  const diffMs = now - then;
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 export function DossierFreshsales({ company }: DossierFreshsalesProps) {
   const raw = useStore((s) => s.adminConfig.freshsalesSettings);
   const settings = { ...defaultFreshsalesSettings, ...raw };
@@ -74,9 +89,16 @@ export function DossierFreshsales({ company }: DossierFreshsalesProps) {
 
   return (
     <div className="px-4 py-3">
-      <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-        {settings.sectionTitle}
-      </h3>
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+          {settings.sectionTitle}
+        </h3>
+        {intel?.fetchedAt && (
+          <span className="text-[10px] font-mono text-text-tertiary">
+            Synced {formatSyncTime(intel.fetchedAt)}
+          </span>
+        )}
+      </div>
 
       {/* CRM Status Callout — visually distinct */}
       {status !== "none" && intel && (
@@ -321,7 +343,7 @@ export function DossierFreshsales({ company }: DossierFreshsalesProps) {
                   ))}
                 </div>
               ) : (
-                <p className="text-[10px] italic text-text-tertiary">No recent activity logged in CRM</p>
+                <p className="text-[10px] italic text-text-tertiary">{pick("empty_activity")}</p>
               )}
             </div>
           )}
