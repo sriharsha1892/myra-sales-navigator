@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useState } from "react";
 
 interface TeamActivityBadgeProps {
   activity: {
@@ -11,7 +11,7 @@ interface TeamActivityBadgeProps {
 }
 
 export function TeamActivityBadge({ activity }: TeamActivityBadgeProps) {
-  const now = useRef(Date.now()).current;
+  const [now] = useState(() => Date.now());
 
   // Collect unique users with their most recent activity
   const userMap = new Map<string, { type: string; at: string }>();

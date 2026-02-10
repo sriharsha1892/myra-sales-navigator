@@ -1,12 +1,12 @@
 "use client";
 
-import { useRef } from "react";
+import { useState } from "react";
 import { useStore } from "@/lib/navigator/store";
 
 export function SimilarSearchBanner() {
   const match = useStore((s) => s.similarSearchMatch);
   const dismiss = useStore((s) => s.dismissSimilarSearch);
-  const now = useRef(Date.now()).current;
+  const [now] = useState(() => Date.now());
 
   if (!match) return null;
   const daysAgo = Math.floor(
