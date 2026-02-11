@@ -136,7 +136,7 @@ export function SequenceTimeline({
           />
         )}
 
-        <div className="space-y-2">
+        <ol role="list" aria-label={`Steps for ${sequence.name}`} className="space-y-2">
           {sequence.steps.map((step, index) => {
             const log = logByStep[index];
             const isCurrent = index === enrollment.currentStep && enrollment.status === "active";
@@ -158,7 +158,7 @@ export function SequenceTimeline({
             const overdue = isCurrent && isOverdue(enrollment.nextStepDueAt);
 
             return (
-              <div key={index} className="flex items-start gap-2.5">
+              <li key={index} className="flex items-start gap-2.5">
                 {/* Dot */}
                 <div className="relative mt-1 flex-shrink-0">
                   <div
@@ -223,10 +223,10 @@ export function SequenceTimeline({
                     </p>
                   )}
                 </div>
-              </div>
+              </li>
             );
           })}
-        </div>
+        </ol>
       </div>
 
       {/* Actions */}
@@ -235,7 +235,7 @@ export function SequenceTimeline({
           <button
             onClick={handlePauseResume}
             disabled={actionLoading !== null}
-            className="rounded-input border border-surface-3 px-2.5 py-1 text-[10px] font-medium text-text-secondary transition-colors duration-[180ms] hover:bg-surface-2 hover:text-text-primary disabled:opacity-40"
+            className="rounded-input border border-surface-3 px-2.5 py-1 text-[10px] font-medium text-text-secondary transition-colors duration-[180ms] hover:bg-surface-2 hover:text-text-primary disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {actionLoading === "pause" || actionLoading === "resume"
               ? "..."

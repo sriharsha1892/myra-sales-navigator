@@ -2,6 +2,7 @@
 
 import { useStore } from "@/lib/navigator/store";
 import { SourceBadge } from "@/components/navigator/badges";
+import { getVerificationDotColor, getConfidenceDotColor } from "@/lib/navigator/verification";
 
 const seniorityOrder: Record<string, number> = {
   c_level: 0, vp: 1, director: 2, manager: 3, staff: 4,
@@ -38,8 +39,18 @@ export function ContactPreviewPopover({ domain }: ContactPreviewPopoverProps) {
             </span>
             <span className="truncate text-text-tertiary">{c.title}</span>
             {c.email && (
-              <span className="ml-auto max-w-[100px] shrink-0 truncate font-mono text-text-secondary">
-                {c.email}
+              <span className="ml-auto flex shrink-0 items-center gap-1 max-w-[120px]">
+                <span className="truncate font-mono text-text-secondary">
+                  {c.email}
+                </span>
+                <span
+                  className={`h-[5px] w-[5px] flex-shrink-0 rounded-full ${getVerificationDotColor(c)}`}
+                  title={c.verificationStatus ?? "unverified"}
+                />
+                <span
+                  className={`h-[5px] w-[5px] flex-shrink-0 rounded-full ${getConfidenceDotColor(c)}`}
+                  title={`Confidence: ${c.emailConfidence}%`}
+                />
               </span>
             )}
             {c.sources[0] && <SourceBadge source={c.sources[0]} />}

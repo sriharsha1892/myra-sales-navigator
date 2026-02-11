@@ -26,6 +26,8 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
   const [loading, setLoading] = useState(hasDomainsMissingContacts);
   const [fetchError, setFetchError] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
+  const [domainsLoaded, setDomainsLoaded] = useState(0);
+  const [domainsTotal, setDomainsTotal] = useState(0);
   const queryClient = useQueryClient();
 
   // Fetch contacts for all selected companies on modal open, populate Zustand
@@ -38,6 +40,9 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
     if (domainsToFetch.length === 0) {
       return;
     }
+
+    setDomainsTotal(domainsToFetch.length);
+    setDomainsLoaded(0);
 
     Promise.all(
       domainsToFetch.map((domain) =>
@@ -53,6 +58,7 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
         }).then((contacts) => {
           if (!cancelled) {
             useStore.getState().setContactsForDomain(domain, contacts);
+            setDomainsLoaded((prev) => prev + 1);
           }
         }).catch(() => { if (!cancelled) setFetchError(true); })
       )
@@ -114,25 +120,6 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
         </div>
 
         <div className="max-h-80 overflow-y-auto px-5 py-3">
-          {loading ? (
-            timedOut ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <p className="text-sm italic text-text-tertiary">{pick("empty_export_timeout")}</p>
-                <button
-                  onClick={onCancel}
-                  className="mt-3 rounded-input border border-surface-3 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-2"
-                >
-                  Close
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center py-8">
-                <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-surface-3 border-t-accent-primary" />
-                <span className="ml-2 text-xs text-text-tertiary">Loading contacts...</span>
-              </div>
-            )
-          ) : (
-          <>
           {fetchError && (
             <div className="mb-2 flex items-center gap-2 rounded-card border border-danger/20 bg-danger-light px-3 py-2 text-xs text-danger">
               <span className="flex-1">{pick("contacts_fetch_failed")}</span>
@@ -166,6 +153,37 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
               </button>
             </div>
           )}
+          {loading ? (
+            timedOut ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <p className="text-sm italic text-text-tertiary">{pick("empty_export_timeout")}</p>
+                <div className="mt-3 flex gap-2">
+                  {domainsLoaded > 0 && (
+                    <button
+                      onClick={() => { setLoading(false); setTimedOut(false); }}
+                      className="rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-text-inverse transition-colors hover:bg-accent-primary-hover"
+                    >
+                      Continue with loaded contacts
+                    </button>
+                  )}
+                  <button
+                    onClick={onCancel}
+                    className="rounded-input border border-surface-3 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-2"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center py-8">
+                <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-surface-3 border-t-accent-primary" />
+                <span className="ml-2 text-xs text-text-tertiary">
+                  Loading contacts...{domainsTotal > 0 && ` (${domainsLoaded}/${domainsTotal} companies)`}
+                </span>
+              </div>
+            )
+          ) : (
+          <>
           {/* Fix 1: Empty state when no contacts have email */}
           {relevantContacts.length > 0 && relevantContacts.every((c) => !c.email) ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -267,7 +285,7 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
             <button
               onClick={() => onExport(Array.from(selected))}
               disabled={selected.size === 0}
-              className="rounded-input bg-accent-primary px-4 py-1.5 text-xs font-medium text-text-inverse transition-colors hover:bg-accent-primary-hover disabled:opacity-40"
+              className="rounded-input bg-accent-primary px-4 py-1.5 text-xs font-medium text-text-inverse transition-colors hover:bg-accent-primary-hover disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {mode === "csv" ? "Export" : "Copy"} {selected.size} contacts
             </button>

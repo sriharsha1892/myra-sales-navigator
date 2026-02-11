@@ -99,7 +99,7 @@ export function CompanyNotes({ companyDomain }: CompanyNotesProps) {
                       <button
                         onClick={() => handleEdit(note.id)}
                         disabled={!editContent.trim()}
-                        className="rounded-input bg-accent-primary px-2 py-0.5 text-[10px] font-medium text-text-inverse disabled:opacity-40"
+                        className="rounded-input bg-accent-primary px-2 py-0.5 text-[10px] font-medium text-text-inverse disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         Save
                       </button>

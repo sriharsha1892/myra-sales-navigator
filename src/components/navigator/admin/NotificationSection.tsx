@@ -25,6 +25,7 @@ export function NotificationSection() {
   const teamsConfig = settings as TeamsExtended;
 
   const [newRecipient, setNewRecipient] = useState("");
+  const [recipientError, setRecipientError] = useState("");
   const [teamsTestStatus, setTeamsTestStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [teamsTestMessage, setTeamsTestMessage] = useState("");
   const [announcementTitle, setAnnouncementTitle] = useState("");
@@ -102,12 +103,19 @@ export function NotificationSection() {
   const addRecipient = () => {
     const val = newRecipient.trim();
     if (!val) return;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(val)) {
+      setRecipientError("Please enter a valid email address.");
+      return;
+    }
     if (settings.digestRecipients.includes(val)) {
       setNewRecipient("");
+      setRecipientError("");
       return;
     }
     update({ digestRecipients: [...settings.digestRecipients, val] });
     setNewRecipient("");
+    setRecipientError("");
   };
 
   const removeRecipient = (recipient: string) => {
@@ -160,7 +168,7 @@ export function NotificationSection() {
             <input
               type="text"
               value={newRecipient}
-              onChange={(e) => setNewRecipient(e.target.value)}
+              onChange={(e) => { setNewRecipient(e.target.value); if (recipientError) setRecipientError(""); }}
               onKeyDown={(e) => { if (e.key === "Enter") addRecipient(); }}
               placeholder="Add email or name..."
               className="flex-1 rounded-input border border-surface-3 bg-surface-2 px-3 py-1.5 text-xs text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
@@ -168,11 +176,14 @@ export function NotificationSection() {
             <button
               onClick={addRecipient}
               disabled={!newRecipient.trim()}
-              className="rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-text-inverse disabled:opacity-50"
+              className="rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-text-inverse disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Add
             </button>
           </div>
+          {recipientError && (
+            <p className="mt-1 text-[10px] text-danger">{recipientError}</p>
+          )}
           <p className="mt-1.5 text-[10px] text-text-tertiary">
             Daily digest includes: total searches, exports, new exclusions, and credit usage from the past 24 hours.
           </p>
@@ -222,12 +233,12 @@ export function NotificationSection() {
             <button
               onClick={sendTeamsTest}
               disabled={!teamsConfig.teamChannelWebhookUrl || teamsTestStatus === "sending"}
-              className="rounded-input border border-surface-3 bg-surface-2 px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover disabled:opacity-50"
+              className="rounded-input border border-surface-3 bg-surface-2 px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {teamsTestStatus === "sending" ? "Sending..." : "Send Test Card"}
             </button>
             {teamsTestMessage && (
-              <span className={`text-[10px] ${teamsTestStatus === "success" ? "text-success" : "text-danger"}`}>
+              <span role="alert" className={`text-[10px] ${teamsTestStatus === "success" ? "text-success" : "text-danger"}`}>
                 {teamsTestMessage}
               </span>
             )}
@@ -264,7 +275,7 @@ export function NotificationSection() {
                 <button
                   onClick={sendAnnouncement}
                   disabled={!announcementTitle.trim() || !announcementBody.trim() || announcementStatus === "sending"}
-                  className="rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-text-inverse disabled:opacity-50"
+                  className="rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-text-inverse disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {announcementStatus === "sending" ? "Sending..." : "Send Now"}
                 </button>

@@ -6,6 +6,7 @@ import type { CompanyEnriched, FreshsalesIntel, FreshsalesStatus } from "@/lib/n
 import { useStore } from "@/lib/navigator/store";
 import { defaultFreshsalesSettings } from "@/lib/navigator/mock-data";
 import { MissingData } from "@/components/navigator/shared/MissingData";
+import { Tooltip } from "@/components/navigator/shared/Tooltip";
 import { CreateTaskInline } from "@/components/navigator/freshsales/CreateTaskInline";
 import { pick } from "@/lib/navigator/ui-copy";
 
@@ -296,7 +297,9 @@ export function DossierFreshsales({ company }: DossierFreshsalesProps) {
                             );
                           })}
                           {c.tags.length > 3 && (
-                            <span className="text-[9px] text-text-tertiary">+{c.tags.length - 3}</span>
+                            <Tooltip text={c.tags.slice(3).join(", ")}>
+                              <span className="text-[9px] text-text-tertiary">+{c.tags.length - 3}</span>
+                            </Tooltip>
                           )}
                         </div>
                       )}

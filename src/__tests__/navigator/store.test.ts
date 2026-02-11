@@ -30,6 +30,7 @@ function resetStore() {
     searchResults: null,
     notesByDomain: {},
     presets: [],
+    excludingDomains: new Set(),
   });
 }
 
@@ -424,8 +425,10 @@ describe("exclusions", () => {
     expect(company?.excluded).toBe(true);
   });
 
-  it("undoExclude clears excluded flag", () => {
+  it("undoExclude clears excluded flag", async () => {
     useStore.getState().excludeCompany("ingredion.com");
+    // Wait for excludeCompany fetch to settle so excludingDomains guard clears
+    await new Promise((r) => setTimeout(r, 0));
     useStore.getState().undoExclude("ingredion.com");
     const company = useStore.getState().companies.find((c) => c.domain === "ingredion.com");
     expect(company?.excluded).toBe(false);

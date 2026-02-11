@@ -36,10 +36,11 @@ export function BulkActionBar() {
 
   const filteredCompanies = useStore((s) => s.filteredCompanies);
   const contactsByDomain = useStore((s) => s.contactsByDomain);
+  const allContactsViewActive = useStore((s) => s.allContactsViewActive);
 
-  const selectedIds = selectedCompanyDomains;
-  const clearSelection = deselectAllCompanies;
-  const count = selectedIds.size;
+  const isContactMode = allContactsViewActive && selectedContactIds.size > 0;
+  const clearSelection = isContactMode ? deselectAllContacts : deselectAllCompanies;
+  const count = isContactMode ? selectedContactIds.size : selectedCompanyDomains.size;
   const domains = Array.from(selectedCompanyDomains);
 
   const totalCount = filteredCompanies().length;
@@ -158,9 +159,9 @@ export function BulkActionBar() {
               <span key={count} className="inline-block" style={{ animation: "countBounce 200ms ease-out" }}>
                 <AnimatedNumber value={count} />
               </span>
-              {totalCount > 0 && (
+              {!isContactMode && totalCount > 0 && (
                 <span className="font-normal text-text-tertiary"> of {totalCount}</span>
-              )}{" "}selected
+              )}{" "}{isContactMode ? "contacts selected" : "selected"}
             </span>
 
             {showStatusDropdown ? (
@@ -184,7 +185,7 @@ export function BulkActionBar() {
                 <Tooltip text={exportDisabled ? "Select contacts first" : ""}>
                   <BulkButton onClick={() => initiateExport("excel")} label="Excel" disabled={exportDisabled} />
                 </Tooltip>
-                {viewMode === "companies" && (
+                {viewMode === "companies" && !isContactMode && (
                   <>
                     {count >= 2 && count <= 3 && (
                       <BulkButton onClick={() => setShowComparison(true)} label="Compare" />

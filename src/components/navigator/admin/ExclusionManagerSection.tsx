@@ -311,7 +311,7 @@ export function ExclusionManagerSection() {
         <button
           onClick={handleAdd}
           disabled={adding || !newValue.trim()}
-          className="rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-text-inverse disabled:opacity-50"
+          className="rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-text-inverse disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {adding ? "Adding..." : "Add"}
         </button>
@@ -344,14 +344,14 @@ export function ExclusionManagerSection() {
             <button
               onClick={handleImport}
               disabled={importing}
-              className="rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-text-inverse disabled:opacity-50"
+              className="rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-text-inverse disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {importing ? "Importing..." : "Import"}
             </button>
             <button
               onClick={() => setCsvPreview(null)}
               disabled={importing}
-              className="rounded-input border border-surface-3 px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover disabled:opacity-50"
+              className="rounded-input border border-surface-3 px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>

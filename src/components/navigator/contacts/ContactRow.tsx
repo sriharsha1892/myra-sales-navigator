@@ -219,7 +219,7 @@ export const ContactRow = React.memo(function ContactRow({
           <button
             onClick={handleReveal}
             disabled={revealing}
-            className="ml-auto rounded px-1.5 py-0.5 text-[10px] font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/10 disabled:opacity-50"
+            className="ml-auto rounded px-1.5 py-0.5 text-[10px] font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/10 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {revealing ? "Revealing\u2026" : "Reveal"}
           </button>

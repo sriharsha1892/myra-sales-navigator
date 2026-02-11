@@ -22,14 +22,14 @@ export function AdminSaveBar({ isDirty, onSave, onDiscard, saving }: AdminSaveBa
         <button
           onClick={onDiscard}
           disabled={saving}
-          className="rounded-input border border-surface-3 px-4 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-50"
+          className="rounded-input border border-surface-3 px-4 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Discard
         </button>
         <button
           onClick={onSave}
           disabled={saving}
-          className="rounded-input bg-accent-primary px-4 py-1.5 text-xs font-medium text-text-inverse transition-colors hover:bg-accent-primary-hover disabled:opacity-50"
+          className="rounded-input bg-accent-primary px-4 py-1.5 text-xs font-medium text-text-inverse transition-colors hover:bg-accent-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {saving ? "Saving..." : "Save"}
         </button>

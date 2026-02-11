@@ -97,7 +97,7 @@ export function ApiKeysSection() {
         <button
           onClick={fetchStatus}
           disabled={loading}
-          className="text-[10px] text-accent-secondary hover:text-accent-secondary/80 disabled:opacity-50"
+          className="text-[10px] text-accent-secondary hover:text-accent-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? "Checking..." : "Refresh"}
         </button>

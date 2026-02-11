@@ -51,7 +51,9 @@ export function DossierSignals({ signals }: DossierSignalsProps) {
               {signal.description}
             </p>
             <div className="mt-1.5 flex items-center gap-2 font-mono text-[10px] text-text-tertiary">
-              <span>{new Date(signal.date).toLocaleDateString()}</span>
+              {signal.date && !isNaN(new Date(signal.date).getTime()) && (
+                <span>{new Date(signal.date).toLocaleDateString()}</span>
+              )}
               {signal.sourceUrl && (
                 <a
                   href={signal.sourceUrl}

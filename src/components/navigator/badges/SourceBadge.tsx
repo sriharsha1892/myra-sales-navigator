@@ -24,7 +24,15 @@ export function SourceBadge({ source, className, showHelp }: SourceBadgeProps) {
   const entry = config[source];
   if (!entry) return null;
   const { label, color } = entry;
-  const fullName = source.charAt(0).toUpperCase() + source.slice(1);
+  const nameMap: Record<string, string> = {
+    exa: "Exa",
+    apollo: "Apollo",
+    hubspot: "HubSpot",
+    clearout: "Clearout",
+    mordor: "Mordor",
+    freshsales: "Freshsales",
+  };
+  const fullName = nameMap[source] ?? (source.charAt(0).toUpperCase() + source.slice(1));
   const badge = (
     <Tooltip text={fullName}>
       <span

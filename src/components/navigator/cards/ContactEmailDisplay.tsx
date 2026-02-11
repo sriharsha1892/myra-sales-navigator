@@ -45,7 +45,7 @@ export const ContactEmailDisplay = React.memo(function ContactEmailDisplay({
         <button
           onClick={onRevealClick}
           disabled={revealLoading || revealFailed}
-          className="flex items-center gap-1 rounded-input border border-accent-secondary/30 bg-accent-secondary/5 px-2 py-0.5 text-[10px] font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/10 disabled:opacity-50"
+          className="flex items-center gap-1 rounded-input border border-accent-secondary/30 bg-accent-secondary/5 px-2 py-0.5 text-[10px] font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/10 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {revealLoading ? (
             <span className="inline-block h-2.5 w-2.5 animate-spin rounded-full border border-accent-secondary/30 border-t-accent-secondary" />
@@ -78,7 +78,7 @@ export const ContactEmailDisplay = React.memo(function ContactEmailDisplay({
       <button
         onClick={onRevealClick}
         disabled={revealLoading}
-        className="flex items-center gap-1 rounded-input border border-accent-secondary/30 bg-accent-secondary/10 px-2 py-0.5 text-xs font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/20 disabled:opacity-50"
+        className="flex items-center gap-1 rounded-input border border-accent-secondary/30 bg-accent-secondary/10 px-2 py-0.5 text-xs font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/20 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {revealLoading ? (
           <span className="inline-block h-2.5 w-2.5 animate-spin rounded-full border border-accent-secondary/30 border-t-accent-secondary" />

@@ -34,12 +34,17 @@ export function SearchBridge() {
     crmAbortRef.current = controller;
 
     const limit = pLimit(3);
-    for (const company of companies) {
-      // Skip if already has CRM data
-      if (company.freshsalesStatus !== "none" || company.hubspotStatus !== "none") continue;
+    const toEnrich = companies.filter(
+      (c) => c.freshsalesStatus === "none" && c.hubspotStatus === "none"
+    );
 
-      limit(async () => {
-        if (controller.signal.aborted) return;
+    if (toEnrich.length === 0) return;
+
+    useStore.getState().setCrmEnrichmentInProgress(true);
+
+    const promises = toEnrich.map((company) =>
+      limit(async (): Promise<"ok" | "fail"> => {
+        if (controller.signal.aborted) return "fail";
         try {
           const nameParam = company.name && company.name !== company.domain
             ? `&name=${encodeURIComponent(company.name)}`
@@ -48,7 +53,7 @@ export function SearchBridge() {
             `/api/company/${encodeURIComponent(company.domain)}?crmOnly=true${nameParam}`,
             { signal: controller.signal }
           );
-          if (!res.ok) return;
+          if (!res.ok) return "fail";
           const data = await res.json();
           if (data.freshsalesStatus !== "none" || data.hubspotStatus !== "none") {
             useStore.getState().updateCompanyCrmStatus(
@@ -58,11 +63,26 @@ export function SearchBridge() {
               data.hubspotStatus
             );
           }
+          return "ok";
         } catch {
-          // Silent — CRM enrichment is best-effort
+          return "fail";
         }
-      });
-    }
+      })
+    );
+
+    Promise.allSettled(promises).then((results) => {
+      useStore.getState().setCrmEnrichmentInProgress(false);
+      const failCount = results.filter(
+        (r) => r.status === "rejected" || (r.status === "fulfilled" && r.value === "fail")
+      ).length;
+      if (failCount === toEnrich.length && toEnrich.length > 0) {
+        useStore.getState().addToast({
+          message: "CRM status check failed for all companies",
+          type: "warning",
+          duration: 4000,
+        });
+      }
+    });
   };
 
   // Pre-warm contacts for top companies after search completes
@@ -89,7 +109,7 @@ export function SearchBridge() {
       store.setEnrichmentProgress({ total: needPreWarm.length, completed: 0 });
     }
 
-    for (const company of needPreWarm) {
+    const preWarmPromises = needPreWarm.map((company) =>
       limit(async () => {
         if (controller.signal.aborted) return;
         try {
@@ -110,8 +130,13 @@ export function SearchBridge() {
         } finally {
           useStore.getState().incrementEnrichmentCompleted();
         }
-      });
-    }
+      })
+    );
+
+    // Always clear enrichment progress when all pre-warm tasks finish
+    Promise.allSettled(preWarmPromises).then(() => {
+      useStore.getState().setEnrichmentProgress(null);
+    });
   };
 
   // Post-search team activity enrichment
@@ -180,11 +205,13 @@ export function SearchBridge() {
             useStore.getState().incrementSessionSearchCount();
           },
           onError: (error: Error) => {
-            // Don't show error toast for aborted searches
             if (error.name === "AbortError") return;
             notify("Search failed", "Something went wrong with your search");
           },
-          onSettled: () => setSearchLoading(false),
+          onSettled: (_data, error) => {
+            if (error?.name === "AbortError") return;
+            setSearchLoading(false);
+          },
         }
       );
       setPendingFreeTextSearch(null);
@@ -219,11 +246,13 @@ export function SearchBridge() {
             useStore.getState().incrementSessionSearchCount();
           },
           onError: (error: Error) => {
-            // Don't show error toast for aborted searches
             if (error.name === "AbortError") return;
             notify("Search failed", "Something went wrong with your search");
           },
-          onSettled: () => setSearchLoading(false),
+          onSettled: (_data, error) => {
+            if (error?.name === "AbortError") return;
+            setSearchLoading(false);
+          },
         }
       );
       setPendingFilterSearch(false);

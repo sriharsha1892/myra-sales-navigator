@@ -5,6 +5,7 @@ import { useStore } from "@/lib/navigator/store";
 import { IcpScoreBadge } from "@/components/navigator/badges";
 import { cn } from "@/lib/cn";
 import type { CompanyEnriched, Contact } from "@/lib/navigator/types";
+import { CompanyLogo } from "@/components/navigator/shared/CompanyLogo";
 
 const crmStatusColors: Record<string, { bg: string; text: string }> = {
   open: { bg: "rgba(34, 197, 94, 0.12)", text: "#22c55e" },
@@ -120,14 +121,7 @@ export function CompanyComparisonModal({ domains, onClose }: CompanyComparisonMo
                       onClick={() => handleCompanyClick(c.domain)}
                       className="flex items-center gap-2 hover:underline"
                     >
-                      <img
-                        src={c.logoUrl ?? `https://www.google.com/s2/favicons?domain=${c.domain}&sz=32`}
-                        alt=""
-                        width={20}
-                        height={20}
-                        className="h-5 w-5 rounded"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                      />
+                      <CompanyLogo logoUrl={c.logoUrl} domain={c.domain} name={c.name} size={20} className="h-5 w-5" />
                       <span className="max-w-[150px] truncate font-display text-sm font-semibold text-text-primary" title={c.name}>
                         {c.name}
                       </span>

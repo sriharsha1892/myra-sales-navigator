@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { cn } from "@/lib/cn";
 import type { RelevanceFeedbackReason } from "@/lib/navigator/types";
 
 interface RelevanceFeedbackPopoverProps {
   domain: string;
   onSelect: (reason: RelevanceFeedbackReason) => void;
   onClose: () => void;
+  currentReason?: RelevanceFeedbackReason;
 }
 
 const REASONS: { value: RelevanceFeedbackReason; label: string }[] = [
@@ -21,6 +23,7 @@ export function RelevanceFeedbackPopover({
   domain,
   onSelect,
   onClose,
+  currentReason,
 }: RelevanceFeedbackPopoverProps) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -58,7 +61,12 @@ export function RelevanceFeedbackPopover({
               e.stopPropagation();
               onSelect(r.value);
             }}
-            className="rounded-pill px-2 py-1 text-xs bg-surface-2 hover:bg-surface-3 text-text-secondary hover:text-text-primary transition-all duration-[180ms]"
+            className={cn(
+              "rounded-pill px-2 py-1 text-xs transition-all duration-[180ms]",
+              currentReason === r.value
+                ? "bg-danger/20 text-danger ring-1 ring-danger/30"
+                : "bg-surface-2 hover:bg-surface-3 text-text-secondary hover:text-text-primary"
+            )}
           >
             {r.label}
           </button>

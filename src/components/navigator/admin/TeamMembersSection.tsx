@@ -250,7 +250,7 @@ export function TeamMembersSection() {
         <button
           onClick={generateAllLinks}
           disabled={bulkGenerating}
-          className="rounded-input border border-surface-3 bg-surface-1 px-2 py-0.5 text-[10px] text-text-secondary transition-colors hover:border-accent-primary hover:text-accent-primary disabled:opacity-50"
+          className="rounded-input border border-surface-3 bg-surface-1 px-2 py-0.5 text-[10px] text-text-secondary transition-colors hover:border-accent-primary hover:text-accent-primary disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {bulkGenerating ? "Generating..." : "Generate all links"}
         </button>
@@ -273,7 +273,7 @@ export function TeamMembersSection() {
             <button
               onClick={() => generateLink(m)}
               disabled={generating === m.email}
-              className="rounded-input border border-surface-3 bg-surface-1 px-2 py-0.5 text-[10px] text-text-secondary transition-colors hover:border-accent-primary hover:text-accent-primary disabled:opacity-50"
+              className="rounded-input border border-surface-3 bg-surface-1 px-2 py-0.5 text-[10px] text-text-secondary transition-colors hover:border-accent-primary hover:text-accent-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {copiedEmail === m.email ? "Copied!" : generating === m.email ? "..." : "Login link"}
             </button>
@@ -281,7 +281,7 @@ export function TeamMembersSection() {
               <button
                 onClick={() => sendViaTeams(m)}
                 disabled={generating === m.email}
-                className="rounded-input border border-surface-3 bg-surface-1 px-2 py-0.5 text-[10px] text-text-secondary transition-colors hover:border-accent-secondary hover:text-accent-secondary disabled:opacity-50"
+                className="rounded-input border border-surface-3 bg-surface-1 px-2 py-0.5 text-[10px] text-text-secondary transition-colors hover:border-accent-secondary hover:text-accent-secondary disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Teams
               </button>

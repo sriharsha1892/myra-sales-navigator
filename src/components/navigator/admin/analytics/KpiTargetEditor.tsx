@@ -49,7 +49,7 @@ export function KpiTargetEditor({ targets, onSave, saving }: KpiTargetEditorProp
         <button
           onClick={() => onSave({ exportsThisWeek: exports, avgIcpScore: avgIcp })}
           disabled={saving}
-          className="rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-surface-0 transition-colors duration-150 hover:bg-accent-primary-hover disabled:opacity-40"
+          className="rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-surface-0 transition-colors duration-150 hover:bg-accent-primary-hover disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {saving ? "Saving..." : "Save targets"}
         </button>

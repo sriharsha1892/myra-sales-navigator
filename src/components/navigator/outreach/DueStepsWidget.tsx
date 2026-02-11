@@ -43,7 +43,10 @@ export function DueStepsWidget() {
 
   const [items, setItems] = useState<DueStepItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [collapsed, setCollapsed] = useState(false);
+  const [error, setError] = useState(false);
+  const [collapsed, setCollapsed] = useState(() =>
+    typeof window !== "undefined" && localStorage.getItem("nav_due_steps_collapsed") === "1"
+  );
 
   // Execution state
   const [executingId, setExecutingId] = useState<string | null>(null);
@@ -59,8 +62,9 @@ export function DueStepsWidget() {
   const [briefingData, setBriefingData] = useState<Record<string, BriefingData>>({});
   const [briefingLoading, setBriefingLoading] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    let cancelled = false;
+  const fetchDueSteps = useCallback(() => {
+    setLoading(true);
+    setError(false);
 
     fetch(`/api/outreach/due-steps`)
       .then((res) => {
@@ -68,22 +72,19 @@ export function DueStepsWidget() {
         return res.json();
       })
       .then((data: { items: DueStepItem[] }) => {
-        if (!cancelled) {
-          setItems(data.items);
-          setLoading(false);
-        }
+        setItems(data.items);
+        setLoading(false);
       })
       .catch(() => {
-        if (!cancelled) {
-          setItems([]);
-          setLoading(false);
-        }
+        setItems([]);
+        setLoading(false);
+        setError(true);
       });
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    fetchDueSteps();
+  }, [fetchDueSteps]);
 
   const removeItem = useCallback((enrollmentId: string) => {
     setItems((prev) => prev.filter((i) => i.enrollment.id !== enrollmentId));
@@ -201,7 +202,11 @@ export function DueStepsWidget() {
       <div className="rounded-card border border-surface-3 bg-surface-1">
         {/* Header */}
         <button
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={() => {
+            const next = !collapsed;
+            setCollapsed(next);
+            localStorage.setItem("nav_due_steps_collapsed", next ? "1" : "0");
+          }}
           className="flex w-full items-center justify-between px-4 py-3 text-left"
         >
           <div className="flex items-center gap-2">
@@ -232,7 +237,17 @@ export function DueStepsWidget() {
         {/* Content */}
         {!collapsed && (
           <div className="border-t border-surface-3 px-4 py-3">
-            {items.length === 0 ? (
+            {error && items.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 py-4">
+                <p className="text-xs text-red-400">Failed to load due steps</p>
+                <button
+                  onClick={fetchDueSteps}
+                  className="rounded-input border border-surface-3 px-3 py-1 text-xs font-medium text-text-secondary transition-colors duration-[180ms] hover:bg-surface-2"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : items.length === 0 ? (
               <p className="py-4 text-center text-xs italic text-text-tertiary">
                 {pick("empty_steps_due")}
               </p>

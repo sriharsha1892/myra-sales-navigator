@@ -49,14 +49,14 @@ export function OutreachSuggestionsSection() {
               <button
                 onClick={() => moveRule(i, "up")}
                 disabled={i === 0}
-                className="rounded px-1 py-0.5 text-xs text-text-tertiary hover:text-text-primary disabled:opacity-30"
+                className="rounded px-1 py-0.5 text-xs text-text-tertiary hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 &uarr;
               </button>
               <button
                 onClick={() => moveRule(i, "down")}
                 disabled={i === rules.length - 1}
-                className="rounded px-1 py-0.5 text-xs text-text-tertiary hover:text-text-primary disabled:opacity-30"
+                className="rounded px-1 py-0.5 text-xs text-text-tertiary hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 &darr;
               </button>

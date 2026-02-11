@@ -185,23 +185,29 @@ export function useCompanyDossier(domain: string | null) {
     const batch = needsVerification.slice(0, 50);
     const emails = batch.map((c) => c.email!);
 
+    const capturedDomain = domain;
+    const controller = new AbortController();
+
     (async () => {
       try {
         const res = await fetch("/api/contact/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ emails }),
+          signal: controller.signal,
         });
         if (!res.ok) return;
         const data: { results: VerificationResult[] } = await res.json();
         if (!data.results || data.results.length === 0) return;
+
+        if (controller.signal.aborted) return;
 
         const resultMap = new Map<string, VerificationResult>();
         for (const r of data.results) resultMap.set(r.email.toLowerCase().trim(), r);
 
         const now = new Date().toISOString();
         const state = useStore.getState();
-        const currentContacts = state.contactsByDomain[domain] ?? [];
+        const currentContacts = state.contactsByDomain[capturedDomain] ?? [];
         const updatedContacts = currentContacts.map((c) => {
           if (!c.email) return c;
           const result = resultMap.get(c.email.toLowerCase().trim());
@@ -210,7 +216,7 @@ export function useCompanyDossier(domain: string | null) {
           const sts = result.status === "valid" && result.score >= 90;
           return { ...c, emailConfidence: result.score, verificationStatus: vs, safeToSend: sts, lastVerified: now };
         });
-        state.setContactsForDomain(domain, updatedContacts);
+        state.setContactsForDomain(capturedDomain, updatedContacts);
 
         const verifiedCount = data.results.filter(r => r.status === "valid" || r.status === "invalid").length;
         if (verifiedCount > 0) {
@@ -222,7 +228,7 @@ export function useCompanyDossier(domain: string | null) {
         }
 
         queryClient.setQueriesData<Contact[]>(
-          { queryKey: ["company-contacts", domain] },
+          { queryKey: ["company-contacts", capturedDomain] },
           (old) => {
             if (!old) return old;
             return old.map((c) => {
@@ -239,6 +245,8 @@ export function useCompanyDossier(domain: string | null) {
         // Silent failure — verification is best-effort
       }
     })();
+
+    return () => { controller.abort(); };
   }, [domain, contactsData, queryClient]);
 
   const company = companyQuery.data ?? null;

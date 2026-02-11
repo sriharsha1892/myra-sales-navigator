@@ -8,6 +8,7 @@ import { Tooltip } from "@/components/navigator/shared/Tooltip";
 import { logEmailCopy } from "@/lib/navigator/logEmailCopy";
 import { useStore } from "@/lib/navigator/store";
 import { isStale } from "@/lib/navigator/staleness";
+import { CompanyLogo } from "@/components/navigator/shared/CompanyLogo";
 
 type SortField = "name" | "icp_score" | "industry" | "employee_count" | "location" | "signals";
 type SortDir = "asc" | "desc";
@@ -175,14 +176,7 @@ export function CompanyTable({
                 </td>
                 <td className={cn(tdClass, "text-text-primary font-medium")}>
                   <div className="flex items-center gap-1.5">
-                    <img
-                      src={company.logoUrl ?? `https://www.google.com/s2/favicons?domain=${company.domain}&sz=32`}
-                      alt=""
-                      width={16}
-                      height={16}
-                      className="h-4 w-4 flex-shrink-0 rounded"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                    />
+                    <CompanyLogo logoUrl={company.logoUrl} domain={company.domain} name={company.name} size={16} className="h-4 w-4" />
                     <span className="max-w-[180px] truncate" title={company.name}>{company.name}</span>
                     {stale && (
                       <Tooltip text={`Data is ${formatTimeAgo(company.lastRefreshed)} old`}>

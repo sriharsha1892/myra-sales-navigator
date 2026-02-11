@@ -54,6 +54,14 @@ export function IcpWeightsSection() {
       <p className="mt-3 text-xs text-text-tertiary">
         Sum of absolute weights: {total}
       </p>
+      {(() => {
+        const positiveSum = Object.values(weights).reduce((a, b) => a + Math.max(b, 0), 0);
+        return positiveSum > 150 ? (
+          <p className="text-[10px] text-warning">
+            Total positive weights: {positiveSum}. Recommended: 100-150 for balanced scoring.
+          </p>
+        ) : null;
+      })()}
       <button
         onClick={() =>
           updateConfig({

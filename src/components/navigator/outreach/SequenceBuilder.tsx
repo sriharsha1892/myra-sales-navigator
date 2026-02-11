@@ -233,7 +233,7 @@ export function SequenceBuilder({ sequence, onSave, onCancel }: SequenceBuilderP
                           <button
                             onClick={() => moveStep(index, "up")}
                             disabled={index === 0}
-                            className="rounded p-1 text-text-tertiary transition-colors duration-[180ms] hover:bg-surface-2 hover:text-text-primary disabled:opacity-30"
+                            className="rounded p-1 text-text-tertiary transition-colors duration-[180ms] hover:bg-surface-2 hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed"
                             aria-label="Move step up"
                           >
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -243,7 +243,7 @@ export function SequenceBuilder({ sequence, onSave, onCancel }: SequenceBuilderP
                           <button
                             onClick={() => moveStep(index, "down")}
                             disabled={index === steps.length - 1}
-                            className="rounded p-1 text-text-tertiary transition-colors duration-[180ms] hover:bg-surface-2 hover:text-text-primary disabled:opacity-30"
+                            className="rounded p-1 text-text-tertiary transition-colors duration-[180ms] hover:bg-surface-2 hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed"
                             aria-label="Move step down"
                           >
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -404,7 +404,7 @@ export function SequenceBuilder({ sequence, onSave, onCancel }: SequenceBuilderP
         <button
           onClick={handleSave}
           disabled={!canSave}
-          className="rounded-input bg-accent-primary px-4 py-1.5 text-xs font-medium text-surface-0 transition-opacity duration-[180ms] hover:opacity-90 disabled:opacity-40"
+          className="rounded-input bg-accent-primary px-4 py-1.5 text-xs font-medium text-surface-0 transition-opacity duration-[180ms] hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Save Sequence
         </button>

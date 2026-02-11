@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useStore } from "@/lib/navigator/store";
 import { IcpScoreBadge } from "@/components/navigator/badges";
+import { pick } from "@/lib/navigator/ui-copy";
 import type { CompanyEnriched } from "@/lib/navigator/types";
 
 interface PeerCompany extends Partial<CompanyEnriched> {
@@ -54,7 +55,7 @@ export function DossierSimilarCompanies({ domain, employeeCount, region }: Dossi
     return (opts.minSize != null || opts.maxSize != null || opts.region) ? opts : undefined;
   }, [employeeCount, region]);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["company-peers", domain, peerOptions],
     queryFn: () => fetchPeers(domain, peerOptions),
     enabled: !!domain,
@@ -77,10 +78,34 @@ export function DossierSimilarCompanies({ domain, employeeCount, region }: Dossi
     );
   }
 
+  if (isError) {
+    return (
+      <div className="space-y-2 rounded-card bg-surface-0/50 px-4 py-3">
+        <h3 className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">Similar Companies</h3>
+        <div className="flex items-center gap-2 text-xs text-danger">
+          <span>Failed to load peers.</span>
+          <button
+            onClick={() => refetch()}
+            className="font-medium underline hover:no-underline"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const fsPeers = data?.freshsalesPeers ?? [];
   const exaPeers = data?.exaPeers ?? [];
 
-  if (fsPeers.length === 0 && exaPeers.length === 0) return null;
+  if (fsPeers.length === 0 && exaPeers.length === 0) {
+    return (
+      <div className="space-y-2 rounded-card bg-surface-0/50 px-4 py-3">
+        <h3 className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">Similar Companies</h3>
+        <p className="text-xs italic text-text-tertiary">{pick("empty_peers")}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2 rounded-card bg-surface-0/50 px-4 py-3">

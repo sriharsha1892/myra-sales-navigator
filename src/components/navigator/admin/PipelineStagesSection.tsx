@@ -74,14 +74,14 @@ export function PipelineStagesSection() {
               <button
                 onClick={() => moveStage(stage.id, -1)}
                 disabled={idx === 0}
-                className="rounded p-0.5 text-text-tertiary hover:text-text-primary disabled:opacity-30"
+                className="rounded p-0.5 text-text-tertiary hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
               </button>
               <button
                 onClick={() => moveStage(stage.id, 1)}
                 disabled={idx === stages.length - 1}
-                className="rounded p-0.5 text-text-tertiary hover:text-text-primary disabled:opacity-30"
+                className="rounded p-0.5 text-text-tertiary hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12l7 7 7-7" /></svg>
               </button>
@@ -115,7 +115,7 @@ export function PipelineStagesSection() {
         <button
           onClick={addStage}
           disabled={!newLabel.trim()}
-          className="rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-text-inverse disabled:opacity-40"
+          className="rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-text-inverse disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Add
         </button>

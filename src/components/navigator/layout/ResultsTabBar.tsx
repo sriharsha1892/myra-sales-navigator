@@ -100,7 +100,7 @@ export const ResultsTabBar = React.memo(function ResultsTabBar({
                 <button
                   onClick={onSortDirectionToggle}
                   className="btn-press text-xs text-text-tertiary hover:text-text-primary transition-colors duration-[180ms]"
-                  aria-label={sortDirection === "desc" ? "Descending" : "Ascending"}
+                  aria-label={`Sort ${({ icp_score: "Score", name: "Name", employee_count: "Size", relevance: "Relevance" } as Record<SortField, string>)[sortField]} ${sortDirection === "desc" ? "ascending" : "descending"}`}
                 >
                   {sortDirection === "desc" ? "\u2193" : "\u2191"}
                 </button>

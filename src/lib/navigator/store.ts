@@ -281,6 +281,13 @@ interface AppState {
   demoMode: boolean;
   setDemoMode: (on: boolean) => void;
 
+  // CRM enrichment progress indicator
+  crmEnrichmentInProgress: boolean;
+  setCrmEnrichmentInProgress: (v: boolean) => void;
+
+  // Exclusion in-flight guard
+  excludingDomains: Set<string>;
+
   // Computed / derived
   filteredCompanies: () => CompanyEnriched[];
   selectedCompany: () => CompanyEnriched | null;
@@ -629,6 +636,13 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
+  // CRM enrichment progress indicator
+  crmEnrichmentInProgress: false,
+  setCrmEnrichmentInProgress: (v) => set({ crmEnrichmentInProgress: v }),
+
+  // Exclusion in-flight guard
+  excludingDomains: new Set<string>(),
+
   // Demo mode
   demoMode: loadDemoMode(),
   setDemoMode: (on) => {
@@ -836,7 +850,7 @@ export const useStore = create<AppState>((set, get) => ({
     });
 
     let settled = false;
-    return {
+    const handle = {
       resolve: (msg?: string) => {
         if (settled) return;
         settled = true;
@@ -872,6 +886,13 @@ export const useStore = create<AppState>((set, get) => ({
         scheduleToastDismiss(id, 4000, get);
       },
     };
+
+    // Auto-reject after 30s if not resolved/rejected (prevents orphaned toasts)
+    setTimeout(() => {
+      handle.reject("Operation timed out");
+    }, 30_000);
+
+    return handle;
   },
 
   addUndoToast: (message: string, undoAction: () => void, duration = 6000) => {
@@ -902,6 +923,10 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   excludeCompany: (domain) => {
+    if (get().excludingDomains.has(domain)) return;
+    const nextExcluding = new Set(get().excludingDomains);
+    nextExcluding.add(domain);
+    set({ excludingDomains: nextExcluding });
     // Optimistic local toggle — mutate BOTH companies and searchResults
     set((state) => ({
       companies: state.companies.map((c) =>
@@ -934,11 +959,20 @@ export const useStore = create<AppState>((set, get) => ({
             c.domain === domain ? { ...c, excluded: false } : c
           ) ?? null,
         }));
-        get().addToast({ message: "Failed to exclude company", type: "error" });
+        get().addToast({ message: pick("exclude_failed"), type: "error" });
+      })
+      .finally(() => {
+        const updated = new Set(get().excludingDomains);
+        updated.delete(domain);
+        set({ excludingDomains: updated });
       });
   },
 
   undoExclude: (domain) => {
+    if (get().excludingDomains.has(domain)) return;
+    const nextExcluding = new Set(get().excludingDomains);
+    nextExcluding.add(domain);
+    set({ excludingDomains: nextExcluding });
     // Optimistic local revert — mutate BOTH companies and searchResults
     set((state) => ({
       companies: state.companies.map((c) =>
@@ -957,19 +991,29 @@ export const useStore = create<AppState>((set, get) => ({
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: exclusion.id }),
-      }).catch(() => {
-        // Re-add on failure — revert BOTH arrays
-        set((state) => ({
-          companies: state.companies.map((c) =>
-            c.domain === domain ? { ...c, excluded: true } : c
-          ),
-          searchResults: state.searchResults?.map((c) =>
-            c.domain === domain ? { ...c, excluded: true } : c
-          ) ?? null,
-          exclusions: [...state.exclusions, exclusion],
-        }));
-        get().addToast({ message: "Failed to undo exclusion", type: "error" });
-      });
+      })
+        .catch(() => {
+          // Re-add on failure — revert BOTH arrays
+          set((state) => ({
+            companies: state.companies.map((c) =>
+              c.domain === domain ? { ...c, excluded: true } : c
+            ),
+            searchResults: state.searchResults?.map((c) =>
+              c.domain === domain ? { ...c, excluded: true } : c
+            ) ?? null,
+            exclusions: [...state.exclusions, exclusion],
+          }));
+          get().addToast({ message: pick("undo_exclude_failed"), type: "error" });
+        })
+        .finally(() => {
+          const updated = new Set(get().excludingDomains);
+          updated.delete(domain);
+          set({ excludingDomains: updated });
+        });
+    } else {
+      const updated = new Set(get().excludingDomains);
+      updated.delete(domain);
+      set({ excludingDomains: updated });
     }
   },
 
@@ -1227,7 +1271,12 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   setSearchResults: (companies) => set({ searchResults: companies, similarResults: null }),
-  setSearchError: (error) => set({ searchError: error }),
+  setSearchError: (error) => set({
+    searchError: error,
+    searchErrors: error
+      ? [{ code: "NETWORK_ERROR" as const, message: error, retryable: true }]
+      : [],
+  }),
   setSearchErrors: (errs) => set({ searchErrors: errs, searchError: errs[0]?.message ?? null }),
   setSearchWarnings: (w) => set({ searchWarnings: w }),
   setLastSearchParams: (params) => set({ lastSearchParams: params }),

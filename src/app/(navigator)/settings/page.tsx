@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useAuth } from "@/providers/AuthProvider";
@@ -8,11 +8,13 @@ import { useStore } from "@/lib/navigator/store";
 import { useBrowserNotifications } from "@/hooks/navigator/useBrowserNotifications";
 import type { ViewMode, SortField } from "@/lib/navigator/types";
 
-const SHORTCUTS = [
-  { group: "Anywhere", items: [{ keys: "\u2318K", action: "Smart search" }, { keys: "Esc", action: "Close" }] },
-  { group: "Results", items: [{ keys: "\u2191 \u2193", action: "Navigate" }, { keys: "Space", action: "Select / deselect" }, { keys: "Enter", action: "Open details" }, { keys: "/", action: "Focus filter" }] },
-  { group: "Selection", items: [{ keys: "\u2318A", action: "Select all" }, { keys: "\u2318E", action: "Export" }, { keys: "\u2318C", action: "Copy email" }] },
-];
+function getShortcuts(mod: string) {
+  return [
+    { group: "Anywhere", items: [{ keys: `${mod}K`, action: "Smart search" }, { keys: "Esc", action: "Close" }] },
+    { group: "Results", items: [{ keys: "\u2191 \u2193", action: "Navigate" }, { keys: "Space", action: "Select / deselect" }, { keys: "Enter", action: "Open details" }, { keys: "/", action: "Focus filter" }] },
+    { group: "Selection", items: [{ keys: `${mod}A`, action: "Select all" }, { keys: `${mod}E`, action: "Export" }, { keys: `${mod}C`, action: "Copy email" }] },
+  ];
+}
 
 export default function SettingsPage() {
   const { userName, isAdmin, isLoading } = useAuth();
@@ -26,6 +28,11 @@ export default function SettingsPage() {
   const demoMode = useStore((s) => s.demoMode);
   const setDemoMode = useStore((s) => s.setDemoMode);
   const { enabled: notificationsEnabled, permission: notifPermission, toggleEnabled } = useBrowserNotifications();
+
+  const shortcuts = useMemo(() => {
+    const isMac = typeof navigator !== "undefined" && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+    return getShortcuts(isMac ? "\u2318" : "Ctrl+");
+  }, []);
 
   // Workflow preference: skip reveal confirm
   const [skipReveal, setSkipReveal] = useState(() =>
@@ -49,6 +56,7 @@ export default function SettingsPage() {
   });
 
   const [freshsalesDomain, setFreshsalesDomain] = useState("");
+  const [freshsalesDomainError, setFreshsalesDomainError] = useState("");
   const [hasLinkedinSalesNav, setHasLinkedinSalesNav] = useState(false);
   const [teamsWebhookUrl, setTeamsWebhookUrl] = useState("");
   const [teamsNotifEnabled, setTeamsNotifEnabled] = useState(true);
@@ -310,13 +318,21 @@ export default function SettingsPage() {
                   <input
                     type="text"
                     value={freshsalesDomain}
-                    onChange={(e) => setFreshsalesDomain(e.target.value)}
-                    onBlur={() => saveOutreachConfig(freshsalesDomain, hasLinkedinSalesNav)}
+                    onChange={(e) => { setFreshsalesDomain(e.target.value); setFreshsalesDomainError(""); }}
+                    onBlur={() => {
+                      if (freshsalesDomain && !/^[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/i.test(freshsalesDomain)) {
+                        setFreshsalesDomainError("Invalid subdomain. Use only letters, numbers, and hyphens.");
+                        return;
+                      }
+                      setFreshsalesDomainError("");
+                      saveOutreachConfig(freshsalesDomain, hasLinkedinSalesNav);
+                    }}
                     placeholder="mycompany"
                     className="flex-1 rounded-input border border-surface-3 bg-surface-2 px-2.5 py-2 text-sm text-text-primary focus:border-accent-primary focus:outline-none"
                   />
                   <span className="text-xs text-text-tertiary">.freshsales.io</span>
                 </div>
+                {freshsalesDomainError && <p role="alert" className="mt-1 text-[11px] text-danger">{freshsalesDomainError}</p>}
               </SettingField>
 
               <label className="flex items-start gap-3">
@@ -335,6 +351,7 @@ export default function SettingsPage() {
                   <p className="mt-0.5 text-[11px] text-text-tertiary">
                     Enable InMail drafting for LinkedIn outreach steps. Without Sales Nav, only connection request notes are available.
                   </p>
+                  {hasLinkedinSalesNav && <p className="mt-1 text-[10px] text-warning">Make sure you have an active Sales Navigator subscription. InMail steps will fail silently if you don&apos;t.</p>}
                 </div>
               </label>
             </div>
@@ -411,7 +428,7 @@ export default function SettingsPage() {
         {/* Keyboard shortcuts */}
         <Section title="Keyboard Shortcuts">
           <div className="grid grid-cols-3 gap-6">
-            {SHORTCUTS.map((group) => (
+            {shortcuts.map((group) => (
               <div key={group.group}>
                 <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">{group.group}</p>
                 <div className="space-y-1.5">

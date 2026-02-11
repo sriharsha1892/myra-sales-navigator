@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Overlay } from "@/components/primitives/Overlay";
 import { useStore } from "@/lib/navigator/store";
 import type { CallLog } from "@/lib/navigator/types";
@@ -30,51 +30,63 @@ export function CallOutcomeModal({
   onClose,
   onLogged,
 }: CallOutcomeModalProps) {
-  const addToast = useStore((s) => s.addToast);
+  const addUndoToast = useStore((s) => s.addUndoToast);
   const userName = useStore((s) => s.userName);
 
   const [outcome, setOutcome] = useState<CallOutcome>("connected");
   const [notes, setNotes] = useState("");
   const [durationMinutes, setDurationMinutes] = useState("");
-  const [saving, setSaving] = useState(false);
 
-  const handleSubmit = useCallback(async () => {
-    setSaving(true);
-    try {
-      const durationSeconds = durationMinutes
-        ? Math.round(parseFloat(durationMinutes) * 60)
+  const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSubmit = useCallback(() => {
+    const parsed = durationMinutes ? parseFloat(durationMinutes) : NaN;
+    const durationSeconds =
+      !isNaN(parsed) && isFinite(parsed) && parsed > 0
+        ? Math.round(parsed * 60)
         : null;
 
-      const res = await fetch("/api/outreach/call-log", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contactId,
-          companyDomain,
-          userName: userName ?? "Unknown",
-          outcome,
-          notes: notes.trim() || null,
-          durationSeconds,
-        }),
-      });
+    const payload = {
+      contactId,
+      companyDomain,
+      userName: userName ?? "Unknown",
+      outcome,
+      notes: notes.trim() || null,
+      durationSeconds,
+    };
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to log call");
+    // Close modal immediately, show undo toast, delay actual POST by 2s
+    onClose();
+
+    const timer = setTimeout(async () => {
+      pendingTimerRef.current = null;
+      try {
+        const res = await fetch("/api/outreach/call-log", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || "Failed to log call");
+        }
+        onLogged?.();
+      } catch {
+        useStore.getState().addToast({
+          message: "Failed to log call outcome",
+          type: "error",
+        });
       }
+    }, 2000);
+    pendingTimerRef.current = timer;
 
-      addToast({ message: "Call outcome logged", type: "success" });
-      onLogged?.();
-      onClose();
-    } catch (err) {
-      addToast({
-        message: err instanceof Error ? err.message : "Failed to log call",
-        type: "error",
-      });
-    } finally {
-      setSaving(false);
-    }
-  }, [contactId, companyDomain, userName, outcome, notes, durationMinutes, addToast, onLogged, onClose]);
+    addUndoToast("Call outcome logged", () => {
+      if (pendingTimerRef.current) {
+        clearTimeout(pendingTimerRef.current);
+        pendingTimerRef.current = null;
+      }
+    });
+  }, [contactId, companyDomain, userName, outcome, notes, durationMinutes, addUndoToast, onLogged, onClose]);
 
   return (
     <Overlay open={true} onClose={onClose} backdrop="blur" placement="center">
@@ -163,10 +175,9 @@ export function CallOutcomeModal({
           </button>
           <button
             onClick={handleSubmit}
-            disabled={saving}
-            className="rounded-input bg-accent-primary px-4 py-1.5 text-xs font-medium text-surface-0 transition-opacity duration-[180ms] hover:opacity-90 disabled:opacity-40"
+            className="rounded-input bg-accent-primary px-4 py-1.5 text-xs font-medium text-surface-0 transition-opacity duration-[180ms] hover:opacity-90"
           >
-            {saving ? "Saving..." : "Log Call"}
+            Log Call
           </button>
         </div>
       </div>

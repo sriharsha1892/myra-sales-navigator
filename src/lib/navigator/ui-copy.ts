@@ -188,6 +188,22 @@ const copyBank: Record<string, string[]> = {
   empty_export_timeout: [
     "Contacts are taking too long to load. Close and try again.",
   ],
+  empty_peers: [
+    "No similar companies found. This company may be in a niche segment.",
+    "Couldn't find peers for this one. Try broadening the search.",
+  ],
+  exclude_failed: [
+    "Failed to exclude company. Try again.",
+  ],
+  undo_exclude_failed: [
+    "Failed to undo exclusion. Try again.",
+  ],
+  no_contacts_to_export: [
+    "No contacts to export. Select contacts first.",
+  ],
+  no_contacts_available: [
+    "No contacts available for this company.",
+  ],
 };
 
 export function pick(key: string, context?: Record<string, string>): string {

@@ -129,7 +129,7 @@ export function RateLimitSection() {
             <button
               onClick={addRecipient}
               disabled={!newRecipient.trim()}
-              className="rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-text-inverse disabled:opacity-50"
+              className="rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-text-inverse disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Add
             </button>

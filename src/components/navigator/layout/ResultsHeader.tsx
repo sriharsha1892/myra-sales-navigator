@@ -26,6 +26,7 @@ export const ResultsHeader = React.memo(function ResultsHeader({
   const searchWarnings = useStore((s) => s.searchWarnings);
   const retryLastSearch = useStore((s) => s.retryLastSearch);
   const enrichmentProgress = useStore((s) => s.enrichmentProgress);
+  const crmEnrichmentInProgress = useStore((s) => s.crmEnrichmentInProgress);
 
   const hasStructuredErrors = searchErrors.length > 0;
 
@@ -50,10 +51,20 @@ export const ResultsHeader = React.memo(function ResultsHeader({
               </span>
               <div className="mt-0.5 h-1 w-full overflow-hidden rounded-full bg-surface-3">
                 <div
+                  role="progressbar"
+                  aria-valuenow={enrichmentProgress.completed}
+                  aria-valuemin={0}
+                  aria-valuemax={enrichmentProgress.total}
                   className="h-full bg-accent-secondary transition-all duration-300 ease-out rounded-full"
                   style={{ width: `${(enrichmentProgress.completed / enrichmentProgress.total) * 100}%` }}
                 />
               </div>
+            </div>
+          )}
+          {crmEnrichmentInProgress && (
+            <div className="mt-1 flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 animate-spin rounded-full border border-surface-3 border-t-accent-primary" />
+              <span className="text-[10px] text-text-tertiary">Checking CRM status...</span>
             </div>
           )}
         </div>
@@ -84,7 +95,7 @@ export const ResultsHeader = React.memo(function ResultsHeader({
 
       {/* Structured error banner (Phase 3) */}
       {hasStructuredErrors ? (
-        <div className="sticky top-0 z-20 flex-shrink-0 border-b border-danger/20 bg-danger/5 px-4 py-2">
+        <div role="alert" className="sticky top-0 z-20 flex-shrink-0 border-b border-danger/20 bg-danger/5 px-4 py-2">
           <div className="space-y-1.5">
             {searchErrors.map((err: SearchErrorDetail, i: number) => (
               <div key={i} className="flex items-center gap-2 text-xs">
@@ -115,7 +126,7 @@ export const ResultsHeader = React.memo(function ResultsHeader({
         </div>
       ) : searchError ? (
         /* Legacy fallback error banner */
-        <div className="sticky top-0 z-20 flex-shrink-0 border-b border-danger/20 bg-danger-light px-4 py-2">
+        <div role="alert" className="sticky top-0 z-20 flex-shrink-0 border-b border-danger/20 bg-danger-light px-4 py-2">
           <div className="flex items-center gap-2 text-xs text-danger">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0">
               <circle cx="12" cy="12" r="10" />

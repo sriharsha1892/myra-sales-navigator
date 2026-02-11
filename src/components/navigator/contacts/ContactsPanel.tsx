@@ -219,6 +219,7 @@ export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps)
           <select
             value={seniorityFilter}
             onChange={(e) => { setSeniorityFilter(e.target.value); setFocusIndex(-1); setExpandedIndex(-1); }}
+            aria-label="Filter by seniority level"
             className="rounded-input border border-surface-3 bg-surface-2 px-1.5 py-0.5 text-[10px] text-text-primary focus:border-accent-primary focus:outline-none"
           >
             <option value="all">All levels</option>
@@ -265,6 +266,7 @@ export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps)
           <select
             value={sortBy}
             onChange={(e) => { setSortBy(e.target.value as "seniority" | "email_confidence" | "last_contacted"); setFocusIndex(-1); setExpandedIndex(-1); }}
+            aria-label="Sort contacts by"
             className="rounded-input border border-surface-3 bg-surface-1 px-1.5 py-0.5 text-[10px] text-text-secondary outline-none"
           >
             <option value="seniority">Sort: Seniority</option>

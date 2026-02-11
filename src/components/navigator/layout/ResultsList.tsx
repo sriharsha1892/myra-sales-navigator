@@ -18,13 +18,22 @@ import { ResultsHeader } from "./ResultsHeader";
 import { CompanyTable } from "@/components/navigator/table/CompanyTable";
 import { SEED_COMPANIES, SEED_CONTACTS } from "@/lib/navigator/seed-data";
 
-const exampleQueries = [
+const ALL_EXAMPLE_QUERIES = [
   "chemicals in Europe",
   "SaaS hiring in US",
   "food ingredients expanding to Asia",
   "Brenntag",
   "logistics companies",
   "BASF SE",
+  "pharma suppliers in India",
+  "specialty chemicals North America",
+  "packaging companies funding round",
+  "agricultural distributors Latin America",
+  "personal care ingredients",
+  "polymer manufacturers hiring",
+  "flavor and fragrance companies",
+  "water treatment APAC",
+  "industrial coatings Europe",
 ];
 
 export function ResultsList() {
@@ -70,6 +79,13 @@ export function ResultsList() {
   const selectAllCompanies = useStore((s) => s.selectAllCompanies);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Pick 6 random example queries per mount
+  const exampleQueries = useMemo(() => {
+    const shuffled = [...ALL_EXAMPLE_QUERIES].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, 6);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only on mount
+  }, []);
 
   const [showOnboarding, setShowOnboarding] = useState(
     () => typeof window !== "undefined" && !localStorage.getItem("nav_onboarded")
@@ -196,7 +212,7 @@ export function ResultsList() {
             </div>
             <ContextualLoadingMessage />
             {Array.from({ length: previousResultCount }).map((_, i) => (
-              <SkeletonCard key={i} />
+              <SkeletonCard key={i} density={cardDensity} />
             ))}
           </div>
         ) : viewMode === "exported" ? (
@@ -584,7 +600,7 @@ function ContextualLoadingMessage() {
   }, [messages.length]);
 
   return (
-    <p className="mb-2 text-xs text-text-tertiary transition-opacity duration-200">
+    <p aria-live="polite" className="mb-2 text-xs text-text-tertiary transition-opacity duration-200">
       {messages[messageIndex]}
     </p>
   );

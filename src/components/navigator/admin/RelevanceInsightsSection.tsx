@@ -49,6 +49,7 @@ export function RelevanceInsightsSection({ dateRange = 7 }: RelevanceInsightsPro
   const updateAdminConfig = useStore((s) => s.updateAdminConfig);
   const saveAdminConfig = useStore((s) => s.saveAdminConfig);
   const icpWeights = useStore((s) => s.adminConfig.icpWeights);
+  const addToast = useStore((s) => s.addToast);
 
   const [applyingId, setApplyingId] = useState<string | null>(null);
 
@@ -161,7 +162,10 @@ export function RelevanceInsightsSection({ dateRange = 7 }: RelevanceInsightsPro
         icpWeights: { ...icpWeights, [suggestion.weightKey]: newValue },
       });
       await saveAdminConfig();
+      addToast({ message: "ICP weight updated", type: "success" });
       queryClient.invalidateQueries({ queryKey: ["relevance-insights"] });
+    } catch {
+      addToast({ message: "Failed to save ICP weight change", type: "error" });
     } finally {
       setApplyingId(null);
     }
@@ -191,7 +195,7 @@ export function RelevanceInsightsSection({ dateRange = 7 }: RelevanceInsightsPro
         <h3 className="text-sm font-semibold text-text-primary">
           Relevance Feedback Insights
         </h3>
-        <div className="rounded-card border border-danger/30 bg-danger-light px-4 py-3">
+        <div role="alert" className="rounded-card border border-danger/30 bg-danger-light px-4 py-3">
           <p className="text-sm text-danger">
             Failed to load relevance feedback data.
           </p>
@@ -327,7 +331,7 @@ export function RelevanceInsightsSection({ dateRange = 7 }: RelevanceInsightsPro
                       <button
                         onClick={() => handleApply(s)}
                         disabled={applyingId === s.id}
-                        className="ml-3 shrink-0 rounded-input bg-accent-primary px-3 py-1 text-[10px] font-medium text-text-inverse transition-all duration-180 hover:bg-accent-primary-hover disabled:opacity-50"
+                        className="ml-3 shrink-0 rounded-input bg-accent-primary px-3 py-1 text-[10px] font-medium text-text-inverse transition-all duration-180 hover:bg-accent-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {applyingId === s.id ? "Applying..." : "Apply"}
                       </button>

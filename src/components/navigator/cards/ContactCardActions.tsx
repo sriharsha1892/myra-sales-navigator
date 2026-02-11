@@ -60,7 +60,7 @@ export const ContactCardActions = React.memo(function ContactCardActions({
         <button
           onClick={onRevealClick}
           disabled={revealLoading || revealFailed}
-          className="rounded-input border border-accent-secondary/30 bg-accent-secondary/5 px-2.5 py-1 text-[10px] font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/10 disabled:opacity-50"
+          className="rounded-input border border-accent-secondary/30 bg-accent-secondary/5 px-2.5 py-1 text-[10px] font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/10 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {revealLoading ? "Revealing..." : revealFailed ? "Not found" : "Reveal email"}
         </button>

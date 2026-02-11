@@ -74,8 +74,11 @@ export function DossierHeader({ company, onRefresh, isRefreshing }: DossierHeade
             <CompanyStatusBadge domain={company.domain} currentStatus={company.status ?? "new"} />
           </div>
         </div>
-        <IcpScoreBadge score={company.icpScore} breakdown={company.icpBreakdown} />
+        <IcpScoreBadge score={company.icpScore} breakdown={company.icpBreakdown} showBreakdown />
       </div>
+      {company.nlIcpReasoning && (
+        <p className="mt-1 text-xs italic text-text-tertiary">{company.nlIcpReasoning}</p>
+      )}
 
       {/* Data completeness bar (C2) */}
       <Tooltip text={missingLabels.length > 0 ? `Missing: ${missingLabels.join(", ")}` : "All key fields populated"}>

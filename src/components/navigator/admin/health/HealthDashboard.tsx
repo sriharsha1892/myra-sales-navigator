@@ -125,7 +125,7 @@ function formatMinutes(m: number): string {
 }
 
 function creditPercent(available: number, total: number): number {
-  if (total <= 0) return 100;
+  if (total <= 0) return 0;
   return Math.round((available / total) * 100);
 }
 
@@ -225,7 +225,7 @@ export function HealthDashboard() {
   // --- Error state ---
   if (healthError) {
     return (
-      <div className="rounded-card border border-danger/30 bg-danger-light px-4 py-3">
+      <div role="alert" className="rounded-card border border-danger/30 bg-danger-light px-4 py-3">
         <p className="text-sm text-danger">
           Failed to load health data. Is the api_health_log table created in
           Supabase?

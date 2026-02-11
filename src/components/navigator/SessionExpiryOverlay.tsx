@@ -100,7 +100,7 @@ export function SessionExpiryOverlay() {
             <button
               onClick={handleRequest}
               disabled={loading || !email.trim()}
-              className="w-full rounded-input bg-accent-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-accent-primary-hover disabled:opacity-50"
+              className="w-full rounded-input bg-accent-primary px-4 py-2 text-sm font-medium text-text-inverse transition-colors hover:bg-accent-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Requesting..." : "Request Access"}
             </button>

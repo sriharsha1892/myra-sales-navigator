@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useStore } from "@/lib/navigator/store";
 import type { Contact, VerificationResult } from "@/lib/navigator/types";
 import { pick } from "@/lib/navigator/ui-copy";
@@ -53,6 +53,7 @@ export function useExport() {
   const addProgressToast = useStore((s) => s.addProgressToast);
   const addToast = useStore((s) => s.addToast);
   const { notify } = useBrowserNotifications();
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const getSelectedContacts = useCallback((): Contact[] => {
     // Gather contacts for selected companies, plus any individually selected contacts
@@ -79,9 +80,14 @@ export function useExport() {
 
   const executeExport = useCallback(async (contacts: Contact[], mode: "csv" | "clipboard" | "excel") => {
     if (contacts.length === 0) {
-      addToast({ message: "No contacts to export", type: "warning" });
+      addToast({ message: pick("no_contacts_to_export"), type: "warning" });
       return;
     }
+
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const { signal } = controller;
 
     const handle = addProgressToast(`Exporting ${contacts.length} contacts...`);
     const userName = useStore.getState().userName ?? "Unknown";
@@ -93,12 +99,14 @@ export function useExport() {
       if (mode === "clipboard") {
         const format = adminConfig.copyFormats.find((f) => f.id === userCopyFormat);
         const template = format?.template ?? "{{first_name}} {{last_name}} <{{email}}>";
+        const formatLabel = format?.name ? ` (${format.name})` : "";
 
         try {
           const res = await fetch("/api/export/clipboard", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ contacts: payloads, format: template, companyDomain, companyDomains, userName }),
+            signal,
           });
           if (!res.ok) {
             if (res.status === 429) throw new Error("rate_limited");
@@ -108,8 +116,8 @@ export function useExport() {
           const { text, count, skipped } = await res.json();
           await navigator.clipboard.writeText(text);
           const skipMsg = skipped > 0 ? ` (${skipped} skipped — no email)` : "";
-          handle.resolve(`Copied ${count} contacts to clipboard${skipMsg}`);
-          notify("Export complete", `Copied ${count} contacts to clipboard${skipMsg}`);
+          handle.resolve(`Copied ${count} contacts${formatLabel}${skipMsg}`);
+          notify("Export complete", `Copied ${count} contacts${formatLabel}${skipMsg}`);
         } catch {
           // H3: Fallback notification
           addToast({ message: pick("export_fallback"), type: "info", duration: 3000 });
@@ -119,8 +127,8 @@ export function useExport() {
           await navigator.clipboard.writeText(lines.join("\n"));
           const skippedFallback = contacts.length - withEmail.length;
           const skipMsgFallback = skippedFallback > 0 ? ` (${skippedFallback} skipped — no email)` : "";
-          handle.resolve(`Copied ${lines.length} contacts to clipboard${skipMsgFallback}`);
-          notify("Export complete", `Copied ${lines.length} contacts to clipboard${skipMsgFallback}`);
+          handle.resolve(`Copied ${lines.length} contacts${skipMsgFallback} — used fallback format`);
+          notify("Export complete", `Copied ${lines.length} contacts${formatLabel}${skipMsgFallback}`);
         }
       } else if (mode === "excel") {
         // Excel export using ExcelJS (client-side)
@@ -195,6 +203,7 @@ export function useExport() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ contacts: payloads, companyDomain, companyDomains, userName, csvColumns }),
+            signal,
           });
           if (!res.ok) {
             if (res.status === 429) throw new Error("rate_limited");
@@ -294,7 +303,7 @@ export function useExport() {
     if (currentState.selectedCompanyDomain && currentState.slideOverOpen && selectedCompanyDomains.size === 0) {
       const dossierContacts = currentState.contactsByDomain[currentState.selectedCompanyDomain] ?? [];
       if (dossierContacts.length === 0) {
-        addToast({ message: "No contacts available for this company", type: "warning" });
+        addToast({ message: pick("no_contacts_available"), type: "warning" });
         return;
       }
       executeExport(dossierContacts, mode);
@@ -368,6 +377,10 @@ export function useExport() {
     let contacts = allContacts.filter((c) => contactIds.includes(c.id));
     const mode = exportState?.mode ?? "clipboard";
 
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     const shouldVerify = adminConfig.exportSettings?.autoVerifyOnExport ?? false;
     const threshold = adminConfig.exportSettings?.confidenceThreshold ?? 0;
 
@@ -391,6 +404,7 @@ export function useExport() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ emails: emailsToVerify }),
+            signal: controller.signal,
           });
 
           if (!res.ok) {
@@ -459,10 +473,17 @@ export function useExport() {
     }
   }, [triggerExport, initiateExport, setTriggerExport]);
 
+  const cancelExport = useCallback(() => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    setExportState(null);
+  }, [setExportState]);
+
   return {
     initiateExport,
     executeExport,
     exportPickedContacts,
+    cancelExport,
     exportState,
     setExportState,
   };

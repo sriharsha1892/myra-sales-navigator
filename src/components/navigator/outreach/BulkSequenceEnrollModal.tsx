@@ -318,7 +318,7 @@ export function BulkSequenceEnrollModal({
               <button
                 onClick={handleEnroll}
                 disabled={!selectedId || enrolling}
-                className="rounded-input bg-accent-primary px-4 py-1.5 text-xs font-medium text-surface-0 transition-opacity duration-[180ms] hover:opacity-90 disabled:opacity-40"
+                className="rounded-input bg-accent-primary px-4 py-1.5 text-xs font-medium text-surface-0 transition-opacity duration-[180ms] hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {enrolling
                   ? "Enrolling..."

@@ -99,7 +99,7 @@ export function DateRangeSelector({ value, onChange }: DateRangeSelectorProps) {
           <button
             onClick={applyCustom}
             disabled={!customFrom || !customTo || customFrom > customTo}
-            className="rounded-input bg-accent-primary px-3 py-1 text-xs font-medium text-surface-0 transition-colors duration-150 hover:bg-accent-primary-hover disabled:opacity-40"
+            className="rounded-input bg-accent-primary px-3 py-1 text-xs font-medium text-surface-0 transition-colors duration-150 hover:bg-accent-primary-hover disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Apply
           </button>

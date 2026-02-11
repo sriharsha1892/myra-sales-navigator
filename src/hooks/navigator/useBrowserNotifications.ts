@@ -10,11 +10,12 @@ function getEnabled(): boolean {
 }
 
 // Simple external store so all consumers stay in sync when the flag changes.
-let listeners: Array<() => void> = [];
+const listeners: Array<() => void> = [];
 function subscribe(cb: () => void) {
   listeners.push(cb);
   return () => {
-    listeners = listeners.filter((l) => l !== cb);
+    const idx = listeners.indexOf(cb);
+    if (idx !== -1) listeners.splice(idx, 1);
   };
 }
 function emitChange() {

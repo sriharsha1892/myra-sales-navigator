@@ -124,7 +124,7 @@ export function CreateTaskInline({
         <button
           onClick={handleCreate}
           disabled={!title.trim() || loading}
-          className="rounded-lg bg-accent-primary px-3 py-1.5 text-[10px] font-medium text-text-inverse transition-colors hover:bg-accent-primary-hover disabled:opacity-50"
+          className="rounded-lg bg-accent-primary px-3 py-1.5 text-[10px] font-medium text-text-inverse transition-colors hover:bg-accent-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? "Creating..." : "Create Task"}
         </button>

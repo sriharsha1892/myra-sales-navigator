@@ -117,7 +117,7 @@ export function UsageAnalytics() {
 
       {/* Error state */}
       {error && (
-        <div className="rounded-card border border-danger/30 bg-danger-light px-4 py-3">
+        <div role="alert" className="rounded-card border border-danger/30 bg-danger-light px-4 py-3">
           <p className="text-sm text-danger">
             Failed to load usage analytics. Is the usage_events table created
             in Supabase?

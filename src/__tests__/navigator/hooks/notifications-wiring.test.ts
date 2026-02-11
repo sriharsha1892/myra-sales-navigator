@@ -256,7 +256,7 @@ describe("useExport — notify on export completion", () => {
     // After successful export, notify should have been called
     expect(mockNotify).toHaveBeenCalledWith(
       "Export complete",
-      expect.stringContaining("clipboard")
+      expect.stringContaining("Copied")
     );
   });
 
@@ -362,7 +362,7 @@ describe("useExport — notify on export completion", () => {
     // Should show warning toast, but no browser notification
     expect(mockNotify).not.toHaveBeenCalled();
     expect(mockAddToast).toHaveBeenCalledWith(
-      expect.objectContaining({ message: "No contacts to export" })
+      expect.objectContaining({ message: "no_contacts_to_export" })
     );
   });
 });

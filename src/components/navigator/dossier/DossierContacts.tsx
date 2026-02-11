@@ -113,6 +113,7 @@ export function DossierContacts({ companyDomain, contacts: contactsProp }: Dossi
           })),
         }),
       });
+      if (!res.ok) throw new Error("Server error");
       const data = await res.json();
       const results = data.results ?? [];
       let foundCount = 0;
@@ -160,7 +161,7 @@ export function DossierContacts({ companyDomain, contacts: contactsProp }: Dossi
   return (
     <div className="rounded-card bg-surface-0/50 px-4 py-3">
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+        <h3 aria-live="polite" className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
           Contacts ({contacts.length})
         </h3>
         <div className="flex items-center gap-2">
@@ -168,7 +169,7 @@ export function DossierContacts({ companyDomain, contacts: contactsProp }: Dossi
             <button
               onClick={handleFindMissingEmails}
               disabled={findingEmails}
-              className="flex items-center gap-1 rounded-input border border-accent-secondary/30 bg-accent-secondary/5 px-2 py-0.5 text-[10px] font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/10 disabled:opacity-50"
+              className="flex items-center gap-1 rounded-input border border-accent-secondary/30 bg-accent-secondary/5 px-2 py-0.5 text-[10px] font-medium text-accent-secondary transition-colors hover:bg-accent-secondary/10 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {findingEmails ? (
                 <>

@@ -24,7 +24,7 @@ export function BulkNoteInput({ onSubmit, onCancel }: BulkNoteInputProps) {
       <button
         onClick={() => text.trim() && onSubmit(text.trim())}
         disabled={!text.trim()}
-        className="rounded-input bg-accent-primary px-2 py-1 text-xs font-medium text-text-inverse disabled:opacity-40"
+        className="rounded-input bg-accent-primary px-2 py-1 text-xs font-medium text-text-inverse disabled:opacity-40 disabled:cursor-not-allowed"
       >
         Add
       </button>

@@ -3,6 +3,7 @@
 import { forwardRef, useImperativeHandle, useState, useCallback, useEffect, useRef } from "react";
 import { cn } from "@/lib/cn";
 import type { TypeaheadItem } from "@/hooks/navigator/useTypeahead";
+import { CompanyLogo } from "@/components/navigator/shared/CompanyLogo";
 
 export interface SearchTypeaheadHandle {
   handleArrowKey: (direction: "up" | "down") => void;
@@ -31,6 +32,14 @@ export const SearchTypeahead = forwardRef<SearchTypeaheadHandle, SearchTypeahead
     useEffect(() => {
       setActiveIndex(-1);
     }, [allItems.length]);
+
+    // Scroll active item into view when navigating with arrow keys
+    useEffect(() => {
+      if (activeIndex < 0) return;
+      containerRef.current
+        ?.querySelector('[data-active="true"]')
+        ?.scrollIntoView({ block: "nearest" });
+    }, [activeIndex]);
 
     // Click-outside dismissal
     useEffect(() => {
@@ -130,14 +139,7 @@ export const SearchTypeahead = forwardRef<SearchTypeaheadHandle, SearchTypeahead
                   isActive={idx === activeIndex}
                   icon={
                     item.company?.domain ? (
-                      <img
-                        src={`https://www.google.com/s2/favicons?domain=${item.company.domain}&sz=32`}
-                        alt=""
-                        width={14}
-                        height={14}
-                        className="h-3.5 w-3.5 rounded"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                      />
+                      <CompanyLogo domain={item.company.domain} name={item.company.name ?? item.label} size={14} className="h-3.5 w-3.5" />
                     ) : <CompanyIcon />
                   }
                   onSelect={() => onSelect(item)}
@@ -167,6 +169,7 @@ function TypeaheadRow({
 }) {
   return (
     <button
+      data-active={isActive || undefined}
       onClick={onSelect}
       onMouseEnter={onHover}
       className={cn(

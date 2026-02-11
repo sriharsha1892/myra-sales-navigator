@@ -18,6 +18,8 @@ import { DossierPreviewPopover } from "./DossierPreviewPopover";
 import { isStale } from "@/lib/navigator/staleness";
 import { formatTimeAgo } from "@/components/navigator/shared/StalenessIndicator";
 import { hasStaleRefreshed, markStaleRefreshed } from "@/lib/navigator/store";
+import { getVerificationDotColor } from "@/lib/navigator/verification";
+import { CompanyLogo } from "@/components/navigator/shared/CompanyLogo";
 
 interface CompanyCardProps {
   company: CompanyEnriched;
@@ -49,8 +51,8 @@ const SENIORITY_ORDER: Record<string, number> = {
 };
 
 const SENIORITY_CHIP_COLORS: Record<string, string> = {
-  c_level: "bg-[#d4a012]/15 text-[#d4a012] border-[#d4a012]/30",
-  vp: "bg-[#22d3ee]/15 text-[#22d3ee] border-[#22d3ee]/30",
+  c_level: "bg-accent-primary/15 text-accent-primary border-accent-primary/30",
+  vp: "bg-accent-secondary/15 text-accent-secondary border-accent-secondary/30",
   director: "bg-[#3b82f6]/15 text-[#3b82f6] border-[#3b82f6]/30",
   manager: "bg-surface-2 text-text-secondary border-surface-3",
   staff: "bg-surface-2 text-text-tertiary border-surface-3",
@@ -61,15 +63,6 @@ const SENIORITY_LABELS: Record<string, string> = {
 };
 
 const TITLE_FILTER_RE = /intern|coordinator|assistant|trainee|apprentice/i;
-
-function getVerificationDotColor(contact: Contact): string {
-  switch (contact.verificationStatus) {
-    case "valid": return "bg-success";
-    case "valid_risky": return "bg-warning";
-    case "invalid": return "bg-danger";
-    default: return "bg-surface-3 ring-1 ring-text-tertiary";
-  }
-}
 
 const crmStatusColors: Record<string, { bg: string; text: string }> = {
   open: { bg: "rgba(34, 197, 94, 0.12)", text: "#22c55e" },
@@ -103,6 +96,7 @@ export function CompanyCard({
   onToggleCheck,
   compact,
 }: CompanyCardProps) {
+  const expandedContactsDomain = useStore((s) => s.expandedContactsDomain);
   const setExpandedContactsDomain = useStore((s) => s.setExpandedContactsDomain);
   const contactsForDomain = useStore((s) => s.contactsByDomain[company.domain]);
   const selectedContactIds = useStore((s) => s.selectedContactIds);
@@ -124,7 +118,6 @@ export function CompanyCard({
   const setSimilarLoading = useStore((s) => s.setSimilarLoading);
   const similarLoading = useStore((s) => s.similarLoading);
   const [rfPopoverOpen, setRfPopoverOpen] = useState(false);
-  const [logoError, setLogoError] = useState(false);
   const [inlineContactsLoading, setInlineContactsLoading] = useState(false);
   const [showMoreContacts, setShowMoreContacts] = useState(false);
   const [isPrefetching, setIsPrefetching] = useState(false);
@@ -291,12 +284,12 @@ export function CompanyCard({
             </svg>
           )}
         </button>
-        {logoSrc && !logoError && (
-          <img src={logoSrc} alt="" width={16} height={16} className="h-4 w-4 flex-shrink-0 rounded" onError={() => setLogoError(true)} />
-        )}
-        <span className="min-w-0 max-w-[180px] truncate text-sm font-medium text-text-primary" title={company.name}>
-          {company.name}
-        </span>
+        <CompanyLogo logoUrl={logoSrc} domain={company.domain} name={company.name} size={16} className="h-4 w-4" />
+        <Tooltip text={company.name}>
+          <span className="min-w-0 max-w-[180px] truncate text-sm font-medium text-text-primary">
+            {company.name}
+          </span>
+        </Tooltip>
         <span className="text-xs text-text-tertiary">&middot;</span>
         <span className="max-w-[120px] truncate text-xs text-text-secondary">{company.industry}</span>
         <span className="text-xs text-text-tertiary">&middot;</span>
@@ -306,10 +299,12 @@ export function CompanyCard({
         {stale && (
           <>
             <span className="text-xs text-text-tertiary">&middot;</span>
-            <span className="text-[10px] text-warning flex-shrink-0" title={formatTimeAgo(company.lastRefreshed)}>
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline -mt-px mr-px"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-              24h+
-            </span>
+            <Tooltip text={formatTimeAgo(company.lastRefreshed)}>
+              <span className="text-[10px] text-warning flex-shrink-0">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline -mt-px mr-px"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                24h+
+              </span>
+            </Tooltip>
           </>
         )}
         {crmPill && (
@@ -372,7 +367,7 @@ export function CompanyCard({
         isChecked && "ring-1 ring-accent-highlight/30",
         isPrefetching && "ring-1 ring-accent-secondary/20 animate-pulse",
         companyDecision === "interested" && !isSelected && "border-success/30",
-        isInProspectList && !isSelected && "border-l-accent-secondary/50",
+        isInProspectList && !isSelected && "ring-1 ring-accent-secondary/30",
         rfEntry?.feedback === "not_relevant" && showHiddenResults && "opacity-40"
       )}
     >
@@ -411,21 +406,14 @@ export function CompanyCard({
           </button>
           <CompanyStatusBadge domain={company.domain} currentStatus={company.status ?? "new"} size="sm" />
         </div>
-        {logoSrc && !logoError && (
-          <img
-            src={logoSrc}
-            alt=""
-            width={20}
-            height={20}
-            className="mt-0.5 h-5 w-5 flex-shrink-0 rounded"
-            onError={() => setLogoError(true)}
-          />
-        )}
+        <CompanyLogo logoUrl={logoSrc} domain={company.domain} name={company.name} size={20} className="mt-0.5 h-5 w-5" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="truncate font-display text-base font-semibold text-text-primary" title={company.name}>
-              {company.name}
-            </h3>
+            <Tooltip text={company.name}>
+              <h3 className="truncate font-display text-base font-semibold text-text-primary">
+                {company.name}
+              </h3>
+            </Tooltip>
             <div className="flex items-center gap-1.5">
               {bestEmail && (
                 <Tooltip text={`Copy: ${bestEmail}`}>
@@ -453,9 +441,11 @@ export function CompanyCard({
               {company.teamActivity && <TeamActivityBadge activity={company.teamActivity} />}
               <IcpScoreBadge score={company.icpScore} breakdown={company.icpBreakdown} showBreakdown />
               {company.nlIcpReasoning && (
-                <span className="max-w-[200px] truncate text-[10px] text-text-tertiary italic" title={company.nlIcpReasoning}>
-                  {company.nlIcpReasoning}
-                </span>
+                <Tooltip text={company.nlIcpReasoning}>
+                  <span className="max-w-[200px] truncate text-[10px] text-text-tertiary italic">
+                    {company.nlIcpReasoning}
+                  </span>
+                </Tooltip>
               )}
             </div>
           </div>
@@ -513,10 +503,12 @@ export function CompanyCard({
             {stale && (
               <>
                 <span className="text-text-tertiary">&middot;</span>
-                <span className="text-[10px] text-warning flex-shrink-0" title={formatTimeAgo(company.lastRefreshed)}>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline -mt-px mr-px"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-                  24h+
-                </span>
+                <Tooltip text={formatTimeAgo(company.lastRefreshed)}>
+                  <span className="text-[10px] text-warning flex-shrink-0">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline -mt-px mr-px"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                    24h+
+                  </span>
+                </Tooltip>
               </>
             )}
           </div>
@@ -532,9 +524,11 @@ export function CompanyCard({
               >
                 {company.signals[0].type}
               </span>
-              <span className="truncate text-xs text-text-secondary" title={company.signals[0].title}>
-                {company.signals[0].title}
-              </span>
+              <Tooltip text={company.signals[0].title}>
+                <span className="truncate text-xs text-text-secondary">
+                  {company.signals[0].title}
+                </span>
+              </Tooltip>
               {company.signals.length > 1 && (
                 <span className="flex-shrink-0 text-[10px] text-text-tertiary">
                   +{company.signals.length - 1} more
@@ -546,7 +540,7 @@ export function CompanyCard({
           {/* Bottom row: triage + contact count */}
           <div className="mt-2 flex items-center gap-2">
             {/* Triage buttons */}
-            <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+            <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
               <Tooltip text="Interested">
                 <button
                   onClick={(e) => { e.stopPropagation(); setCompanyDecision(company.domain, "interested"); }}
@@ -652,6 +646,7 @@ export function CompanyCard({
                     {rfPopoverOpen && (
                       <RelevanceFeedbackPopover
                         domain={company.domain}
+                        currentReason={rfEntry?.reason}
                         onSelect={(reason) => {
                           setRelevanceFeedback(company.domain, "not_relevant", reason);
                           setRfPopoverOpen(false);
@@ -722,6 +717,8 @@ export function CompanyCard({
             <div className="group/contacts relative ml-auto">
               <button
                 onClick={(e) => { e.stopPropagation(); setExpandedContactsDomain(company.domain); }}
+                aria-expanded={expandedContactsDomain === company.domain}
+                aria-label={`Toggle contacts for ${company.name}`}
                 className="font-mono text-xs text-accent-secondary transition-colors hover:underline"
               >
                 {company.contactCount} contacts
@@ -735,7 +732,7 @@ export function CompanyCard({
             inlineContacts.length > 0 ? (
               <div className="mt-2 border-t border-surface-3 pt-2">
                 {crmContacts.length > 0 && (
-                  <span className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-[#d4a012]">
+                  <span className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-accent-primary">
                     CRM Contacts
                   </span>
                 )}
@@ -766,12 +763,22 @@ export function CompanyCard({
                         onClick={(e) => handleContactClick(e, contact.id)}
                         className="flex min-w-0 cursor-pointer items-center gap-1.5 hover:underline"
                       >
-                        <span className="max-w-[120px] truncate font-medium text-text-primary" title={`${contact.firstName} ${contact.lastName}`}>
-                          {contact.firstName} {contact.lastName}
-                        </span>
-                        <span className="max-w-[140px] truncate text-text-tertiary" title={contact.title ?? undefined}>
-                          {contact.title}
-                        </span>
+                        <Tooltip text={`${contact.firstName} ${contact.lastName}`}>
+                          <span className="max-w-[120px] truncate font-medium text-text-primary">
+                            {contact.firstName} {contact.lastName}
+                          </span>
+                        </Tooltip>
+                        {contact.title ? (
+                          <Tooltip text={contact.title}>
+                            <span className="max-w-[140px] truncate text-text-tertiary">
+                              {contact.title}
+                            </span>
+                          </Tooltip>
+                        ) : (
+                          <span className="max-w-[140px] truncate text-text-tertiary">
+                            {contact.title}
+                          </span>
+                        )}
                       </button>
                       <span className={cn(
                         "flex-shrink-0 rounded-pill border px-1 py-px text-[9px] font-medium",
@@ -818,7 +825,7 @@ export function CompanyCard({
                         </Tooltip>
                       )}
                       {contact.sources.includes("freshsales" as import("@/lib/navigator/types").ResultSource) && (
-                        <span className="flex-shrink-0 rounded-pill bg-[#d4a012]/15 px-1 py-px text-[9px] font-semibold text-[#d4a012] ring-1 ring-[#d4a012]/20">
+                        <span className="flex-shrink-0 rounded-pill bg-accent-primary/15 px-1 py-px text-[9px] font-semibold text-accent-primary ring-1 ring-accent-primary/20">
                           Warm
                         </span>
                       )}
