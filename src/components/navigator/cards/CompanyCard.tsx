@@ -232,21 +232,22 @@ export function CompanyCard({
 
   // Auto-load contacts for exact match companies (Freshsales prominence)
   const autoLoadFiredRef = useRef(false);
+  const shouldAutoLoad = company.exactMatch && !hasContactsLoaded && !inlineContactsLoading && !autoLoadFiredRef.current;
   useEffect(() => {
-    if (company.exactMatch && !hasContactsLoaded && !inlineContactsLoading && !autoLoadFiredRef.current) {
-      autoLoadFiredRef.current = true;
-      setInlineContactsLoading(true);
-      const nameParam = company.name && company.name !== company.domain ? `?name=${encodeURIComponent(company.name)}` : "";
-      fetch(`/api/company/${encodeURIComponent(company.domain)}/contacts${nameParam}`)
-        .then(async (res) => {
-          if (!res.ok) throw new Error(`${res.status}`);
-          const data = await res.json();
-          setContactsForDomain(company.domain, data.contacts ?? []);
-        })
-        .catch(() => { /* silent */ })
-        .finally(() => setInlineContactsLoading(false));
-    }
-  }, [company.exactMatch, company.domain, company.name, hasContactsLoaded, inlineContactsLoading, setContactsForDomain]);
+    if (!shouldAutoLoad) return;
+    autoLoadFiredRef.current = true;
+    const nameParam = company.name && company.name !== company.domain ? `?name=${encodeURIComponent(company.name)}` : "";
+    // Defer setState to avoid synchronous setState in effect (React Compiler rule)
+    queueMicrotask(() => setInlineContactsLoading(true));
+    fetch(`/api/company/${encodeURIComponent(company.domain)}/contacts${nameParam}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`${res.status}`);
+        const data = await res.json();
+        setContactsForDomain(company.domain, data.contacts ?? []);
+      })
+      .catch(() => { /* silent */ })
+      .finally(() => setInlineContactsLoading(false));
+  }, [shouldAutoLoad, company.domain, company.name, setContactsForDomain]);
 
   // Split inline contacts into CRM (Freshsales) and other for visual separation
   const crmContacts = useMemo(() => inlineContacts.filter((c) => c.sources.includes("freshsales" as import("@/lib/navigator/types").ResultSource)), [inlineContacts]);

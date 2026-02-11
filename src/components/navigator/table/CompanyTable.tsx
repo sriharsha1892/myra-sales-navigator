@@ -104,11 +104,6 @@ export function CompanyTable({
     });
   }, [addToast]);
 
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return <span className="ml-0.5 text-text-tertiary/30">&#8597;</span>;
-    return <span className="ml-0.5 text-accent-primary">{sortDir === "desc" ? "\u2193" : "\u2191"}</span>;
-  };
-
   const thClass = "sticky top-0 z-10 bg-surface-0 px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-text-tertiary cursor-pointer select-none hover:text-text-secondary transition-colors border-b border-surface-3";
   const tdClass = "px-2 py-1.5 text-xs text-text-secondary whitespace-nowrap";
 
@@ -133,14 +128,14 @@ export function CompanyTable({
                 )}
               </button>
             </th>
-            <th className={thClass} onClick={() => toggleSort("name")}>Company<SortIcon field="name" /></th>
-            <th className={cn(thClass, "w-16")} onClick={() => toggleSort("icp_score")}>ICP<SortIcon field="icp_score" /></th>
-            <th className={thClass} onClick={() => toggleSort("industry")}>Industry<SortIcon field="industry" /></th>
-            <th className={cn(thClass, "w-20")} onClick={() => toggleSort("employee_count")}>Employees<SortIcon field="employee_count" /></th>
-            <th className={thClass} onClick={() => toggleSort("location")}>Location<SortIcon field="location" /></th>
+            <th className={thClass} onClick={() => toggleSort("name")}>Company<SortIcon field="name" sortField={sortField} sortDir={sortDir} /></th>
+            <th className={cn(thClass, "w-16")} onClick={() => toggleSort("icp_score")}>ICP<SortIcon field="icp_score" sortField={sortField} sortDir={sortDir} /></th>
+            <th className={thClass} onClick={() => toggleSort("industry")}>Industry<SortIcon field="industry" sortField={sortField} sortDir={sortDir} /></th>
+            <th className={cn(thClass, "w-20")} onClick={() => toggleSort("employee_count")}>Employees<SortIcon field="employee_count" sortField={sortField} sortDir={sortDir} /></th>
+            <th className={thClass} onClick={() => toggleSort("location")}>Location<SortIcon field="location" sortField={sortField} sortDir={sortDir} /></th>
             <th className={cn(thClass, "w-24")}>CRM</th>
             <th className={cn(thClass, "w-48")}>Top Contact</th>
-            <th className={cn(thClass, "w-16")} onClick={() => toggleSort("signals")}>Signals<SortIcon field="signals" /></th>
+            <th className={cn(thClass, "w-16")} onClick={() => toggleSort("signals")}>Signals<SortIcon field="signals" sortField={sortField} sortDir={sortDir} /></th>
           </tr>
         </thead>
         <tbody>
@@ -254,6 +249,11 @@ export function CompanyTable({
       </table>
     </div>
   );
+}
+
+function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: SortField; sortDir: SortDir }) {
+  if (sortField !== field) return <span className="ml-0.5 text-text-tertiary/30">&#8597;</span>;
+  return <span className="ml-0.5 text-accent-primary">{sortDir === "desc" ? "\u2193" : "\u2191"}</span>;
 }
 
 function formatTimeAgo(dateStr: string): string {
