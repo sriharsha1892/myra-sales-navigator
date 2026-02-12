@@ -139,6 +139,22 @@ export function CallOutcomeModal({
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-text-secondary">
               Duration (minutes, optional)
             </label>
+            <div className="mb-1.5 flex gap-1.5">
+              {[5, 10, 15, 20].map((mins) => (
+                <button
+                  key={mins}
+                  type="button"
+                  onClick={() => setDurationMinutes(String(mins))}
+                  className={`rounded-input px-2.5 py-1 text-xs transition-colors duration-[180ms] ${
+                    durationMinutes === String(mins)
+                      ? "bg-accent-secondary/15 text-accent-secondary font-medium"
+                      : "bg-surface-2 text-text-secondary hover:bg-surface-3 hover:text-text-primary"
+                  }`}
+                >
+                  {mins}m
+                </button>
+              ))}
+            </div>
             <input
               type="number"
               min={0}

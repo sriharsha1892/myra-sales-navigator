@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useStore } from "@/lib/navigator/store";
 import { CHANNEL_OPTIONS } from "@/lib/navigator/outreach/channelConfig";
 import { ExecutionModal } from "@/components/navigator/outreach/ExecutionModal";
@@ -39,6 +40,7 @@ const CHANNEL_COLORS: Record<string, string> = {
 };
 
 export function DueStepsWidget() {
+  const queryClient = useQueryClient();
   const addToast = useStore((s) => s.addToast);
 
   const [items, setItems] = useState<DueStepItem[]>([]);
@@ -136,6 +138,7 @@ export function DueStepsWidget() {
         if (data.completed) {
           addToast({ message: `Sequence completed for ${item.contactName}!`, type: "success" });
           removeItem(enrollmentId);
+          queryClient.invalidateQueries({ queryKey: ["enrollments"] });
           setExecutingId(null);
           return;
         }
@@ -161,25 +164,27 @@ export function DueStepsWidget() {
         setExecutingId(null);
       }
     },
-    [addToast, removeItem]
+    [addToast, removeItem, queryClient]
   );
 
   const handleModalDone = useCallback(() => {
     if (modalData) {
       addToast({ message: `Step completed for ${modalData.item.contactName}`, type: "success" });
       removeItem(modalData.item.enrollment.id);
+      queryClient.invalidateQueries({ queryKey: ["enrollments"] });
       setModalData(null);
     }
-  }, [modalData, addToast, removeItem]);
+  }, [modalData, addToast, removeItem, queryClient]);
 
   const handleCallOutcomeLogged = useCallback(() => {
     if (expandedCallId) {
       removeItem(expandedCallId);
+      queryClient.invalidateQueries({ queryKey: ["enrollments"] });
       setExpandedCallId(null);
       setCallResult(null);
       setShowCallOutcome(false);
     }
-  }, [expandedCallId, removeItem]);
+  }, [expandedCallId, removeItem, queryClient]);
 
   if (loading) {
     return (

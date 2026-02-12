@@ -683,7 +683,7 @@ export const useStore = create<AppState>((set, get) => ({
       if (typeof window !== "undefined" && domain) {
         localStorage.setItem("nav_detail_pane_collapsed", "0");
       }
-      return { selectedCompanyDomain: domain, slideOverOpen: !!domain, slideOverMode: "dossier", detailPaneCollapsed: false, dossierScrollToTop: state.dossierScrollToTop + 1, selectedContactIds: new Set<string>(), selectedContactsForOutreach: new Set<string>() };
+      return { selectedCompanyDomain: domain, slideOverOpen: !!domain, slideOverMode: "dossier", detailPaneCollapsed: false, dossierScrollToTop: state.dossierScrollToTop + 1, selectedContactIds: new Set<string>(), selectedContactsForOutreach: new Set<string>(), exportState: null };
     });
     if (hadSelections && domain) {
       get().addToast({ message: "Selection cleared", type: "info", duration: 2000 });
@@ -1450,6 +1450,10 @@ export const useStore = create<AppState>((set, get) => ({
     }
     if (filters.quickFilters.includes("not_in_freshsales")) {
       result = result.filter((c) => c.freshsalesStatus === "none");
+    }
+    if (filters.quickFilters.includes("has_contacts")) {
+      const cbd = get().contactsByDomain;
+      result = result.filter((c) => (cbd[c.domain]?.length ?? 0) > 0);
     }
 
     // Triage filter

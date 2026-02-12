@@ -312,6 +312,27 @@ export function CompanyCard({
             {crmPill.label}
           </span>
         )}
+        {company.signals.length > 0 && (
+          <>
+            <span className="text-xs text-text-tertiary">&middot;</span>
+            <span className="max-w-[120px] truncate text-[10px] text-accent-secondary">
+              {company.signals[0].title}
+            </span>
+          </>
+        )}
+        {inlineContacts.length > 0 && (
+          <>
+            <span className="text-xs text-text-tertiary">&middot;</span>
+            <span className="flex items-center gap-0.5 text-[10px] text-text-tertiary">
+              <span className="font-medium text-text-secondary">
+                {inlineContacts[0].firstName?.[0]}{inlineContacts[0].lastName?.[0]}
+              </span>
+              <span className="text-[8px]">
+                {SENIORITY_LABELS[inlineContacts[0].seniority] ?? ""}
+              </span>
+            </span>
+          </>
+        )}
         <div className="ml-auto flex items-center gap-1.5">
           <IcpScoreBadge score={company.icpScore} breakdown={company.icpBreakdown} showBreakdown />
           {bestEmail && (
@@ -440,15 +461,13 @@ export function CompanyCard({
               )}
               {company.teamActivity && <TeamActivityBadge activity={company.teamActivity} />}
               <IcpScoreBadge score={company.icpScore} breakdown={company.icpBreakdown} showBreakdown />
-              {company.nlIcpReasoning && (
-                <Tooltip text={company.nlIcpReasoning}>
-                  <span className="max-w-[200px] truncate text-[10px] text-text-tertiary italic">
-                    {company.nlIcpReasoning}
-                  </span>
-                </Tooltip>
-              )}
             </div>
           </div>
+          {company.nlIcpReasoning && (
+            <p className="mt-0.5 text-xs italic text-text-tertiary line-clamp-2">
+              {company.nlIcpReasoning}
+            </p>
+          )}
 
           {/* CRM status badges — prominent color-coded */}
           {((company.freshsalesStatus && company.freshsalesStatus !== "none") || (company.hubspotStatus !== "none" && company.hubspotStatus)) && (

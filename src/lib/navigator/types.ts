@@ -387,7 +387,8 @@ export type QuickFilter =
   | "has_signals"
   | "not_in_hubspot"
   | "not_in_freshsales"
-  | "verified_email";
+  | "verified_email"
+  | "has_contacts";
 
 export interface IcpWeights {
   verticalMatch: number;

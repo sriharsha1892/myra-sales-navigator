@@ -202,6 +202,9 @@ describe("DossierContacts — Source filter & email-only filter", () => {
     const DossierContacts = await importDossierContacts();
     render(<DossierContacts companyDomain="acme.com" contacts={testContacts} />);
 
+    // Turn off email-only (ON by default) so we can test source filter in isolation
+    fireEvent.click(screen.getByText("Has email"));
+
     // Click twice: All -> Freshsales -> New only
     fireEvent.click(getSourceFilterButton());
     fireEvent.click(getSourceFilterButton());
@@ -215,21 +218,21 @@ describe("DossierContacts — Source filter & email-only filter", () => {
     expect(screen.queryByTestId("contact-row-c4")).not.toBeInTheDocument();
   });
 
-  it("email-only filter removes contacts without email", async () => {
+  it("email-only filter is ON by default, removes contacts without email", async () => {
     const DossierContacts = await importDossierContacts();
     render(<DossierContacts companyDomain="acme.com" contacts={testContacts} />);
 
-    // Click "Has email" button
-    const emailBtn = screen.getByText("Has email");
-    fireEvent.click(emailBtn);
-
-    // c3 has no email — should be filtered out
+    // dossierEmailOnly defaults to true — c3 has no email and should be filtered out
     expect(screen.queryByTestId("contact-row-c3")).not.toBeInTheDocument();
     // Others with email remain
     expect(screen.getByTestId("contact-row-c1")).toBeInTheDocument();
     expect(screen.getByTestId("contact-row-c2")).toBeInTheDocument();
     expect(screen.getByTestId("contact-row-c4")).toBeInTheDocument();
     expect(screen.getByTestId("contact-row-c5")).toBeInTheDocument();
+
+    // Clicking "Has email" toggles it OFF — c3 should now appear
+    fireEvent.click(screen.getByText("Has email"));
+    expect(screen.getByTestId("contact-row-c3")).toBeInTheDocument();
   });
 
   it("combined source + email filter narrows results correctly", async () => {
@@ -241,12 +244,10 @@ describe("DossierContacts — Source filter & email-only filter", () => {
     const DossierContacts = await importDossierContacts();
     render(<DossierContacts companyDomain="acme.com" contacts={contactsWithMissingEmail} />);
 
-    // Switch to Freshsales filter
+    // Switch to Freshsales filter (email-only already ON by default)
     fireEvent.click(getSourceFilterButton());
-    // Enable email-only
-    fireEvent.click(screen.getByText("Has email"));
 
-    // Freshsales: c2, c4, c6. With email: c2, c4. c6 has no email.
+    // Freshsales: c2, c4, c6. With email (default ON): c2, c4. c6 has no email.
     expect(screen.getByTestId("contact-row-c2")).toBeInTheDocument();
     expect(screen.getByTestId("contact-row-c4")).toBeInTheDocument();
     expect(screen.queryByTestId("contact-row-c6")).not.toBeInTheDocument();
@@ -268,7 +269,10 @@ describe("DossierContacts — Source filter & email-only filter", () => {
     const DossierContacts = await importDossierContacts();
     render(<DossierContacts companyDomain="acme.com" contacts={testContacts} />);
 
-    // Default "All" with no email filter — should show sections
+    // Turn off email-only filter (ON by default) to see unfiltered sections
+    fireEvent.click(screen.getByText("Has email"));
+
+    // Now "All" with no email filter — should show sections
     // New contacts: c1, c3, c5 (no freshsales)
     expect(screen.getByText(/New Contacts \(3\)/)).toBeInTheDocument();
     // Known in Freshsales: c2, c4

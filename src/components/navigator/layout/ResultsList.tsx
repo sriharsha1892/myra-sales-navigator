@@ -16,25 +16,17 @@ import { SimilarSearchBanner } from "@/components/navigator/banners/SimilarSearc
 import { ResultsTabBar } from "./ResultsTabBar";
 import { ResultsHeader } from "./ResultsHeader";
 import { CompanyTable } from "@/components/navigator/table/CompanyTable";
+import { QuickFilterBar } from "@/components/navigator/shared/QuickFilterBar";
 import { SEED_COMPANIES, SEED_CONTACTS } from "@/lib/navigator/seed-data";
 
-const ALL_EXAMPLE_QUERIES = [
-  "chemicals in Europe",
-  "SaaS hiring in US",
-  "food ingredients expanding to Asia",
-  "Brenntag",
-  "logistics companies",
-  "BASF SE",
-  "pharma suppliers in India",
-  "specialty chemicals North America",
-  "packaging companies funding round",
-  "agricultural distributors Latin America",
-  "personal care ingredients",
-  "polymer manufacturers hiring",
-  "flavor and fragrance companies",
-  "water treatment APAC",
-  "industrial coatings Europe",
+const EXAMPLE_CATEGORIES = [
+  { label: "Exact Company", examples: ["BASF SE", "Brenntag", "Evonik"] },
+  { label: "Industry + Region", examples: ["SaaS companies in EMEA", "chemicals in Europe", "food ingredients North America"] },
+  { label: "With Signals", examples: ["tech companies hiring VPs in US", "packaging companies funding round", "polymer manufacturers hiring"] },
+  { label: "Multi-criteria", examples: ["mid-size pharma expanding Asia with funding", "specialty chemicals North America", "agricultural distributors Latin America"] },
 ];
+
+const ALL_EXAMPLE_QUERIES = EXAMPLE_CATEGORIES.flatMap((c) => c.examples);
 
 export function ResultsList() {
   const viewMode = useStore((s) => s.viewMode);
@@ -91,6 +83,7 @@ export function ResultsList() {
     () => typeof window !== "undefined" && !localStorage.getItem("nav_onboarded")
   );
   const [relatedCollapsed, setRelatedCollapsed] = useState(true);
+  const [lowFitCollapsed, setLowFitCollapsed] = useState(true);
   const [previousResultCount, setPreviousResultCount] = useState(6);
 
   const companies = filteredCompanies();
@@ -198,6 +191,9 @@ export function ResultsList() {
         searchError={searchError}
       />
 
+      {/* Quick filter bar */}
+      {hasSearched && !searchLoading && <QuickFilterBar />}
+
       {/* Results */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 transition-opacity duration-200">
         {/* Loading skeletons */}
@@ -288,19 +284,43 @@ export function ResultsList() {
                 A specific company, an industry, or a description of your ideal prospect
               </p>
 
-              <div className="mt-6 flex flex-wrap justify-center gap-2.5">
-                {quickStartChips.map((chip, i) => (
-                  <button
-                    key={`${chip.label}-${i}`}
-                    onClick={chip.onClick}
-                    className="btn-press animate-fadeInUp rounded-pill border border-surface-3 bg-surface-1 px-5 py-2.5 text-sm font-medium text-text-secondary shadow-sm transition-all duration-[180ms] hover:-translate-y-0.5 hover:shadow-md hover:text-text-primary max-w-[220px] truncate"
-                    style={{ animationDelay: `${120 + i * 60}ms` }}
-                    title={chip.label}
-                  >
-                    {chip.label}
-                  </button>
-                ))}
-              </div>
+              {history.length > 0 ? (
+                <div className="mt-6 flex flex-wrap justify-center gap-2.5">
+                  {quickStartChips.map((chip, i) => (
+                    <button
+                      key={`${chip.label}-${i}`}
+                      onClick={chip.onClick}
+                      className="btn-press animate-fadeInUp rounded-pill border border-surface-3 bg-surface-1 px-5 py-2.5 text-sm font-medium text-text-secondary shadow-sm transition-all duration-[180ms] hover:-translate-y-0.5 hover:shadow-md hover:text-text-primary max-w-[220px] truncate"
+                      style={{ animationDelay: `${120 + i * 60}ms` }}
+                      title={chip.label}
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6 w-full max-w-lg space-y-4">
+                  {EXAMPLE_CATEGORIES.map((cat, ci) => (
+                    <div key={cat.label} className="animate-fadeInUp" style={{ animationDelay: `${120 + ci * 80}ms` }}>
+                      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+                        {cat.label}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {cat.examples.map((q) => (
+                          <button
+                            key={q}
+                            onClick={() => setPendingFreeTextSearch(q)}
+                            className="btn-press rounded-pill border border-surface-3 bg-surface-1 px-4 py-2 text-sm font-medium text-text-secondary shadow-sm transition-all duration-[180ms] hover:-translate-y-0.5 hover:shadow-md hover:text-text-primary max-w-[260px] truncate"
+                            title={q}
+                          >
+                            {q}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Team presets */}
               {presets.length > 0 && (
@@ -473,7 +493,12 @@ export function ResultsList() {
                     </div>
                   </>
                 ) : (
-                  companies.map((company, index) => renderCompanyItem(company, index))
+                  <IcpTierGroupedList
+                    companies={companies}
+                    renderCompanyItem={renderCompanyItem}
+                    lowFitCollapsed={lowFitCollapsed}
+                    setLowFitCollapsed={setLowFitCollapsed}
+                  />
                 );
               })()}
             </div>
@@ -542,6 +567,113 @@ export function ResultsList() {
         ) : null}
       </div>
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// ICP Tier Grouped List (G1) — groups companies by ICP tier
+// ─────────────────────────────────────────────────────────
+function IcpTierGroupedList({
+  companies,
+  renderCompanyItem,
+  lowFitCollapsed,
+  setLowFitCollapsed,
+}: {
+  companies: CompanyEnriched[];
+  renderCompanyItem: (company: CompanyEnriched, idx: number) => React.ReactNode;
+  lowFitCollapsed: boolean;
+  setLowFitCollapsed: (v: boolean) => void;
+}) {
+  const highFit = companies.filter((c) => c.icpScore >= 70);
+  const goodFit = companies.filter((c) => c.icpScore >= 40 && c.icpScore < 70);
+  const lowFit = companies.filter((c) => c.icpScore < 40);
+
+  // If all companies are in the same tier, skip section headers
+  const tierCount = [highFit.length, goodFit.length, lowFit.length].filter((n) => n > 0).length;
+  if (tierCount <= 1 && lowFit.length === 0) {
+    return <>{companies.map((company, index) => renderCompanyItem(company, index))}</>;
+  }
+
+  let runningIdx = 0;
+
+  return (
+    <>
+      {highFit.length > 0 && (
+        <div>
+          <div className="mb-1.5 px-1 flex items-center gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-primary">
+              High Fit
+            </span>
+            <span className="text-[10px] tabular-nums text-text-tertiary">{highFit.length}</span>
+          </div>
+          <div className="space-y-1.5">
+            {highFit.map((company) => {
+              const node = renderCompanyItem(company, runningIdx);
+              runningIdx++;
+              return node;
+            })}
+          </div>
+        </div>
+      )}
+
+      {goodFit.length > 0 && (
+        <div className={highFit.length > 0 ? "mt-4" : ""}>
+          <div className="mb-1.5 px-1 flex items-center gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-text-secondary">
+              Good Fit
+            </span>
+            <span className="text-[10px] tabular-nums text-text-tertiary">{goodFit.length}</span>
+          </div>
+          <div className="space-y-1.5">
+            {goodFit.map((company) => {
+              const node = renderCompanyItem(company, runningIdx);
+              runningIdx++;
+              return node;
+            })}
+          </div>
+        </div>
+      )}
+
+      {lowFit.length > 0 && (
+        <div className={(highFit.length > 0 || goodFit.length > 0) ? "mt-4" : ""}>
+          <button
+            onClick={() => setLowFitCollapsed(!lowFitCollapsed)}
+            className="flex items-center gap-1.5 px-1 py-1 text-text-secondary hover:text-text-primary"
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={`flex-shrink-0 transition-transform duration-[180ms] ${lowFitCollapsed ? "-rotate-90" : ""}`}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+              {lowFitCollapsed
+                ? `Show ${lowFit.length} low-fit result${lowFit.length === 1 ? "" : "s"}`
+                : `Low Fit`}
+            </span>
+            {!lowFitCollapsed && (
+              <span className="text-[10px] tabular-nums text-text-tertiary">{lowFit.length}</span>
+            )}
+          </button>
+          {!lowFitCollapsed && (
+            <div className="mt-1 space-y-1.5">
+              {lowFit.map((company) => {
+                const node = renderCompanyItem(company, runningIdx);
+                runningIdx++;
+                return node;
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -762,6 +894,11 @@ function NoResultsSuggestions() {
           {searchWarnings.map((w, i) => (
             <p key={i} className="text-xs text-accent-secondary">{w}</p>
           ))}
+          {searchWarnings.some((w) => /simplif|rephras/i.test(w)) && (
+            <p className="mt-1 text-xs italic text-text-tertiary">
+              The query was automatically simplified — try a more specific search
+            </p>
+          )}
         </div>
       )}
 

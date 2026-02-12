@@ -15,6 +15,7 @@ import {
 import { CompanyNotes } from "@/components/navigator/notes/CompanyNotes";
 import { DossierSimilarCompanies } from "@/components/navigator/dossier/DossierSimilarCompanies";
 import { DossierErrorBoundary } from "@/components/navigator/shared/DossierErrorBoundary";
+import { RecommendedActionBar } from "@/components/navigator/dossier/RecommendedActionBar";
 import { ContactsPanel } from "@/components/navigator/contacts/ContactsPanel";
 import { useCompanyDossier } from "@/hooks/navigator/useCompanyDossier";
 import { useExport } from "@/hooks/navigator/useExport";
@@ -231,18 +232,18 @@ export function SlideOverPane() {
 
             <div className={cn("flex-1 divide-y divide-surface-3 transition-opacity duration-200", effectiveLoading && "opacity-50")}>
               <div className="animate-fadeInUp" style={{ animationDelay: "0ms" }}>
-                <DossierErrorBoundary sectionName="Overview">
-                  <DossierOverview company={company} />
+                <DossierErrorBoundary sectionName="Recommendations">
+                  <RecommendedActionBar company={company} contacts={dossier.contacts} />
                 </DossierErrorBoundary>
               </div>
               <div className="animate-fadeInUp" style={{ animationDelay: "60ms" }}>
-                <DossierErrorBoundary sectionName="Contacts">
-                  <DossierContacts key={company.domain} companyDomain={company.domain} contacts={dossier.contacts} />
+                <DossierErrorBoundary sectionName="Freshsales">
+                  <DossierFreshsales company={company} />
                 </DossierErrorBoundary>
               </div>
               <div className="animate-fadeInUp" style={{ animationDelay: "120ms" }}>
-                <DossierErrorBoundary sectionName="Freshsales">
-                  <DossierFreshsales company={company} />
+                <DossierErrorBoundary sectionName="Contacts">
+                  <DossierContacts key={company.domain} companyDomain={company.domain} contacts={dossier.contacts} />
                 </DossierErrorBoundary>
               </div>
               <div className="animate-fadeInUp" style={{ animationDelay: "180ms" }}>
@@ -251,18 +252,23 @@ export function SlideOverPane() {
                 </DossierErrorBoundary>
               </div>
               <div className="animate-fadeInUp" style={{ animationDelay: "240ms" }}>
-                <DossierErrorBoundary sectionName="HubSpot">
-                  <DossierHubspot company={company} />
+                <DossierErrorBoundary sectionName="Overview">
+                  <DossierOverview company={company} />
                 </DossierErrorBoundary>
               </div>
               <div className="animate-fadeInUp" style={{ animationDelay: "300ms" }}>
-                <DossierErrorBoundary sectionName="Notes">
-                  <CompanyNotes companyDomain={company.domain} />
+                <DossierErrorBoundary sectionName="HubSpot">
+                  <DossierHubspot company={company} />
                 </DossierErrorBoundary>
               </div>
               <div className="animate-fadeInUp" style={{ animationDelay: "360ms" }}>
                 <DossierErrorBoundary sectionName="Similar Companies">
                   <DossierSimilarCompanies domain={company.domain} employeeCount={company.employeeCount} region={company.region} />
+                </DossierErrorBoundary>
+              </div>
+              <div className="animate-fadeInUp" style={{ animationDelay: "420ms" }}>
+                <DossierErrorBoundary sectionName="Notes">
+                  <CompanyNotes companyDomain={company.domain} />
                 </DossierErrorBoundary>
               </div>
             </div>

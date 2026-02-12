@@ -31,7 +31,7 @@ export function DossierContacts({ companyDomain, contacts: contactsProp }: Dossi
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [findingEmails, setFindingEmails] = useState(false);
   const [dossierSourceFilter, setDossierSourceFilter] = useState<"all" | "freshsales" | "new">("all");
-  const [dossierEmailOnly, setDossierEmailOnly] = useState(false);
+  const [dossierEmailOnly, setDossierEmailOnly] = useState(true);
 
   // Fetch export history for this domain
   const { data: exportHistory } = useQuery({
@@ -92,7 +92,12 @@ export function DossierContacts({ companyDomain, contacts: contactsProp }: Dossi
     if (dossierSourceFilter === "freshsales") result = result.filter(c => c.sources.includes("freshsales"));
     if (dossierSourceFilter === "new") result = result.filter(c => !c.sources.includes("freshsales"));
     if (dossierEmailOnly) result = result.filter(c => !!c.email);
-    return result;
+    return [...result].sort((a, b) => {
+      const sa = seniorityOrder[a.seniority] ?? 5;
+      const sb = seniorityOrder[b.seniority] ?? 5;
+      if (sa !== sb) return sa - sb;
+      return b.emailConfidence - a.emailConfidence;
+    });
   }, [contacts, dossierSourceFilter, dossierEmailOnly]);
 
   const isFiltered = dossierSourceFilter !== "all" || dossierEmailOnly;

@@ -108,15 +108,35 @@ export function SequenceBuilder({ sequence, onSave, onCancel }: SequenceBuilderP
     [steps.length, editingIndex]
   );
 
+  const addToast = useStore((s) => s.addToast);
+
   const handleSave = useCallback(() => {
     if (!name.trim() || steps.length === 0) return;
+
+    // Pre-flight: check channel prerequisites
+    const warnings = steps
+      .map((s, i) => {
+        const warning = getChannelWarning(s.channel, userConfig);
+        return warning ? `Step ${i + 1}: ${warning}` : null;
+      })
+      .filter((w): w is string => w !== null);
+
+    if (warnings.length > 0) {
+      addToast({
+        message: warnings.join(". "),
+        type: "warning",
+        duration: 5000,
+      });
+      return;
+    }
+
     onSave({
       name: name.trim(),
       description: description.trim() || undefined,
       steps,
       isTemplate,
     });
-  }, [name, description, steps, isTemplate, onSave]);
+  }, [name, description, steps, isTemplate, onSave, userConfig, addToast]);
 
   const canSave = name.trim().length > 0 && steps.length > 0;
 

@@ -54,7 +54,16 @@ export function BulkActionBar() {
     }
     return total;
   }, [domains, contactsByDomain]);
+  const someContactsLoading = useMemo(() => {
+    return domains.some((d) => contactsByDomain[d] === undefined);
+  }, [domains, contactsByDomain]);
+
   const exportDisabled = contactCountForSelected === 0;
+  const exportTooltip = someContactsLoading
+    ? "Loading contacts..."
+    : exportDisabled
+      ? "Select contacts first"
+      : "";
 
   const addUndoToast = useStore((s) => s.addUndoToast);
   const undoExclude = useStore((s) => s.undoExclude);
@@ -176,13 +185,13 @@ export function BulkActionBar() {
               />
             ) : (
               <div className="flex items-center gap-2">
-                <Tooltip text={exportDisabled ? "Select contacts first" : ""}>
+                <Tooltip text={exportTooltip}>
                   <BulkButton onClick={() => initiateExport("clipboard")} label="Copy" shortcut="\u2318E" disabled={exportDisabled} />
                 </Tooltip>
-                <Tooltip text={exportDisabled ? "Select contacts first" : ""}>
+                <Tooltip text={exportTooltip}>
                   <BulkButton onClick={() => initiateExport("csv")} label="CSV" disabled={exportDisabled} />
                 </Tooltip>
-                <Tooltip text={exportDisabled ? "Select contacts first" : ""}>
+                <Tooltip text={exportTooltip}>
                   <BulkButton onClick={() => initiateExport("excel")} label="Excel" disabled={exportDisabled} />
                 </Tooltip>
                 {viewMode === "companies" && !isContactMode && (

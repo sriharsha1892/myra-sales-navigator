@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useStore } from "@/lib/navigator/store";
 import { ActiveFilterPills } from "@/components/navigator/shared/ActiveFilterPills";
 import type { SearchErrorDetail } from "@/lib/navigator/types";
@@ -27,6 +27,11 @@ export const ResultsHeader = React.memo(function ResultsHeader({
   const retryLastSearch = useStore((s) => s.retryLastSearch);
   const enrichmentProgress = useStore((s) => s.enrichmentProgress);
   const crmEnrichmentInProgress = useStore((s) => s.crmEnrichmentInProgress);
+  const savePreset = useStore((s) => s.savePreset);
+  const addToast = useStore((s) => s.addToast);
+
+  const [showPresetForm, setShowPresetForm] = useState(false);
+  const [presetName, setPresetName] = useState("");
 
   const hasStructuredErrors = searchErrors.length > 0;
 
@@ -42,6 +47,51 @@ export const ResultsHeader = React.memo(function ResultsHeader({
               <span className="text-xs text-text-tertiary">
                 ({companyCount} companies{lastExcludedCount > 0 ? `, ${lastExcludedCount} excluded` : ""})
               </span>
+            )}
+            {!searchLoading && companyCount > 0 && !showPresetForm && (
+              <button
+                onClick={() => setShowPresetForm(true)}
+                className="text-[10px] text-text-tertiary hover:text-accent-primary transition-colors"
+              >
+                Save as preset
+              </button>
+            )}
+            {showPresetForm && (
+              <form
+                className="flex items-center gap-1.5"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (presetName.trim()) {
+                    savePreset(presetName.trim());
+                    addToast({ message: `Saved preset "${presetName.trim()}"`, type: "success", duration: 2000 });
+                    setPresetName("");
+                    setShowPresetForm(false);
+                  }
+                }}
+              >
+                <input
+                  type="text"
+                  value={presetName}
+                  onChange={(e) => setPresetName(e.target.value)}
+                  placeholder="Preset name"
+                  autoFocus
+                  className="w-28 rounded-input border border-surface-3 bg-surface-0 px-2 py-0.5 text-[10px] text-text-primary outline-none focus:border-accent-primary placeholder:text-text-tertiary"
+                />
+                <button
+                  type="submit"
+                  disabled={!presetName.trim()}
+                  className="rounded-input bg-accent-primary px-2 py-0.5 text-[10px] font-medium text-surface-0 disabled:opacity-40"
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowPresetForm(false); setPresetName(""); }}
+                  className="text-[10px] text-text-tertiary hover:text-text-secondary"
+                >
+                  Cancel
+                </button>
+              </form>
             )}
           </div>
           {enrichmentProgress && (

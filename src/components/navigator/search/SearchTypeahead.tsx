@@ -26,7 +26,7 @@ export const SearchTypeahead = forwardRef<SearchTypeaheadHandle, SearchTypeahead
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Flat list of all items for keyboard navigation
-    const allItems = [...recentSearches, ...matchingPresets, ...matchingCompanies];
+    const allItems = [...recentSearches, ...matchingCompanies, ...matchingPresets];
 
     // Reset active index when items change
     useEffect(() => {
@@ -109,24 +109,6 @@ export const SearchTypeahead = forwardRef<SearchTypeaheadHandle, SearchTypeahead
             })}
           </>
         )}
-        {matchingPresets.length > 0 && (
-          <>
-            {sectionLabel("Saved Presets")}
-            {matchingPresets.map((item) => {
-              const idx = flatIdx++;
-              return (
-                <TypeaheadRow
-                  key={item.id}
-                  item={item}
-                  isActive={idx === activeIndex}
-                  icon={<PresetIcon />}
-                  onSelect={() => onSelect(item)}
-                  onHover={() => setActiveIndex(idx)}
-                />
-              );
-            })}
-          </>
-        )}
         {matchingCompanies.length > 0 && (
           <>
             {sectionLabel("Companies")}
@@ -142,6 +124,24 @@ export const SearchTypeahead = forwardRef<SearchTypeaheadHandle, SearchTypeahead
                       <CompanyLogo domain={item.company.domain} name={item.company.name ?? item.label} size={14} className="h-3.5 w-3.5" />
                     ) : <CompanyIcon />
                   }
+                  onSelect={() => onSelect(item)}
+                  onHover={() => setActiveIndex(idx)}
+                />
+              );
+            })}
+          </>
+        )}
+        {matchingPresets.length > 0 && (
+          <>
+            {sectionLabel("Saved Presets")}
+            {matchingPresets.map((item) => {
+              const idx = flatIdx++;
+              return (
+                <TypeaheadRow
+                  key={item.id}
+                  item={item}
+                  isActive={idx === activeIndex}
+                  icon={<PresetIcon />}
                   onSelect={() => onSelect(item)}
                   onHover={() => setActiveIndex(idx)}
                 />
