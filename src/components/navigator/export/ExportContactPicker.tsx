@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Overlay } from "@/components/primitives/Overlay";
 import { ConfidenceBadge } from "@/components/navigator/badges";
@@ -27,7 +27,7 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
   const [fetchError, setFetchError] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [domainsLoaded, setDomainsLoaded] = useState(0);
-  const domainsTotalRef = useRef(0);
+  const [domainsTotal, setDomainsTotal] = useState(0);
   const queryClient = useQueryClient();
 
   // Fetch contacts for all selected companies on modal open, populate Zustand
@@ -41,12 +41,12 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
       return;
     }
 
-    domainsTotalRef.current = domainsToFetch.length;
+    const total = domainsToFetch.length;
 
-    // Reset loaded count asynchronously to satisfy React Compiler
+    // Both setState calls deferred to async callback to satisfy React Compiler
     // (no synchronous setState in useEffect body)
     Promise.resolve()
-      .then(() => { if (!cancelled) setDomainsLoaded(0); })
+      .then(() => { if (!cancelled) { setDomainsTotal(total); setDomainsLoaded(0); } })
       .then(() =>
         Promise.all(
           domainsToFetch.map((domain) =>
@@ -183,7 +183,7 @@ export function ExportContactPicker({ contactIds, mode, onExport, onCancel }: Ex
               <div className="flex items-center justify-center py-8">
                 <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-surface-3 border-t-accent-primary" />
                 <span className="ml-2 text-xs text-text-tertiary">
-                  Loading contacts...{domainsTotalRef.current > 0 && ` (${domainsLoaded}/${domainsTotalRef.current} companies)`}
+                  Loading contacts...{domainsTotal > 0 && ` (${domainsLoaded}/${domainsTotal} companies)`}
                 </span>
               </div>
             )
