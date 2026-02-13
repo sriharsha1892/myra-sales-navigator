@@ -19,6 +19,8 @@ interface ResultsTabBarProps {
   onSortChange: (field: SortField) => void;
   onSortDirectionToggle: () => void;
   onDeselectAll: () => void;
+  allContactsActive?: boolean;
+  onAllContactsToggle?: () => void;
 }
 
 export const ResultsTabBar = React.memo(function ResultsTabBar({
@@ -33,6 +35,8 @@ export const ResultsTabBar = React.memo(function ResultsTabBar({
   onSortChange,
   onSortDirectionToggle,
   onDeselectAll,
+  allContactsActive,
+  onAllContactsToggle,
 }: ResultsTabBarProps) {
   const cardDensity = useStore((s) => s.cardDensity);
 
@@ -48,6 +52,8 @@ export const ResultsTabBar = React.memo(function ResultsTabBar({
         onChange={onViewModeChange}
         companyCount={companyCount}
         prospectCount={prospectCount}
+        allContactsActive={allContactsActive}
+        onAllContactsToggle={onAllContactsToggle}
       />
       {/* Bulk selection count indicator */}
       {selectedCompanyCount > 0 && (

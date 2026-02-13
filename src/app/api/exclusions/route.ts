@@ -106,7 +106,27 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { id } = await request.json();
+    const body = await request.json();
+
+    // Batch delete: { ids: string[] }
+    if (Array.isArray(body.ids)) {
+      if (body.ids.length === 0) {
+        return NextResponse.json({ error: "ids array is empty" }, { status: 400 });
+      }
+      const supabase = createServerClient();
+      const { error } = await supabase.from("exclusions").delete().in("id", body.ids);
+
+      if (error) {
+        console.error("[Exclusions] batch delete error:", error);
+        return NextResponse.json({ error: "Failed to delete exclusions" }, { status: 500 });
+      }
+
+      await deleteCached("exclusions:all");
+      return NextResponse.json({ deleted: body.ids.length });
+    }
+
+    // Single delete: { id: string }
+    const { id } = body;
     if (!id) {
       return NextResponse.json({ error: "id is required" }, { status: 400 });
     }

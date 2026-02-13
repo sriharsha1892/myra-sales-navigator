@@ -307,7 +307,12 @@ export function RelevanceInsightsSection({ dateRange = 7 }: RelevanceInsightsPro
           )}
 
           {/* -------------------------------------------------------------- */}
-          {/* Section D: Suggested ICP Adjustments                            */}
+          {/* Section D: Recent Feedback (admin undo)                         */}
+          {/* -------------------------------------------------------------- */}
+          <RecentFeedbackTable queryClient={queryClient} />
+
+          {/* -------------------------------------------------------------- */}
+          {/* Section E: Suggested ICP Adjustments                            */}
           {/* -------------------------------------------------------------- */}
           <div className="rounded-card border border-surface-3 bg-surface-1 p-4">
             <h4 className="mb-3 text-xs font-semibold text-text-secondary">
@@ -343,6 +348,110 @@ export function RelevanceInsightsSection({ dateRange = 7 }: RelevanceInsightsPro
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sub-component: Recent feedback entries with undo
+// ---------------------------------------------------------------------------
+
+interface FeedbackEntry {
+  domain: string;
+  feedback: string;
+  reason: string | null;
+  userName: string;
+  createdAt: string;
+}
+
+function RecentFeedbackTable({ queryClient }: { queryClient: ReturnType<typeof useQueryClient> }) {
+  const addToast = useStore((s) => s.addToast);
+  const [undoingKey, setUndoingKey] = useState<string | null>(null);
+
+  const { data, isLoading } = useQuery<{ entries: FeedbackEntry[] }>({
+    queryKey: ["relevance-feedback-list"],
+    queryFn: async () => {
+      const res = await fetch("/api/relevance-feedback?list=true");
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    staleTime: 30_000,
+  });
+
+  const entries = data?.entries ?? [];
+
+  const handleUndo = async (entry: FeedbackEntry) => {
+    const key = `${entry.domain}:${entry.userName}`;
+    setUndoingKey(key);
+    try {
+      const res = await fetch("/api/relevance-feedback", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain: entry.domain, userName: entry.userName }),
+      });
+      if (!res.ok) throw new Error("Failed to undo");
+      addToast({ message: `Feedback for ${entry.domain} removed`, type: "success" });
+      queryClient.invalidateQueries({ queryKey: ["relevance-feedback-list"] });
+      queryClient.invalidateQueries({ queryKey: ["relevance-insights"] });
+    } catch {
+      addToast({ message: "Failed to undo feedback", type: "error" });
+    } finally {
+      setUndoingKey(null);
+    }
+  };
+
+  if (isLoading) {
+    return <div className="shimmer h-20 rounded-card" />;
+  }
+
+  if (entries.length === 0) return null;
+
+  return (
+    <div className="rounded-card border border-surface-3 bg-surface-1 p-4">
+      <h4 className="mb-3 text-xs font-semibold text-text-secondary">
+        Recent Feedback
+      </h4>
+      <div className="max-h-48 overflow-y-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-surface-3 text-left text-[10px] uppercase tracking-wide text-text-tertiary">
+              <th className="pb-2 pr-2">Domain</th>
+              <th className="pb-2 pr-2">Type</th>
+              <th className="pb-2 pr-2">Reason</th>
+              <th className="pb-2 pr-2">User</th>
+              <th className="pb-2 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map((entry) => {
+              const key = `${entry.domain}:${entry.userName}`;
+              return (
+                <tr key={key} className="border-b border-surface-3/50 last:border-0">
+                  <td className="py-1.5 pr-2 font-mono text-text-primary">{entry.domain}</td>
+                  <td className="py-1.5 pr-2">
+                    <span className={`rounded-badge px-1.5 py-0.5 text-[10px] ${entry.feedback === "relevant" ? "bg-success/15 text-success" : "bg-danger/15 text-danger"}`}>
+                      {entry.feedback === "relevant" ? "Relevant" : "Not Relevant"}
+                    </span>
+                  </td>
+                  <td className="py-1.5 pr-2 text-text-tertiary">
+                    {entry.reason ? (REASON_LABELS[entry.reason] ?? entry.reason) : "\u2014"}
+                  </td>
+                  <td className="py-1.5 pr-2 text-text-secondary">{entry.userName}</td>
+                  <td className="py-1.5 text-right">
+                    <button
+                      onClick={() => handleUndo(entry)}
+                      disabled={undoingKey === key}
+                      className="rounded-input border border-surface-3 px-2 py-0.5 text-[10px] text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary disabled:opacity-50"
+                    >
+                      {undoingKey === key ? "..." : "Undo"}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

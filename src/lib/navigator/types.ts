@@ -388,7 +388,11 @@ export type QuickFilter =
   | "not_in_hubspot"
   | "not_in_freshsales"
   | "verified_email"
-  | "has_contacts";
+  | "has_contacts"
+  | "reviewed"
+  | "unreviewed";
+
+export type CompanyPipelineStage = "new" | "reviewing" | "interested" | "passed" | "in_crm" | "excluded";
 
 export interface IcpWeights {
   verticalMatch: number;

@@ -2,10 +2,11 @@
 
 import { useEffect, useRef } from "react";
 import { useStore } from "@/lib/navigator/store";
-import { useSearch } from "@/hooks/navigator/useSearch";
+import { useSearch, type SearchParams } from "@/hooks/navigator/useSearch";
 import { useSearchHistory } from "@/hooks/navigator/useSearchHistory";
 import { useBrowserNotifications } from "@/hooks/navigator/useBrowserNotifications";
 import { summarizeFilters, pLimit } from "@/lib/utils";
+import type { FilterState } from "@/lib/navigator/types";
 
 export function SearchBridge() {
   const pendingFreeTextSearch = useStore((s) => s.pendingFreeTextSearch);
@@ -41,6 +42,7 @@ export function SearchBridge() {
     if (toEnrich.length === 0) return;
 
     useStore.getState().setCrmEnrichmentInProgress(true);
+    useStore.getState().incrementBackgroundNetwork();
 
     const promises = toEnrich.map((company) =>
       limit(async (): Promise<"ok" | "fail"> => {
@@ -72,6 +74,7 @@ export function SearchBridge() {
 
     Promise.allSettled(promises).then((results) => {
       useStore.getState().setCrmEnrichmentInProgress(false);
+      useStore.getState().decrementBackgroundNetwork();
       const failCount = results.filter(
         (r) => r.status === "rejected" || (r.status === "fulfilled" && r.value === "fail")
       ).length;
@@ -109,6 +112,8 @@ export function SearchBridge() {
       store.setEnrichmentProgress({ total: needPreWarm.length, completed: 0 });
     }
 
+    useStore.getState().incrementBackgroundNetwork();
+
     const preWarmPromises = needPreWarm.map((company) =>
       limit(async () => {
         if (controller.signal.aborted) return;
@@ -136,6 +141,7 @@ export function SearchBridge() {
     // Always clear enrichment progress when all pre-warm tasks finish
     Promise.allSettled(preWarmPromises).then(() => {
       useStore.getState().setEnrichmentProgress(null);
+      useStore.getState().decrementBackgroundNetwork();
     });
   };
 
@@ -150,6 +156,8 @@ export function SearchBridge() {
     const userName = useStore.getState().userName;
     if (!userName || domains.length === 0) return;
 
+    useStore.getState().incrementBackgroundNetwork();
+
     fetch("/api/team-activity/batch", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -161,7 +169,8 @@ export function SearchBridge() {
         const data = await res.json();
         useStore.getState().mergeTeamActivity(data);
       })
-      .catch(() => { /* silent */ });
+      .catch(() => { /* silent */ })
+      .finally(() => useStore.getState().decrementBackgroundNetwork());
   };
 
   // Post-search similar search detection
@@ -177,87 +186,68 @@ export function SearchBridge() {
       .catch(() => { /* silent */ });
   };
 
+  // Unified search effect: handles freeText, filters, or both
   useEffect(() => {
-    if (pendingFreeTextSearch) {
-      const text = pendingFreeTextSearch;
-      // Abort any in-flight search
-      searchAbortRef.current?.abort();
-      const controller = new AbortController();
-      searchAbortRef.current = controller;
+    const hasFreeText = !!pendingFreeTextSearch;
+    const hasFilter = pendingFilterSearch;
+    if (!hasFreeText && !hasFilter) return;
 
-      setDemoMode(false);
-      setSearchLoading(true);
-      setSearchError(null);
-      setLastSearchQuery(text);
-      setLastICPCriteria(null);
-      setLastSearchParams({ freeText: text });
-      useStore.getState().setEnrichmentProgress(null);
-      search(
-        { freeText: text, signal: controller.signal },
-        {
-          onSuccess: (data) => {
-            saveToHistory(text, {}, data.companies.length);
-            notify("Search complete", `${data.companies.length} companies found`);
-            preWarmContacts(data.companies);
-            enrichCrmStatus(data.companies);
-            enrichTeamActivity(data.companies);
-            fetchSimilarSearch(text, useStore.getState().userName ?? "");
-            useStore.getState().incrementSessionSearchCount();
-          },
-          onError: (error: Error) => {
-            if (error.name === "AbortError") return;
-            notify("Search failed", "Something went wrong with your search");
-          },
-          onSettled: (_data, error) => {
-            if (error?.name === "AbortError") return;
-            setSearchLoading(false);
-          },
-        }
-      );
-      setPendingFreeTextSearch(null);
-    }
-  }, [pendingFreeTextSearch, search, setPendingFreeTextSearch, setSearchLoading, setSearchError, setLastSearchQuery, setLastICPCriteria, setLastSearchParams, saveToHistory, notify, setDemoMode]);
+    const text = pendingFreeTextSearch ?? null;
+    const currentFilters = filters;
 
-  useEffect(() => {
-    if (pendingFilterSearch) {
-      const currentFilters = filters;
-      // Abort any in-flight search
-      searchAbortRef.current?.abort();
-      const controller = new AbortController();
-      searchAbortRef.current = controller;
+    // Abort any in-flight search
+    searchAbortRef.current?.abort();
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
 
-      setDemoMode(false);
-      setSearchLoading(true);
-      setSearchError(null);
-      setLastSearchQuery(summarizeFilters(currentFilters));
-      setLastICPCriteria(null);
-      setLastSearchParams({ filters: currentFilters });
-      useStore.getState().setEnrichmentProgress(null);
-      search(
-        { filters: currentFilters, signal: controller.signal },
-        {
-          onSuccess: (data) => {
-            saveToHistory(summarizeFilters(currentFilters), currentFilters, data.companies.length);
-            notify("Search complete", `${data.companies.length} companies found`);
-            preWarmContacts(data.companies);
-            enrichCrmStatus(data.companies);
-            enrichTeamActivity(data.companies);
-            fetchSimilarSearch(summarizeFilters(currentFilters), useStore.getState().userName ?? "");
-            useStore.getState().incrementSessionSearchCount();
-          },
-          onError: (error: Error) => {
-            if (error.name === "AbortError") return;
-            notify("Search failed", "Something went wrong with your search");
-          },
-          onSettled: (_data, error) => {
-            if (error?.name === "AbortError") return;
-            setSearchLoading(false);
-          },
-        }
-      );
-      setPendingFilterSearch(false);
-    }
-  }, [pendingFilterSearch, search, setPendingFilterSearch, setSearchLoading, setSearchError, setLastSearchQuery, setLastICPCriteria, setLastSearchParams, filters, saveToHistory, notify, setDemoMode]);
+    // Build combined search params for the API
+    const searchParams: SearchParams = {
+      signal: controller.signal,
+    };
+    if (text) searchParams.freeText = text;
+    // Pass filters alongside freeText (unified), or alone for filter-only searches
+    if (hasFilter || text) searchParams.filters = currentFilters;
+
+    // Build lastSearchParams — combined state for retry
+    const combinedParams: { freeText?: string; filters?: FilterState } = {};
+    if (text) combinedParams.freeText = text;
+    combinedParams.filters = currentFilters;
+
+    const queryLabel = text ?? summarizeFilters(currentFilters);
+
+    setDemoMode(false);
+    setSearchLoading(true);
+    setSearchError(null);
+    setLastSearchQuery(queryLabel);
+    setLastICPCriteria(null);
+    setLastSearchParams(combinedParams);
+    useStore.getState().setSearchMeta(null);
+    useStore.getState().setEnrichmentProgress(null);
+
+    search(searchParams, {
+      onSuccess: (data) => {
+        saveToHistory(queryLabel, currentFilters, data.companies.length);
+        notify("Search complete", `${data.companies.length} companies found`);
+        preWarmContacts(data.companies);
+        enrichCrmStatus(data.companies);
+        enrichTeamActivity(data.companies);
+        fetchSimilarSearch(queryLabel, useStore.getState().userName ?? "");
+        useStore.getState().incrementSessionSearchCount();
+      },
+      onError: (error: Error) => {
+        if (error.name === "AbortError") return;
+        notify("Search failed", "Something went wrong with your search");
+      },
+      onSettled: (_data, error) => {
+        if (error?.name === "AbortError") return;
+        setSearchLoading(false);
+      },
+    });
+
+    // Clear pending triggers
+    if (hasFreeText) setPendingFreeTextSearch(null);
+    if (hasFilter) setPendingFilterSearch(false);
+  }, [pendingFreeTextSearch, pendingFilterSearch, search, setPendingFreeTextSearch, setPendingFilterSearch, setSearchLoading, setSearchError, setLastSearchQuery, setLastICPCriteria, setLastSearchParams, filters, saveToHistory, notify, setDemoMode]);
 
   return null;
 }

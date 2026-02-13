@@ -27,7 +27,14 @@ vi.mock("@/lib/navigator/store", async () => {
         freshsalesDealStalled: -10,
       },
       freshsalesSettings: {},
+      signalTypes: [
+        { type: "hiring", label: "Hiring", enabled: true },
+        { type: "funding", label: "Funding", enabled: true },
+        { type: "expansion", label: "Expansion", enabled: true },
+      ],
+      verticals: ["SaaS", "FinTech", "HealthTech"],
     },
+    searchResults: [],
     updateAdminConfig: vi.fn(),
   }));
   return { useStore: store };
@@ -85,7 +92,14 @@ beforeEach(() => {
     adminConfig: {
       icpWeights: { ...DEFAULT_WEIGHTS },
       freshsalesSettings: {} as unknown as FreshsalesSettings,
+      signalTypes: [
+        { type: "hiring", label: "Hiring", enabled: true },
+        { type: "funding", label: "Funding", enabled: true },
+        { type: "expansion", label: "Expansion", enabled: true },
+      ],
+      verticals: ["SaaS", "FinTech", "HealthTech"],
     } as unknown as AdminConfig,
+    searchResults: [],
     updateAdminConfig: vi.fn(),
   });
 });

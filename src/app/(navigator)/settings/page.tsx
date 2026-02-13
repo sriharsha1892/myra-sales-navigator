@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useAuth } from "@/providers/AuthProvider";
@@ -27,6 +27,8 @@ export default function SettingsPage() {
   const setUserCopyFormat = useStore((s) => s.setUserCopyFormat);
   const demoMode = useStore((s) => s.demoMode);
   const setDemoMode = useStore((s) => s.setDemoMode);
+  const hoverPrefetchEnabled = useStore((s) => s.hoverPrefetchEnabled);
+  const setHoverPrefetchEnabled = useStore((s) => s.setHoverPrefetchEnabled);
   const { enabled: notificationsEnabled, permission: notifPermission, toggleEnabled } = useBrowserNotifications();
 
   const shortcuts = useMemo(() => {
@@ -64,6 +66,10 @@ export default function SettingsPage() {
   const [teamsTestMessage, setTeamsTestMessage] = useState("");
   const [configSynced, setConfigSynced] = useState(false);
 
+  // Save indicator state
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
   // Sync query data to local state once (not synchronous setState in effect body)
   if (userConfigData && !configSynced) {
     setFreshsalesDomain(userConfigData.freshsalesDomain ?? "");
@@ -74,8 +80,15 @@ export default function SettingsPage() {
     setConfigSynced(true);
   }
 
+  const showSaved = useCallback(() => {
+    setSaveStatus("saved");
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 2000);
+  }, []);
+
   const saveOutreachConfig = useCallback(async (fsDomain: string, linkedinSalesNav: boolean) => {
     const cfg = { freshsalesDomain: fsDomain || null, hasLinkedinSalesNav: linkedinSalesNav, preferences: {} };
+    setSaveStatus("saving");
     try {
       await fetch("/api/user/config", {
         method: "PUT",
@@ -83,8 +96,13 @@ export default function SettingsPage() {
         body: JSON.stringify(cfg),
       });
       setUserConfig({ userName: userName ?? "", ...cfg });
-    } catch { /* silent */ }
-  }, [userName, setUserConfig]);
+      showSaved();
+    } catch {
+      setSaveStatus("error");
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
+    }
+  }, [userName, setUserConfig, showSaved]);
 
   const saveTeamsConfig = useCallback(async (webhookUrl: string, enabled: boolean) => {
     const cfg = {
@@ -96,6 +114,7 @@ export default function SettingsPage() {
         teamsNotificationsEnabled: enabled,
       },
     };
+    setSaveStatus("saving");
     try {
       await fetch("/api/user/config", {
         method: "PUT",
@@ -103,8 +122,13 @@ export default function SettingsPage() {
         body: JSON.stringify(cfg),
       });
       setUserConfig({ userName: userName ?? "", ...cfg });
-    } catch { /* silent */ }
-  }, [userName, setUserConfig, freshsalesDomain, hasLinkedinSalesNav, userConfigData]);
+      showSaved();
+    } catch {
+      setSaveStatus("error");
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 3000);
+    }
+  }, [userName, setUserConfig, freshsalesDomain, hasLinkedinSalesNav, userConfigData, showSaved]);
 
   const sendTeamsTestPersonal = async () => {
     if (!teamsWebhookUrl) return;
@@ -155,7 +179,25 @@ export default function SettingsPage() {
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="font-display text-2xl text-text-primary">My Preferences</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="font-display text-2xl text-text-primary">My Preferences</h1>
+              {saveStatus === "saving" && (
+                <span className="flex items-center gap-1.5 text-xs text-text-tertiary">
+                  <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-surface-3 border-t-accent-primary" />
+                  Saving...
+                </span>
+              )}
+              {saveStatus === "saved" && (
+                <span className="text-xs text-success transition-opacity duration-300">
+                  Saved
+                </span>
+              )}
+              {saveStatus === "error" && (
+                <span className="text-xs text-danger">
+                  Error saving
+                </span>
+              )}
+            </div>
             <p className="mt-1 text-sm text-text-secondary">
               {userName} &middot; {isAdmin ? "Admin" : "Account Manager"}
             </p>
@@ -258,6 +300,7 @@ export default function SettingsPage() {
                   setSkipReveal(on);
                   if (on) localStorage.setItem("nav_skip_reveal_confirm", "1");
                   else localStorage.removeItem("nav_skip_reveal_confirm");
+                  showSaved();
                 }}
                 className="mt-0.5 h-4 w-4 rounded border-surface-3 bg-surface-2 accent-accent-primary"
               />
@@ -278,6 +321,7 @@ export default function SettingsPage() {
                   setAutoExport(on);
                   if (on) localStorage.setItem("nav_auto_export", "1");
                   else localStorage.removeItem("nav_auto_export");
+                  showSaved();
                 }}
                 className="mt-0.5 h-4 w-4 rounded border-surface-3 bg-surface-2 accent-accent-primary"
               />
@@ -292,8 +336,23 @@ export default function SettingsPage() {
             <label className="flex items-start gap-3">
               <input
                 type="checkbox"
+                checked={hoverPrefetchEnabled}
+                onChange={(e) => { setHoverPrefetchEnabled(e.target.checked); showSaved(); }}
+                className="mt-0.5 h-4 w-4 rounded border-surface-3 bg-surface-2 accent-accent-primary"
+              />
+              <div>
+                <span className="text-sm font-medium text-text-primary">Hover prefetch</span>
+                <p className="mt-0.5 text-[11px] text-text-tertiary">
+                  Pre-load company data when hovering over cards. Faster detail pane loading, uses more network requests.
+                </p>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
                 checked={demoMode}
-                onChange={(e) => setDemoMode(e.target.checked)}
+                onChange={(e) => { setDemoMode(e.target.checked); showSaved(); }}
                 className="mt-0.5 h-4 w-4 rounded border-surface-3 bg-surface-2 accent-accent-primary"
               />
               <div>

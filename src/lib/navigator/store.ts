@@ -29,12 +29,14 @@ import type {
   RelevanceFeedback,
   RelevanceFeedbackReason,
   SearchErrorDetail,
+  SearchMeta,
+  CompanyPipelineStage,
 } from "./types";
 import { DEFAULT_PIPELINE_STAGES } from "./types";
 import {
   defaultAdminConfig,
 } from "./mock-data";
-import { getSizeBucket } from "../utils";
+import { getSizeBucket, pLimit } from "../utils";
 
 interface AppState {
   // Data
@@ -51,6 +53,7 @@ interface AppState {
   searchErrors: SearchErrorDetail[];
   searchWarnings: string[];
   lastSearchParams: { freeText?: string; filters?: FilterState } | null;
+  searchMeta: SearchMeta | null;
 
   // UI State
   viewMode: ViewMode;
@@ -154,12 +157,15 @@ interface AppState {
   loadPreset: (presetId: string) => void;
   savePreset: (name: string) => void;
   deletePreset: (id: string) => void;
+  updatePreset: (id: string, name: string) => void;
   clearPresetNotification: (id: string) => void;
   setSearchResults: (companies: CompanyEnriched[] | null) => void;
   setSearchError: (error: string | null) => void;
   setSearchErrors: (errors: SearchErrorDetail[]) => void;
   setSearchWarnings: (warnings: string[]) => void;
   setLastSearchParams: (params: { freeText?: string; filters?: FilterState } | null) => void;
+  setSearchMeta: (meta: SearchMeta | null) => void;
+  triggerUnifiedSearch: (params: { freeText?: string; filters?: FilterState }) => void;
   retryLastSearch: () => void;
   setUserCopyFormat: (formatId: string) => void;
   setExportState: (s: ExportFlowState | null) => void;
@@ -285,10 +291,24 @@ interface AppState {
   crmEnrichmentInProgress: boolean;
   setCrmEnrichmentInProgress: (v: boolean) => void;
 
+  // Hover prefetch toggle
+  hoverPrefetchEnabled: boolean;
+  setHoverPrefetchEnabled: (v: boolean) => void;
+
+  // Background network activity counter
+  backgroundNetworkCount: number;
+  incrementBackgroundNetwork: () => void;
+  decrementBackgroundNetwork: () => void;
+
   // Exclusion in-flight guard
   excludingDomains: Set<string>;
 
+  // Bulk contact loading
+  bulkContactsLoading: Set<string>;
+  bulkLoadContacts: (domains: string[]) => Promise<void>;
+
   // Computed / derived
+  getCompanyStage: (domain: string) => CompanyPipelineStage;
   filteredCompanies: () => CompanyEnriched[];
   selectedCompany: () => CompanyEnriched | null;
   companyContacts: (domain: string) => Contact[];
@@ -357,6 +377,14 @@ function loadDemoMode(): boolean {
   } catch { return true; }
 }
 
+// Load persisted hover prefetch preference from localStorage (default true)
+function loadHoverPrefetch(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    return localStorage.getItem("nav_hover_prefetch") !== "0";
+  } catch { return true; }
+}
+
 // Load persisted prospect list from localStorage
 function loadProspectList(): Set<string> {
   if (typeof window === "undefined") return new Set();
@@ -398,6 +426,7 @@ export const useStore = create<AppState>((set, get) => ({
   searchErrors: [],
   searchWarnings: [],
   lastSearchParams: null,
+  searchMeta: null,
 
   viewMode: "companies",
   selectedCompanyDomain: null,
@@ -640,8 +669,54 @@ export const useStore = create<AppState>((set, get) => ({
   crmEnrichmentInProgress: false,
   setCrmEnrichmentInProgress: (v) => set({ crmEnrichmentInProgress: v }),
 
+  // Hover prefetch toggle
+  hoverPrefetchEnabled: loadHoverPrefetch(),
+  setHoverPrefetchEnabled: (v) => {
+    set({ hoverPrefetchEnabled: v });
+    if (typeof window !== "undefined") {
+      if (v) localStorage.removeItem("nav_hover_prefetch");
+      else localStorage.setItem("nav_hover_prefetch", "0");
+    }
+  },
+
+  // Background network activity counter
+  backgroundNetworkCount: 0,
+  incrementBackgroundNetwork: () => set((s) => ({ backgroundNetworkCount: s.backgroundNetworkCount + 1 })),
+  decrementBackgroundNetwork: () => set((s) => ({ backgroundNetworkCount: Math.max(0, s.backgroundNetworkCount - 1) })),
+
   // Exclusion in-flight guard
   excludingDomains: new Set<string>(),
+
+  // Bulk contact loading
+  bulkContactsLoading: new Set<string>(),
+  bulkLoadContacts: async (domains) => {
+    const contactsByDomain = get().contactsByDomain;
+    const missing = domains.filter((d) => contactsByDomain[d] === undefined);
+    if (missing.length === 0) return;
+
+    set({ bulkContactsLoading: new Set(missing) });
+    const limit = pLimit(3);
+
+    await Promise.allSettled(
+      missing.map((domain) =>
+        limit(async () => {
+          try {
+            const res = await fetch(`/api/company/${encodeURIComponent(domain)}/contacts`);
+            if (res.ok) {
+              const data = await res.json();
+              get().setContactsForDomain(domain, data.contacts ?? []);
+            }
+          } catch {
+            // silent — domain stays without contacts
+          } finally {
+            const next = new Set(get().bulkContactsLoading);
+            next.delete(domain);
+            set({ bulkContactsLoading: next });
+          }
+        })
+      )
+    );
+  },
 
   // Demo mode
   demoMode: loadDemoMode(),
@@ -1270,7 +1345,24 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
-  setSearchResults: (companies) => set({ searchResults: companies, similarResults: null }),
+  updatePreset: (id, name) => {
+    // Optimistic: update name locally
+    set((state) => ({
+      presets: state.presets.map((p) =>
+        p.id === id ? { ...p, name } : p
+      ),
+    }));
+    // Persist to API
+    fetch("/api/presets", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, name }),
+    }).catch(() => {
+      get().addToast({ message: "Failed to rename preset", type: "error" });
+    });
+  },
+
+  setSearchResults: (companies) => set({ searchResults: companies, similarResults: null, searchMeta: null }),
   setSearchError: (error) => set({
     searchError: error,
     searchErrors: error
@@ -1280,10 +1372,23 @@ export const useStore = create<AppState>((set, get) => ({
   setSearchErrors: (errs) => set({ searchErrors: errs, searchError: errs[0]?.message ?? null }),
   setSearchWarnings: (w) => set({ searchWarnings: w }),
   setLastSearchParams: (params) => set({ lastSearchParams: params }),
+  setSearchMeta: (meta) => set({ searchMeta: meta }),
+  triggerUnifiedSearch: (params) => {
+    if (params.freeText) {
+      // Free-text search — preserve filters context in lastSearchParams via SearchBridge
+      set({ pendingFreeTextSearch: params.freeText });
+    } else if (params.filters) {
+      set({ filters: { ...get().filters, ...params.filters }, pendingFilterSearch: true });
+    }
+  },
   retryLastSearch: () => {
     const params = get().lastSearchParams;
     if (!params) return;
     if (params.freeText) {
+      // Replay with combined state: restore filters if they were part of the original search
+      if (params.filters) {
+        set({ filters: { ...get().filters, ...params.filters } });
+      }
       get().setPendingFreeTextSearch(params.freeText);
     } else if (params.filters) {
       set({ filters: { ...get().filters, ...params.filters } });
@@ -1383,6 +1488,24 @@ export const useStore = create<AppState>((set, get) => ({
     sessionContactsExported: state.sessionContactsExported + count,
   })),
 
+  getCompanyStage: (domain: string): CompanyPipelineStage => {
+    // Check in priority order: excluded → in_crm → interested → passed → reviewing → new
+    const allCompanies = get().searchResults ?? get().companies;
+    const company = allCompanies.find((c) => c.domain === domain);
+    if (company?.excluded) return "excluded";
+    if (company) {
+      const fsStatus = company.freshsalesStatus;
+      const hsStatus = company.hubspotStatus;
+      if ((fsStatus && fsStatus !== "none") || (hsStatus && hsStatus !== "none")) return "in_crm";
+    }
+    const decision = get().companyDecisions[domain];
+    if (decision === "interested") return "interested";
+    if (decision === "pass" || decision === "skip") return "passed";
+    const rf = get().relevanceFeedback[domain];
+    if (rf || get().prospectList.has(domain)) return "reviewing";
+    return "new";
+  },
+
   filteredCompanies: () => {
     const { companies, searchResults, filters, sortField, sortDirection } = get();
     let result = [...(searchResults ?? companies)];
@@ -1455,6 +1578,14 @@ export const useStore = create<AppState>((set, get) => ({
       const cbd = get().contactsByDomain;
       result = result.filter((c) => (cbd[c.domain]?.length ?? 0) > 0);
     }
+    if (filters.quickFilters.includes("reviewed")) {
+      const decisions = get().companyDecisions;
+      result = result.filter((c) => !!decisions[c.domain]);
+    }
+    if (filters.quickFilters.includes("unreviewed")) {
+      const decisions = get().companyDecisions;
+      result = result.filter((c) => !decisions[c.domain]);
+    }
 
     // Triage filter
     const triageFilter = get().triageFilter;
@@ -1475,6 +1606,14 @@ export const useStore = create<AppState>((set, get) => ({
         default: cmp = a.icpScore - b.icpScore;
       }
       return sortDirection === "desc" ? -cmp : cmp;
+    });
+
+    // Stable boost: float "relevant" feedback companies above others (preserves existing order for ties)
+    const rf = get().relevanceFeedback;
+    result.sort((a, b) => {
+      const aRelevant = rf[a.domain]?.feedback === "relevant" ? 1 : 0;
+      const bRelevant = rf[b.domain]?.feedback === "relevant" ? 1 : 0;
+      return bRelevant - aRelevant;
     });
 
     // Float exact match to top

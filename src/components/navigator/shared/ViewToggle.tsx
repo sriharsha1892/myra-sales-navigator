@@ -10,15 +10,32 @@ interface ViewToggleProps {
   companyCount?: number;
   exportedCount?: number;
   prospectCount?: number;
+  allContactsActive?: boolean;
+  onAllContactsToggle?: () => void;
 }
 
-export function ViewToggle({ value, onChange, companyCount = 0, exportedCount, prospectCount = 0 }: ViewToggleProps) {
+export function ViewToggle({
+  value,
+  onChange,
+  companyCount = 0,
+  exportedCount,
+  prospectCount = 0,
+  allContactsActive = false,
+  onAllContactsToggle,
+}: ViewToggleProps) {
   const companiesRef = useRef<HTMLButtonElement>(null);
   const exportedRef = useRef<HTMLButtonElement>(null);
   const prospectRef = useRef<HTMLButtonElement>(null);
+  const allContactsRef = useRef<HTMLButtonElement>(null);
   const [underline, setUnderline] = useState({ left: 0, width: 0 });
 
   useEffect(() => {
+    // All Contacts is a sub-mode of companies, so it takes priority for the underline
+    if (allContactsActive && value === "companies" && allContactsRef.current) {
+      const el = allContactsRef.current;
+      setUnderline({ left: el.offsetLeft, width: el.offsetWidth });
+      return;
+    }
     const refMap: Record<ViewMode, React.RefObject<HTMLButtonElement | null>> = {
       companies: companiesRef,
       exported: exportedRef,
@@ -32,7 +49,7 @@ export function ViewToggle({ value, onChange, companyCount = 0, exportedCount, p
         width: el.offsetWidth,
       });
     }
-  }, [value]);
+  }, [value, allContactsActive]);
 
   return (
     <div className="relative flex items-center gap-0">
@@ -41,7 +58,7 @@ export function ViewToggle({ value, onChange, companyCount = 0, exportedCount, p
         onClick={() => onChange("companies")}
         className={cn(
           "relative flex items-center gap-1.5 px-2.5 py-1.5 text-sm transition-all duration-200",
-          value === "companies"
+          value === "companies" && !allContactsActive
             ? "font-semibold text-text-primary"
             : "text-text-tertiary hover:text-text-secondary"
         )}
@@ -73,6 +90,21 @@ export function ViewToggle({ value, onChange, companyCount = 0, exportedCount, p
             {prospectCount}
           </span>
         )}
+      </button>
+
+      <div className="h-3.5 w-px bg-surface-3" />
+
+      <button
+        ref={allContactsRef}
+        onClick={onAllContactsToggle}
+        className={cn(
+          "relative flex items-center gap-1.5 px-2.5 py-1.5 text-sm transition-all duration-200",
+          allContactsActive && value === "companies"
+            ? "font-semibold text-text-primary"
+            : "text-text-tertiary hover:text-text-secondary"
+        )}
+      >
+        All Contacts
       </button>
 
       <div className="h-3.5 w-px bg-surface-3" />

@@ -14,13 +14,13 @@ interface TooltipProps {
 
 /**
  * Styled tooltip that replaces native `title=` attributes.
- * Consistent 400ms delay, dark-theme styling, positioned above or below.
+ * Consistent 200ms delay, dark-theme styling, positioned above or below.
  */
 export function Tooltip({
   text,
   children,
   placement = "top",
-  delay = 400,
+  delay = 200,
   className,
 }: TooltipProps) {
   const [show, setShow] = useState(false);

@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/cn";
-import type { CompanyEnriched } from "@/lib/navigator/types";
+import type { CompanyEnriched, CompanyPipelineStage } from "@/lib/navigator/types";
 import { IcpScoreBadge } from "@/components/navigator/badges";
 import { CompanyStatusBadge } from "@/components/navigator/dossier/CompanyStatusBadge";
 import { useStore } from "@/lib/navigator/store";
@@ -88,6 +88,15 @@ const freshsalesLabels: Record<string, string> = {
   none: "",
 };
 
+const PIPELINE_STAGE_CONFIG: Record<CompanyPipelineStage, { label: string; dotClass: string }> = {
+  new: { label: "New", dotClass: "bg-surface-3" },
+  reviewing: { label: "Reviewing", dotClass: "bg-accent-secondary" },
+  interested: { label: "Interested", dotClass: "bg-accent-primary" },
+  passed: { label: "Passed", dotClass: "bg-text-tertiary" },
+  in_crm: { label: "In CRM", dotClass: "bg-[var(--color-source-freshsales,#3EA67B)]" },
+  excluded: { label: "Excluded", dotClass: "bg-danger" },
+};
+
 export function CompanyCard({
   company,
   isSelected,
@@ -117,6 +126,24 @@ export function CompanyCard({
   const setSimilarResults = useStore((s) => s.setSimilarResults);
   const setSimilarLoading = useStore((s) => s.setSimilarLoading);
   const similarLoading = useStore((s) => s.similarLoading);
+  const hoverPrefetchEnabled = useStore((s) => s.hoverPrefetchEnabled);
+  const incrementBackgroundNetwork = useStore((s) => s.incrementBackgroundNetwork);
+  const decrementBackgroundNetwork = useStore((s) => s.decrementBackgroundNetwork);
+
+  // Derive pipeline stage from individually-subscribed values (ensures re-render on change)
+  const pipelineStage = useMemo((): CompanyPipelineStage => {
+    if (company.excluded) return "excluded";
+    const fsStatus = company.freshsalesStatus;
+    const hsStatus = company.hubspotStatus;
+    if ((fsStatus && fsStatus !== "none") || (hsStatus && hsStatus !== "none")) return "in_crm";
+    if (companyDecision === "interested") return "interested";
+    if (companyDecision === "pass" || companyDecision === "skip") return "passed";
+    if (rfEntry || isInProspectList) return "reviewing";
+    return "new";
+  }, [company.excluded, company.freshsalesStatus, company.hubspotStatus, companyDecision, rfEntry, isInProspectList]);
+
+  const stageConfig = PIPELINE_STAGE_CONFIG[pipelineStage];
+
   const [rfPopoverOpen, setRfPopoverOpen] = useState(false);
   const [inlineContactsLoading, setInlineContactsLoading] = useState(false);
   const [showMoreContacts, setShowMoreContacts] = useState(false);
@@ -130,37 +157,46 @@ export function CompanyCard({
   const stale = isStale(company.lastRefreshed);
 
   const handleMouseEnter = useCallback(() => {
-    hoverTimerRef.current = setTimeout(() => {
-      setIsPrefetching(true);
-      const p1 = queryClient.prefetchQuery({
-        queryKey: ["company", company.domain],
-        queryFn: async () => {
-          const res = await fetch(`/api/company/${encodeURIComponent(company.domain)}`);
-          if (!res.ok) throw new Error("Failed");
-          return res.json();
-        },
-        staleTime: 5 * 60 * 1000,
-      });
-      const p2 = queryClient.prefetchQuery({
-        queryKey: ["company-contacts", company.domain],
-        queryFn: async () => {
-          const res = await fetch(`/api/company/${encodeURIComponent(company.domain)}/contacts`);
-          if (!res.ok) throw new Error("Failed");
-          const data = await res.json();
-          return data.contacts ?? [];
-        },
-        staleTime: 5 * 60 * 1000,
-      });
-      Promise.all([p1, p2]).finally(() => setIsPrefetching(false));
-    }, 500);
+    if (hoverPrefetchEnabled) {
+      hoverTimerRef.current = setTimeout(() => {
+        setIsPrefetching(true);
+        incrementBackgroundNetwork();
+        const p1 = queryClient.prefetchQuery({
+          queryKey: ["company", company.domain],
+          queryFn: async () => {
+            const res = await fetch(`/api/company/${encodeURIComponent(company.domain)}`);
+            if (!res.ok) throw new Error("Failed");
+            return res.json();
+          },
+          staleTime: 5 * 60 * 1000,
+        });
+        const p2 = queryClient.prefetchQuery({
+          queryKey: ["company-contacts", company.domain],
+          queryFn: async () => {
+            const res = await fetch(`/api/company/${encodeURIComponent(company.domain)}/contacts`);
+            if (!res.ok) throw new Error("Failed");
+            const data = await res.json();
+            return data.contacts ?? [];
+          },
+          staleTime: 5 * 60 * 1000,
+        });
+        Promise.all([p1, p2]).finally(() => {
+          setIsPrefetching(false);
+          decrementBackgroundNetwork();
+        });
+      }, 500);
+    }
     previewTimerRef.current = setTimeout(() => setShowPreview(true), 800);
 
     // Stale data: fire-and-forget background refresh on first hover this session
     if (stale && !hasStaleRefreshed(company.domain)) {
       markStaleRefreshed(company.domain);
-      fetch(`/api/company/${encodeURIComponent(company.domain)}`).catch(() => {});
+      incrementBackgroundNetwork();
+      fetch(`/api/company/${encodeURIComponent(company.domain)}`)
+        .catch(() => {})
+        .finally(() => decrementBackgroundNetwork());
     }
-  }, [company.domain, queryClient, stale]);
+  }, [company.domain, queryClient, stale, hoverPrefetchEnabled, incrementBackgroundNetwork, decrementBackgroundNetwork]);
 
   const handleMouseLeave = useCallback(() => {
     if (hoverTimerRef.current) {
@@ -290,6 +326,12 @@ export function CompanyCard({
             {company.name}
           </span>
         </Tooltip>
+        {pipelineStage !== "new" && (
+          <span className="flex flex-shrink-0 items-center gap-1">
+            <span className={cn("h-1.5 w-1.5 rounded-full", stageConfig.dotClass)} />
+            <span className="text-[9px] text-text-tertiary">{stageConfig.label}</span>
+          </span>
+        )}
         <span className="text-xs text-text-tertiary">&middot;</span>
         <span className="max-w-[120px] truncate text-xs text-text-secondary">{company.industry}</span>
         <span className="text-xs text-text-tertiary">&middot;</span>
@@ -430,11 +472,19 @@ export function CompanyCard({
         <CompanyLogo logoUrl={logoSrc} domain={company.domain} name={company.name} size={20} className="mt-0.5 h-5 w-5" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <Tooltip text={company.name}>
-              <h3 className="truncate font-display text-base font-semibold text-text-primary">
-                {company.name}
-              </h3>
-            </Tooltip>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <Tooltip text={company.name}>
+                <h3 className="truncate font-display text-base font-semibold text-text-primary">
+                  {company.name}
+                </h3>
+              </Tooltip>
+              {pipelineStage !== "new" && (
+                <span className="flex flex-shrink-0 items-center gap-1 rounded-pill border border-surface-3 px-1.5 py-px">
+                  <span className={cn("h-1.5 w-1.5 rounded-full", stageConfig.dotClass)} />
+                  <span className="text-[9px] text-text-tertiary">{stageConfig.label}</span>
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-1.5">
               {bestEmail && (
                 <Tooltip text={`Copy: ${bestEmail}`}>
@@ -558,8 +608,8 @@ export function CompanyCard({
 
           {/* Bottom row: triage + contact count */}
           <div className="mt-2 flex items-center gap-2">
-            {/* Triage buttons */}
-            <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+            {/* Triage buttons — always visible */}
+            <div className="flex items-center gap-0.5">
               <Tooltip text="Interested">
                 <button
                   onClick={(e) => { e.stopPropagation(); setCompanyDecision(company.domain, "interested"); }}
@@ -724,15 +774,6 @@ export function CompanyCard({
                 </>
               )}
             </div>
-            {/* Decision badge (visible when not hovering) */}
-            {companyDecision && (
-              <span className={cn(
-                "rounded-pill px-1 py-0.5 text-[8px] font-medium group-hover:hidden",
-                companyDecision === "interested" ? "bg-success/15 text-success" : "bg-surface-2 text-text-tertiary"
-              )}>
-                {companyDecision === "interested" ? "Interested" : "Pass"}
-              </span>
-            )}
             <div className="group/contacts relative ml-auto">
               <button
                 onClick={(e) => { e.stopPropagation(); setExpandedContactsDomain(company.domain); }}

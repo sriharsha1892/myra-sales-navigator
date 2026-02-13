@@ -1,9 +1,29 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useStore } from "@/lib/navigator/store";
 import { ActiveFilterPills } from "@/components/navigator/shared/ActiveFilterPills";
-import type { SearchErrorDetail } from "@/lib/navigator/types";
+import type { SearchErrorDetail, SearchMeta } from "@/lib/navigator/types";
+
+const engineLabels: Record<string, string> = {
+  exa: "Exa",
+  parallel: "Exa + Serper",
+  serper: "Serper",
+};
+
+function SearchMetaStrip({ meta, companyCount }: { meta: SearchMeta; companyCount: number }) {
+  const engineLabel = engineLabels[meta.engineUsed] ?? meta.engineUsed;
+  const durationSec = (meta.totalDurationMs / 1000).toFixed(1);
+  const parts = [engineLabel, `${durationSec}s`, `${companyCount} results`];
+  if (meta.enrichedCount > 0) {
+    parts.push(`${meta.enrichedCount} enriched from CRM`);
+  }
+  return (
+    <div className="mt-0.5 text-[10px] font-mono text-text-tertiary">
+      {parts.join(" \u00B7 ")}
+    </div>
+  );
+}
 
 interface ResultsHeaderProps {
   hasSearched: boolean;
@@ -27,8 +47,17 @@ export const ResultsHeader = React.memo(function ResultsHeader({
   const retryLastSearch = useStore((s) => s.retryLastSearch);
   const enrichmentProgress = useStore((s) => s.enrichmentProgress);
   const crmEnrichmentInProgress = useStore((s) => s.crmEnrichmentInProgress);
+  const backgroundNetworkCount = useStore((s) => s.backgroundNetworkCount) ?? 0;
   const savePreset = useStore((s) => s.savePreset);
   const addToast = useStore((s) => s.addToast);
+  const companyDecisions = useStore((s) => s.companyDecisions);
+  const searchResults = useStore((s) => s.searchResults);
+  const searchMeta = useStore((s) => s.searchMeta);
+
+  const reviewedCount = useMemo(() => {
+    if (!searchResults) return 0;
+    return searchResults.filter((c) => !!companyDecisions?.[c.domain]).length;
+  }, [searchResults, companyDecisions]);
 
   const [showPresetForm, setShowPresetForm] = useState(false);
   const [presetName, setPresetName] = useState("");
@@ -45,7 +74,7 @@ export const ResultsHeader = React.memo(function ResultsHeader({
             <span className="max-w-[360px] truncate inline-block align-bottom font-mono text-xs text-text-secondary" title={lastSearchQuery ?? undefined}>&ldquo;{lastSearchQuery}&rdquo;</span>
             {!searchLoading && companyCount > 0 && (
               <span className="text-xs text-text-tertiary">
-                ({companyCount} companies{lastExcludedCount > 0 ? `, ${lastExcludedCount} excluded` : ""})
+                ({companyCount} companies{reviewedCount > 0 ? `, ${reviewedCount} reviewed` : ""}{lastExcludedCount > 0 ? `, ${lastExcludedCount} excluded` : ""})
               </span>
             )}
             {!searchLoading && companyCount > 0 && !showPresetForm && (
@@ -116,6 +145,15 @@ export const ResultsHeader = React.memo(function ResultsHeader({
               <span className="inline-block h-2.5 w-2.5 animate-spin rounded-full border border-surface-3 border-t-accent-primary" />
               <span className="text-[10px] text-text-tertiary">Checking CRM status...</span>
             </div>
+          )}
+          {backgroundNetworkCount > 0 && !enrichmentProgress && !crmEnrichmentInProgress && (
+            <div className="mt-1 flex items-center gap-1.5">
+              <span className="inline-block h-2 w-2 animate-spin rounded-full border border-surface-3 border-t-accent-secondary" />
+              <span className="text-[10px] text-text-tertiary">Background activity</span>
+            </div>
+          )}
+          {searchMeta && !searchLoading && (
+            <SearchMetaStrip meta={searchMeta} companyCount={companyCount} />
           )}
         </div>
       )}

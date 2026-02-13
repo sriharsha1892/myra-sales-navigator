@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useStore } from "@/lib/navigator/store";
 import { ConfirmDialog } from "@/components/navigator/shared/ConfirmDialog";
 import { useExport } from "@/hooks/navigator/useExport";
@@ -37,6 +37,8 @@ export function BulkActionBar() {
   const filteredCompanies = useStore((s) => s.filteredCompanies);
   const contactsByDomain = useStore((s) => s.contactsByDomain);
   const allContactsViewActive = useStore((s) => s.allContactsViewActive);
+  const bulkLoadContacts = useStore((s) => s.bulkLoadContacts);
+  const bulkContactsLoadingSize = useStore((s) => s.bulkContactsLoading?.size ?? 0);
 
   const isContactMode = allContactsViewActive && selectedContactIds.size > 0;
   const clearSelection = isContactMode ? deselectAllContacts : deselectAllCompanies;
@@ -54,16 +56,22 @@ export function BulkActionBar() {
     }
     return total;
   }, [domains, contactsByDomain]);
-  const someContactsLoading = useMemo(() => {
+  const someContactsMissing = useMemo(() => {
     return domains.some((d) => contactsByDomain[d] === undefined);
   }, [domains, contactsByDomain]);
+  const missingContactsCount = useMemo(() => {
+    return domains.filter((d) => contactsByDomain[d] === undefined).length;
+  }, [domains, contactsByDomain]);
+  const isBulkLoading = bulkContactsLoadingSize > 0;
 
   const exportDisabled = contactCountForSelected === 0;
-  const exportTooltip = someContactsLoading
-    ? "Loading contacts..."
-    : exportDisabled
-      ? "Select contacts first"
-      : "";
+  const exportTooltip = isBulkLoading
+    ? `Loading contacts... (${bulkContactsLoadingSize} left)`
+    : someContactsMissing && exportDisabled
+      ? "Load contacts first"
+      : exportDisabled
+        ? "Select contacts first"
+        : "";
 
   const addUndoToast = useStore((s) => s.addUndoToast);
   const undoExclude = useStore((s) => s.undoExclude);
@@ -81,6 +89,17 @@ export function BulkActionBar() {
     }
     return contacts;
   }, [domains, contactsByDomain]);
+
+  // Auto-load contacts when <=10 selected domains are missing contacts
+  const autoLoadFiredRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (isBulkLoading || !someContactsMissing || missingContactsCount > 10) return;
+    // Build a stable key from selected domains to avoid re-firing
+    const key = [...selectedCompanyDomains].sort().join(",");
+    if (autoLoadFiredRef.current === key) return;
+    autoLoadFiredRef.current = key;
+    bulkLoadContacts([...selectedCompanyDomains]);
+  }, [selectedCompanyDomains, someContactsMissing, missingContactsCount, isBulkLoading, bulkLoadContacts]);
 
   const handleBulkExclude = useCallback(async () => {
     setShowExcludeConfirm(false);
@@ -185,6 +204,14 @@ export function BulkActionBar() {
               />
             ) : (
               <div className="flex items-center gap-2">
+                {isBulkLoading ? (
+                  <BulkButton onClick={() => {}} label={`Loading... (${bulkContactsLoadingSize} left)`} disabled />
+                ) : someContactsMissing && !isContactMode ? (
+                  <BulkButton
+                    onClick={() => bulkLoadContacts([...selectedCompanyDomains])}
+                    label={`Load Contacts (${missingContactsCount})`}
+                  />
+                ) : null}
                 <Tooltip text={exportTooltip}>
                   <BulkButton onClick={() => initiateExport("clipboard")} label="Copy" shortcut="\u2318E" disabled={exportDisabled} />
                 </Tooltip>

@@ -9,6 +9,8 @@ const chipConfig: { key: QuickFilter; label: string }[] = [
   { key: "not_in_freshsales", label: "Not in CRM" },
   { key: "high_icp", label: "High ICP (\u226580)" },
   { key: "has_contacts", label: "Has Contacts" },
+  { key: "unreviewed", label: "Unreviewed" },
+  { key: "reviewed", label: "Reviewed" },
 ];
 
 export function QuickFilterBar() {

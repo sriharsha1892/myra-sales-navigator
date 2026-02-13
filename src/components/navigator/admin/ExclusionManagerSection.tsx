@@ -52,6 +52,10 @@ export function ExclusionManagerSection() {
   const [search, setSearch] = useState("");
   const [adding, setAdding] = useState(false);
 
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
   // CSV upload state
   const [dragOver, setDragOver] = useState(false);
   const [csvPreview, setCsvPreview] = useState<CsvEntry[] | null>(null);
@@ -253,10 +257,42 @@ export function ExclusionManagerSection() {
         className="mb-3 w-full rounded-input border border-surface-3 bg-surface-2 px-3 py-1.5 text-xs text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
       />
 
+      {/* Exclusion list header with select all */}
+      {filtered.length > 0 && (
+        <div className="mb-1 flex items-center gap-2 px-2">
+          <input
+            type="checkbox"
+            checked={filtered.length > 0 && filtered.every((e) => selectedIds.has(e.id))}
+            onChange={(e) => {
+              if (e.target.checked) {
+                setSelectedIds(new Set(filtered.map((ex) => ex.id)));
+              } else {
+                setSelectedIds(new Set());
+              }
+            }}
+            className="h-3.5 w-3.5 rounded border-surface-3 bg-surface-2 accent-accent-primary"
+          />
+          <span className="text-[10px] text-text-tertiary">
+            {selectedIds.size > 0 ? `${selectedIds.size} selected` : "Select all"}
+          </span>
+        </div>
+      )}
+
       {/* Exclusion list */}
       <div className="mb-3 max-h-48 space-y-1 overflow-y-auto">
         {filtered.map((e) => (
           <div key={e.id} className="group flex items-center gap-3 rounded px-2 py-1.5 text-xs hover:bg-surface-hover">
+            <input
+              type="checkbox"
+              checked={selectedIds.has(e.id)}
+              onChange={() => {
+                const next = new Set(selectedIds);
+                if (next.has(e.id)) next.delete(e.id);
+                else next.add(e.id);
+                setSelectedIds(next);
+              }}
+              className="h-3.5 w-3.5 shrink-0 rounded border-surface-3 bg-surface-2 accent-accent-primary"
+            />
             <span className="rounded-badge bg-surface-3 px-1.5 py-0.5 text-[10px] capitalize text-text-secondary">
               {e.type}
             </span>
@@ -280,6 +316,47 @@ export function ExclusionManagerSection() {
           <p className="py-2 text-center text-xs italic text-text-tertiary">{pick("empty_exclusions")}</p>
         )}
       </div>
+
+      {/* Bulk delete action bar */}
+      {selectedIds.size > 0 && (
+        <div className="mb-3 flex items-center gap-3 rounded-input border border-danger/30 bg-danger-light px-3 py-2">
+          <span className="text-xs text-text-primary">{selectedIds.size} selected</span>
+          <button
+            onClick={async () => {
+              setBulkDeleting(true);
+              const snapshot = exclusions;
+              const idsToDelete = [...selectedIds];
+              // Optimistic remove
+              useStore.setState({ exclusions: exclusions.filter((e) => !selectedIds.has(e.id)) });
+              setSelectedIds(new Set());
+              try {
+                const res = await fetch("/api/exclusions", {
+                  method: "DELETE",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ ids: idsToDelete }),
+                });
+                if (!res.ok) throw new Error("Failed");
+                addToast({ message: `${idsToDelete.length} exclusions deleted`, type: "success" });
+              } catch {
+                useStore.setState({ exclusions: snapshot });
+                addToast({ message: "Failed to delete exclusions", type: "error" });
+              } finally {
+                setBulkDeleting(false);
+              }
+            }}
+            disabled={bulkDeleting}
+            className="rounded-input bg-danger px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
+          >
+            {bulkDeleting ? "Deleting..." : `Delete ${selectedIds.size} selected`}
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="text-xs text-text-tertiary hover:text-text-primary"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
 
       {/* Manual add row */}
       <div className="mb-4 flex gap-2">

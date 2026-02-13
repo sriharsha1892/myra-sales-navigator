@@ -70,15 +70,26 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { id } = await request.json();
+    const body = await request.json();
+    const { id } = body;
     if (!id) {
       return NextResponse.json({ error: "id is required" }, { status: 400 });
     }
 
     const supabase = createServerClient();
+
+    // Build update payload: support both name rename and notification clear
+    const updatePayload: Record<string, unknown> = {};
+    if (typeof body.name === "string") {
+      updatePayload.name = body.name;
+    } else {
+      // Default behavior: clear new_result_count
+      updatePayload.new_result_count = 0;
+    }
+
     const { data, error } = await supabase
       .from("search_presets")
-      .update({ new_result_count: 0 })
+      .update(updatePayload)
       .eq("id", id)
       .select()
       .single();

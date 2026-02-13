@@ -11,7 +11,7 @@ import type {
   SearchMeta,
 } from "@/lib/navigator/types";
 
-interface SearchParams {
+export interface SearchParams {
   filters?: FilterState;
   freeText?: string;
   signal?: AbortSignal;
@@ -72,6 +72,7 @@ export function useSearch() {
       }
       setLastICPCriteria(data.nlIcpCriteria ?? null);
       setLastExcludedCount(data.excludedCount ?? 0);
+      useStore.getState().setSearchMeta(data.searchMeta ?? null);
     },
     onError: (error: Error) => {
       // Don't overwrite results for aborted searches
@@ -80,6 +81,7 @@ export function useSearch() {
       setSearchError(error.message);
       setSearchErrors([]);
       setSearchWarnings([]);
+      useStore.getState().setSearchMeta(null);
     },
   });
 

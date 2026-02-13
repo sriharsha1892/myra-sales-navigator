@@ -52,24 +52,30 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const { domain } = await request.json();
+    const body = await request.json();
+    const { domain } = body;
     if (!domain) {
       return NextResponse.json({ error: "Missing domain" }, { status: 400 });
     }
 
-    // Get userName from cookie
+    // Get requester from cookie
     const cookieStore = await cookies();
-    const userName = cookieStore.get("user_name")?.value;
-    if (!userName) {
+    const requesterName = cookieStore.get("user_name")?.value;
+    if (!requesterName) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
+
+    // Admin undo: if userName provided and requester is admin, delete that user's feedback
+    const adminUsers = (process.env.ADMIN_USERS ?? "").split(",").map((u) => u.trim().toLowerCase());
+    const isAdmin = adminUsers.includes(requesterName.toLowerCase());
+    const targetUser = body.userName && isAdmin ? body.userName : requesterName;
 
     const supabase = createServerClient();
     const { error } = await supabase
       .from("relevance_feedback")
       .delete()
       .eq("domain", domain)
-      .eq("user_name", userName);
+      .eq("user_name", targetUser);
 
     if (error) {
       console.error("[relevance-feedback] delete error:", error.message);
@@ -90,6 +96,31 @@ export async function GET(request: Request) {
     const days = parseInt(searchParams.get("days") ?? "7", 10);
 
     const supabase = createServerClient();
+
+    // List mode: return individual rows for admin undo
+    const list = searchParams.get("list") === "true";
+    if (list) {
+      const { data: rows, error: listError } = await supabase
+        .from("relevance_feedback")
+        .select("domain, feedback, reason, user_name, created_at")
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (listError) {
+        console.error("[relevance-feedback] list error:", listError.message);
+        return NextResponse.json({ entries: [] });
+      }
+
+      return NextResponse.json({
+        entries: (rows ?? []).map((r) => ({
+          domain: r.domain,
+          feedback: r.feedback,
+          reason: r.reason,
+          userName: r.user_name,
+          createdAt: r.created_at,
+        })),
+      });
+    }
 
     if (aggregate) {
       // Fetch all feedback rows from the last N days (both relevant and not_relevant)

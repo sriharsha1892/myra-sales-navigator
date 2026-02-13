@@ -47,6 +47,16 @@ vi.mock("@/lib/navigator/store", async () => {
       toggleContactSelection: vi.fn(),
       setContactsForDomain: vi.fn(),
       addToast: vi.fn(),
+      relevanceFeedback: {},
+      setRelevanceFeedback: vi.fn(),
+      clearRelevanceFeedback: vi.fn(),
+      showHiddenResults: false,
+      setSimilarResults: vi.fn(),
+      setSimilarLoading: vi.fn(),
+      similarLoading: false,
+      hoverPrefetchEnabled: true,
+      incrementBackgroundNetwork: vi.fn(),
+      decrementBackgroundNetwork: vi.fn(),
     };
     return selector(mockState);
   };

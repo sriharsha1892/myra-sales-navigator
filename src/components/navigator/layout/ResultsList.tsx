@@ -146,6 +146,15 @@ export function ResultsList() {
     deselectAllCompanies();
   }, [deselectAllCompanies]);
 
+  const handleAllContactsToggle = useCallback(() => {
+    if (allContactsViewActive) {
+      setAllContactsViewActive(false);
+    } else {
+      setViewMode("companies");
+      setAllContactsViewActive(true);
+    }
+  }, [allContactsViewActive, setAllContactsViewActive, setViewMode]);
+
   const quickStartChips = history.length > 0
     ? history.slice(0, 6).map((h) => ({ label: h.label ?? "Search", onClick: () => {
         const f = h.filters;
@@ -179,6 +188,8 @@ export function ResultsList() {
         onSortChange={handleSortChange}
         onSortDirectionToggle={handleSortDirectionToggle}
         onDeselectAll={handleDeselectAll}
+        allContactsActive={allContactsViewActive}
+        onAllContactsToggle={handleAllContactsToggle}
       />
 
       {/* Search query header + filter pills + error banner */}
@@ -283,6 +294,16 @@ export function ResultsList() {
               <p className="animate-fadeInUp mt-2 text-sm text-text-secondary" style={{ animationDelay: "60ms" }}>
                 A specific company, an industry, or a description of your ideal prospect
               </p>
+
+              {prospectList.size > 0 && (
+                <button
+                  onClick={() => setViewMode("prospect_list")}
+                  className="animate-fadeInUp mt-4 rounded-input border border-surface-3 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-2 transition-colors duration-[180ms]"
+                  style={{ animationDelay: "90ms" }}
+                >
+                  Resume ({prospectList.size} prospect{prospectList.size === 1 ? "" : "s"})
+                </button>
+              )}
 
               {history.length > 0 ? (
                 <div className="mt-6 flex flex-wrap justify-center gap-2.5">

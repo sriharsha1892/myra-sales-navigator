@@ -1,7 +1,7 @@
 "use client";
 
 import { useStore } from "@/lib/navigator/store";
-import type { FilterState, SizeBucket, SignalType, ResultSource } from "@/lib/navigator/types";
+import type { SizeBucket, SignalType } from "@/lib/navigator/types";
 
 const sizeLabels: Record<SizeBucket, string> = {
   "1-50": "1–50 emp",
@@ -13,16 +13,31 @@ const sizeLabels: Record<SizeBucket, string> = {
 export function ActiveFilterPills() {
   const filters = useStore((s) => s.filters);
   const setFilters = useStore((s) => s.setFilters);
-  const lastSearchQuery = useStore((s) => s.lastSearchQuery);
+  const lastSearchParams = useStore((s) => s.lastSearchParams);
   const setLastSearchQuery = useStore((s) => s.setLastSearchQuery);
   const setSearchResults = useStore((s) => s.setSearchResults);
+  const setPendingFreeTextSearch = useStore((s) => s.setPendingFreeTextSearch);
+  const setPendingFilterSearch = useStore((s) => s.setPendingFilterSearch);
+
+  // Helper: after removing a filter, re-trigger search if there's an active search context
+  const retriggerAfterFilterChange = () => {
+    const freeText = lastSearchParams?.freeText;
+    if (freeText) {
+      // Re-search with freeText + updated filters
+      setPendingFreeTextSearch(freeText);
+    } else if (lastSearchParams?.filters) {
+      // Filter-only search — re-trigger filter search
+      setPendingFilterSearch(true);
+    }
+  };
 
   const pills: { label: string; category: string; onRemove: () => void }[] = [];
 
-  // Free-text query pill
-  if (lastSearchQuery) {
+  // Free-text query pill (only show when lastSearchParams has freeText)
+  const activeFreeText = lastSearchParams?.freeText;
+  if (activeFreeText) {
     pills.push({
-      label: `"${lastSearchQuery.length > 40 ? lastSearchQuery.slice(0, 40) + "…" : lastSearchQuery}"`,
+      label: `"${activeFreeText.length > 40 ? activeFreeText.slice(0, 40) + "..." : activeFreeText}"`,
       category: "query",
       onRemove: () => {
         setLastSearchQuery(null);
@@ -36,7 +51,10 @@ export function ActiveFilterPills() {
     pills.push({
       label: v,
       category: "vertical",
-      onRemove: () => setFilters({ verticals: filters.verticals.filter((x) => x !== v) }),
+      onRemove: () => {
+        setFilters({ verticals: filters.verticals.filter((x) => x !== v) });
+        retriggerAfterFilterChange();
+      },
     });
   }
 
@@ -47,7 +65,10 @@ export function ActiveFilterPills() {
       pills.push({
         label: r,
         category: "region",
-        onRemove: () => setFilters({ regions: filters.regions.filter((x) => x !== r) }),
+        onRemove: () => {
+          setFilters({ regions: filters.regions.filter((x) => x !== r) });
+          retriggerAfterFilterChange();
+        },
       });
     }
   }
@@ -58,7 +79,10 @@ export function ActiveFilterPills() {
       pills.push({
         label: sizeLabels[s] ?? s,
         category: "size",
-        onRemove: () => setFilters({ sizes: filters.sizes.filter((x) => x !== s) as SizeBucket[] }),
+        onRemove: () => {
+          setFilters({ sizes: filters.sizes.filter((x) => x !== s) as SizeBucket[] });
+          retriggerAfterFilterChange();
+        },
       });
     }
   }
@@ -69,7 +93,10 @@ export function ActiveFilterPills() {
       pills.push({
         label: sig.charAt(0).toUpperCase() + sig.slice(1),
         category: "signal",
-        onRemove: () => setFilters({ signals: filters.signals.filter((x) => x !== sig) as SignalType[] }),
+        onRemove: () => {
+          setFilters({ signals: filters.signals.filter((x) => x !== sig) as SignalType[] });
+          retriggerAfterFilterChange();
+        },
       });
     }
   }
@@ -79,7 +106,10 @@ export function ActiveFilterPills() {
     pills.push({
       label: st,
       category: "status",
-      onRemove: () => setFilters({ statuses: filters.statuses.filter((x) => x !== st) }),
+      onRemove: () => {
+        setFilters({ statuses: filters.statuses.filter((x) => x !== st) });
+        retriggerAfterFilterChange();
+      },
     });
   }
 

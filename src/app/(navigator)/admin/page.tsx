@@ -88,6 +88,8 @@ export default function AdminPage() {
   const [dateRange, setDateRange] = useState({ from: daysAgoISO(7), to: todayISO() });
   const [savingTargets, setSavingTargets] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [adminSearch, setAdminSearch] = useState("");
 
   const adminConfig = useStore((s) => s.adminConfig);
   const setAdminConfig = useStore((s) => s.setAdminConfig);
@@ -96,6 +98,9 @@ export default function AdminPage() {
   // Snapshot for dirty detection
   const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
   const initializedRef = useRef(false);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const autoSavingRef = useRef(false);
+  const autoSaveFadeRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     if (!initializedRef.current && adminConfig) {
@@ -106,7 +111,32 @@ export default function AdminPage() {
 
   const isDirty = savedSnapshot !== null && JSON.stringify(adminConfig) !== savedSnapshot;
 
+  // Auto-save: debounce 2s after dirty state changes
+  useEffect(() => {
+    if (!isDirty || autoSavingRef.current) return;
+    clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
+      autoSavingRef.current = true;
+      setAutoSaveStatus("saving");
+      saveAdminConfig()
+        .then(() => {
+          setSavedSnapshot(JSON.stringify(useStore.getState().adminConfig));
+          setAutoSaveStatus("saved");
+          clearTimeout(autoSaveFadeRef.current);
+          autoSaveFadeRef.current = setTimeout(() => setAutoSaveStatus("idle"), 2000);
+        })
+        .catch(() => {
+          setAutoSaveStatus("idle");
+        })
+        .finally(() => {
+          autoSavingRef.current = false;
+        });
+    }, 2000);
+    return () => clearTimeout(autoSaveTimerRef.current);
+  }, [isDirty, saveAdminConfig]);
+
   const handleSave = async () => {
+    clearTimeout(autoSaveTimerRef.current);
     setSaving(true);
     try {
       await saveAdminConfig();
@@ -117,6 +147,7 @@ export default function AdminPage() {
   };
 
   const handleDiscard = () => {
+    clearTimeout(autoSaveTimerRef.current);
     if (savedSnapshot) {
       setAdminConfig(JSON.parse(savedSnapshot));
     }
@@ -199,7 +230,20 @@ export default function AdminPage() {
       <div className={cn("mx-auto", activeTab === "analytics" ? "max-w-6xl" : "max-w-4xl")}>
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="font-display text-2xl text-text-primary">Admin Settings</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="font-display text-2xl text-text-primary">Admin Settings</h1>
+              {autoSaveStatus === "saving" && (
+                <span className="flex items-center gap-1.5 text-xs text-text-tertiary">
+                  <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-surface-3 border-t-accent-primary" />
+                  Saving...
+                </span>
+              )}
+              {autoSaveStatus === "saved" && (
+                <span className="text-xs text-success transition-opacity duration-300">
+                  Auto-saved
+                </span>
+              )}
+            </div>
             <p className="mt-1 text-sm text-text-secondary">Logged in as {userName}</p>
           </div>
           <Link href="/" className="rounded-input border border-surface-3 px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover">
@@ -207,68 +251,83 @@ export default function AdminPage() {
           </Link>
         </div>
 
-        <AdminTabs activeTab={activeTab} onTabChange={handleTabChange} />
+        {/* Search input */}
+        <div className="mb-4">
+          <input
+            type="text"
+            value={adminSearch}
+            onChange={(e) => setAdminSearch(e.target.value)}
+            placeholder="Search settings..."
+            className="w-full rounded-input border border-surface-3 bg-surface-2 px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
+          />
+        </div>
 
-        {activeTabDef && activeTab !== "analytics" && (
+        {!adminSearch && <AdminTabs activeTab={activeTab} onTabChange={handleTabChange} />}
+
+        {!adminSearch && activeTabDef && activeTab !== "analytics" && (
           <p className="mb-4 text-sm text-text-secondary">{activeTabDef.description}</p>
         )}
 
         <div className={cn("space-y-6", isDirty && "pb-16")}>
-          {activeTab === "general" && (
+          {adminSearch ? (
+            <AdminSearchResults query={adminSearch} />
+          ) : (
             <>
-              <EnrichmentConfigSection />
-              <IcpProfilesSection />
-              <IcpWeightsSection />
-              <VerticalConfigSection />
-              <SizeSweetSpotSection />
-              <SignalTypesSection />
-              <TeamMembersSection />
-              <ExclusionManagerSection />
-              <PresetManagerSection />
-            </>
-          )}
-          {activeTab === "pipeline" && (
-            <>
-              <PipelineStagesSection />
-              <ScoringTuningSection />
-              <EmailVerificationSection />
-              <ExportSettingsSection />
-              <CopyFormatSection />
-            </>
-          )}
-          {activeTab === "system" && (
-            <>
-              <RateLimitSection />
-              <FreshsalesSettingsSection />
-              <DataRetentionSection />
-              <NotificationSection />
-              <CacheSettingsSection />
-            </>
-          )}
-          {activeTab === "api-keys" && <ApiKeysSection />}
-          {activeTab === "auth" && (
-            <>
-              <AuthSettingsSection />
-              <AuthActivityLog />
-            </>
-          )}
-          {activeTab === "email-prompts" && (
-            <>
-              <EmailPromptsSection />
-              <EmailTemplatesSection />
-              <OutreachChannelsSection />
-              <OutreachSuggestionsSection />
-              <ActionRecommendationsSection />
-            </>
-          )}
-          {activeTab === "ui" && (
-            <>
-              <UiPreferencesSection />
-              <DataSourcesSection />
-              <ChatbotConfigSection />
-            </>
-          )}
-          {activeTab === "health" && <HealthDashboard />}
+              {activeTab === "general" && (
+                <>
+                  <EnrichmentConfigSection />
+                  <IcpProfilesSection />
+                  <IcpWeightsSection />
+                  <VerticalConfigSection />
+                  <SizeSweetSpotSection />
+                  <SignalTypesSection />
+                  <TeamMembersSection />
+                  <ExclusionManagerSection />
+                  <PresetManagerSection />
+                </>
+              )}
+              {activeTab === "pipeline" && (
+                <>
+                  <PipelineStagesSection />
+                  <ScoringTuningSection />
+                  <EmailVerificationSection />
+                  <ExportSettingsSection />
+                  <CopyFormatSection />
+                </>
+              )}
+              {activeTab === "system" && (
+                <>
+                  <RateLimitSection />
+                  <FreshsalesSettingsSection />
+                  <DataRetentionSection />
+                  <NotificationSection />
+                  <CacheSettingsSection />
+                </>
+              )}
+              {activeTab === "api-keys" && <ApiKeysSection />}
+              {activeTab === "auth" && (
+                <>
+                  <AuthSettingsSection />
+                  <AuthActivityLog />
+                </>
+              )}
+              {activeTab === "email-prompts" && (
+                <>
+                  <EmailPromptsSection />
+                  <EmailTemplatesSection />
+                  <OutreachChannelsSection />
+                  <OutreachSuggestionsSection />
+                  <ActionRecommendationsSection />
+                </>
+              )}
+              {activeTab === "ui" && (
+                <>
+                  <UiPreferencesSection />
+                  <DataSourcesSection />
+                  <ChatbotConfigSection />
+                </>
+              )}
+              {activeTab === "health" && <HealthDashboard />}
           {activeTab === "analytics" && (
             <>
               <div className="flex flex-wrap items-center justify-between gap-4">
@@ -299,6 +358,8 @@ export default function AdminPage() {
               />
             </>
           )}
+            </>
+          )}
         </div>
       </div>
 
@@ -309,5 +370,89 @@ export default function AdminPage() {
         saving={saving}
       />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Admin search index & results component
+// ---------------------------------------------------------------------------
+
+interface AdminSearchEntry {
+  component: React.ComponentType;
+  tab: string;
+  keywords: string[];
+}
+
+const ADMIN_SEARCH_INDEX: AdminSearchEntry[] = [
+  { component: EnrichmentConfigSection, tab: "General", keywords: ["enrichment", "apollo", "clearout", "enrich", "contacts", "limit", "batch"] },
+  { component: IcpProfilesSection, tab: "General", keywords: ["icp", "profile", "ideal", "customer"] },
+  { component: IcpWeightsSection, tab: "General", keywords: ["icp", "scoring", "weights", "vertical", "size", "region", "signals", "freshsales", "hubspot"] },
+  { component: VerticalConfigSection, tab: "General", keywords: ["vertical", "industry", "verticals", "match"] },
+  { component: SizeSweetSpotSection, tab: "General", keywords: ["size", "sweet spot", "employee", "headcount", "company size"] },
+  { component: SignalTypesSection, tab: "General", keywords: ["signal", "signals", "hiring", "funding", "expansion", "news"] },
+  { component: TeamMembersSection, tab: "General", keywords: ["team", "members", "users", "people", "admin"] },
+  { component: ExclusionManagerSection, tab: "General", keywords: ["exclusion", "exclude", "block", "csv", "domain", "company", "email"] },
+  { component: PresetManagerSection, tab: "General", keywords: ["preset", "saved", "search", "filter", "presets"] },
+  { component: PipelineStagesSection, tab: "Pipeline", keywords: ["pipeline", "stages", "status", "workflow", "kanban"] },
+  { component: ScoringTuningSection, tab: "Pipeline", keywords: ["scoring", "tuning", "calibration", "score"] },
+  { component: EmailVerificationSection, tab: "Pipeline", keywords: ["email", "verification", "clearout", "verify", "bounce"] },
+  { component: ExportSettingsSection, tab: "Pipeline", keywords: ["export", "csv", "excel", "clipboard", "download"] },
+  { component: CopyFormatSection, tab: "Pipeline", keywords: ["copy", "format", "clipboard", "template"] },
+  { component: RateLimitSection, tab: "System", keywords: ["rate", "limit", "throttle", "api", "requests"] },
+  { component: FreshsalesSettingsSection, tab: "System", keywords: ["freshsales", "crm", "domain", "api"] },
+  { component: DataRetentionSection, tab: "System", keywords: ["data", "retention", "cleanup", "delete", "purge"] },
+  { component: NotificationSection, tab: "System", keywords: ["notification", "notifications", "teams", "webhook", "alert"] },
+  { component: CacheSettingsSection, tab: "System", keywords: ["cache", "ttl", "duration", "refresh", "stale"] },
+  { component: ApiKeysSection, tab: "API Keys", keywords: ["api", "key", "keys", "exa", "apollo", "hubspot", "clearout", "groq", "gemini"] },
+  { component: AuthSettingsSection, tab: "Auth", keywords: ["auth", "password", "authentication", "login", "access"] },
+  { component: AuthActivityLog, tab: "Auth", keywords: ["auth", "activity", "log", "login", "session"] },
+  { component: EmailPromptsSection, tab: "Email Prompts", keywords: ["email", "prompt", "llm", "tone", "writing"] },
+  { component: EmailTemplatesSection, tab: "Email Prompts", keywords: ["email", "template", "templates", "draft"] },
+  { component: OutreachChannelsSection, tab: "Email Prompts", keywords: ["outreach", "channel", "channels", "linkedin", "call", "whatsapp"] },
+  { component: OutreachSuggestionsSection, tab: "Email Prompts", keywords: ["outreach", "suggestion", "suggestions", "rules", "recommend"] },
+  { component: ActionRecommendationsSection, tab: "Email Prompts", keywords: ["action", "recommendation", "recommendations", "next", "suggest"] },
+  { component: UiPreferencesSection, tab: "UI", keywords: ["ui", "preferences", "panel", "width", "view", "display"] },
+  { component: DataSourcesSection, tab: "UI", keywords: ["data", "source", "sources", "provider", "custom"] },
+  { component: ChatbotConfigSection, tab: "UI", keywords: ["chatbot", "chat", "assistant", "ai", "copilot"] },
+];
+
+function AdminSearchResults({ query }: { query: string }) {
+  const lowerQuery = query.toLowerCase();
+  const matches = ADMIN_SEARCH_INDEX.filter((entry) =>
+    entry.keywords.some((kw) => kw.includes(lowerQuery))
+  );
+
+  if (matches.length === 0) {
+    return (
+      <p className="py-8 text-center text-sm text-text-tertiary">
+        No settings matching &ldquo;{query}&rdquo;
+      </p>
+    );
+  }
+
+  // Group matches by tab
+  const grouped = new Map<string, AdminSearchEntry[]>();
+  for (const m of matches) {
+    const existing = grouped.get(m.tab) ?? [];
+    existing.push(m);
+    grouped.set(m.tab, existing);
+  }
+
+  return (
+    <>
+      {[...grouped.entries()].map(([tab, entries]) => (
+        <div key={tab}>
+          <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+            {tab}
+          </p>
+          <div className="space-y-4">
+            {entries.map((entry, i) => {
+              const Component = entry.component;
+              return <Component key={i} />;
+            })}
+          </div>
+        </div>
+      ))}
+    </>
   );
 }

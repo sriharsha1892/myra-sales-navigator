@@ -1,7 +1,11 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import { useStore } from "@/lib/navigator/store";
 import { AdminSection } from "./AdminSection";
+import { calculateIcpScore } from "@/lib/navigator/scoring";
+import type { IcpScoreResult } from "@/lib/navigator/scoring";
+import type { IcpWeights } from "@/lib/navigator/types";
 
 export function IcpWeightsSection() {
   const config = useStore((s) => s.adminConfig);
@@ -78,6 +82,126 @@ export function IcpWeightsSection() {
       >
         Reset to Defaults
       </button>
+
+      <IcpPreviewPanel weights={weights} />
     </AdminSection>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sub-component: Test ICP scoring against a company
+// ---------------------------------------------------------------------------
+
+function IcpPreviewPanel({ weights }: { weights: IcpWeights }) {
+  const searchResults = useStore((s) => s.searchResults);
+  const adminConfig = useStore((s) => s.adminConfig);
+
+  const [previewDomain, setPreviewDomain] = useState("");
+  const [previewResult, setPreviewResult] = useState<IcpScoreResult | null>(null);
+
+  const companies = useMemo(() => searchResults ?? [], [searchResults]);
+
+  const scoringContext = useMemo(() => ({
+    verticals: adminConfig.verticals,
+    regions: [] as string[],
+    sizes: [] as string[],
+    signals: adminConfig.signalTypes.filter((s) => s.enabled).map((s) => s.type),
+  }), [adminConfig.verticals, adminConfig.signalTypes]);
+
+  const handleScore = () => {
+    const company = companies.find((c) => c.domain === previewDomain);
+    if (!company) return;
+    const result = calculateIcpScore(company, weights, scoringContext);
+    setPreviewResult(result);
+  };
+
+  // Auto-update preview when weights change
+  const selectedCompany = companies.find((c) => c.domain === previewDomain);
+  const liveResult = useMemo(() => {
+    if (!selectedCompany) return null;
+    return calculateIcpScore(selectedCompany, weights, scoringContext);
+  }, [selectedCompany, weights, scoringContext]);
+
+  const displayResult = liveResult ?? previewResult;
+
+  const scoreBadgeColor = (score: number) => {
+    if (score >= 70) return "bg-success/15 text-success";
+    if (score >= 40) return "bg-warning/15 text-warning";
+    return "bg-surface-3 text-text-tertiary";
+  };
+
+  return (
+    <div className="mt-4 rounded-input border border-surface-3 bg-surface-0 p-4">
+      <h3 className="mb-3 text-xs font-semibold text-text-secondary">Test Scoring</h3>
+
+      {companies.length === 0 ? (
+        <p className="text-[11px] text-text-tertiary">
+          Run a search first to test scoring against real companies.
+        </p>
+      ) : (
+        <>
+          <div className="flex items-center gap-2">
+            <select
+              value={previewDomain}
+              onChange={(e) => setPreviewDomain(e.target.value)}
+              className="flex-1 rounded-input border border-surface-3 bg-surface-2 px-2.5 py-1.5 text-xs text-text-primary focus:border-accent-primary focus:outline-none"
+            >
+              <option value="">Select a company...</option>
+              {companies.map((c) => (
+                <option key={c.domain} value={c.domain}>
+                  {c.name} ({c.domain})
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={handleScore}
+              disabled={!previewDomain}
+              className="rounded-input bg-accent-primary px-3 py-1.5 text-xs font-medium text-text-inverse disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Score
+            </button>
+          </div>
+
+          {displayResult && (
+            <div className="mt-3">
+              <div className="mb-2 flex items-center gap-2">
+                <span className={`rounded-badge px-2 py-0.5 font-mono text-sm font-semibold ${scoreBadgeColor(displayResult.score)}`}>
+                  {displayResult.score}
+                </span>
+                <span className="text-[10px] text-text-tertiary">
+                  / 100
+                </span>
+              </div>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-surface-3 text-left text-[10px] uppercase tracking-wide text-text-tertiary">
+                    <th className="pb-1.5 pr-2">Factor</th>
+                    <th className="pb-1.5 pr-2 text-right">Points</th>
+                    <th className="pb-1.5 text-right">Matched</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayResult.breakdown.map((item, i) => (
+                    <tr key={i} className="border-b border-surface-3/30 last:border-0">
+                      <td className="py-1 pr-2 text-text-secondary">{item.factor}</td>
+                      <td className={`py-1 pr-2 text-right font-mono ${item.points > 0 ? "text-success" : item.points < 0 ? "text-danger" : "text-text-tertiary"}`}>
+                        {item.points > 0 ? `+${item.points}` : item.points}
+                      </td>
+                      <td className="py-1 text-right">
+                        {item.matched ? (
+                          <span className="text-success">Yes</span>
+                        ) : (
+                          <span className="text-text-tertiary">No</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </div>
   );
 }
