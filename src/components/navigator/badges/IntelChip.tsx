@@ -15,7 +15,7 @@ export function IntelChip({ label = "Mordor", className }: IntelChipProps) {
         className
       )}
     >
-      <span className="h-[5px] w-[5px] rounded-full bg-intel" style={{ animation: "intelPulse 2s ease-in-out infinite" }} />
+      <span className="h-[5px] w-[5px] rounded-full bg-intel" style={{ animation: "pulse-subtle 2s ease-in-out infinite" }} />
       {label}
     </span>
   );
