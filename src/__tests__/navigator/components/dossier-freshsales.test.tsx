@@ -326,7 +326,7 @@ describe("DossierFreshsales — CRM Callout & Warmth Bar", () => {
     expect(screen.getByText("Stalled (45d)")).toBeInTheDocument();
   });
 
-  it("warmth bar uses amber (#d4a012) when lastContact <= 14 days", async () => {
+  it("warmth bar uses amber (#c9a227) when lastContact <= 14 days", async () => {
     // Set last contact to 5 days ago
     const recentDate = new Date();
     recentDate.setDate(recentDate.getDate() - 5);
@@ -345,10 +345,10 @@ describe("DossierFreshsales — CRM Callout & Warmth Bar", () => {
     expect(warmthBar).not.toBeNull();
     const style = (warmthBar as HTMLElement).style;
     // jsdom converts hex to rgb format
-    expect(style.backgroundColor).toBe("rgb(212, 160, 18)");
+    expect(style.backgroundColor).toBe("rgb(201, 162, 39)");
   });
 
-  it("warmth bar uses cyan (#22d3ee) when lastContact <= 60 days", async () => {
+  it("warmth bar uses teal (#67b5c4) when lastContact <= 60 days", async () => {
     const pastDate = new Date();
     pastDate.setDate(pastDate.getDate() - 30);
     const intel = makeIntel({
@@ -364,7 +364,7 @@ describe("DossierFreshsales — CRM Callout & Warmth Bar", () => {
     const warmthBar = container.querySelector(".h-1.rounded-full.bg-surface-2 > div");
     expect(warmthBar).not.toBeNull();
     const style = (warmthBar as HTMLElement).style;
-    expect(style.backgroundColor).toBe("rgb(34, 211, 238)");
+    expect(style.backgroundColor).toBe("rgb(103, 181, 196)");
   });
 
   it("warmth bar uses gray (#6b6b80) when lastContact > 60 days", async () => {

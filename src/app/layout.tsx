@@ -36,9 +36,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" data-theme="dark" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: `(function(){document.documentElement.setAttribute("data-theme","dark")})()` }} />
       </head>
       <body
         className={`${satoshi.variable} ${geistMono.variable} antialiased bg-surface-0`}

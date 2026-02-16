@@ -16,8 +16,8 @@ interface SequenceEnrollModalProps {
 }
 
 const CHANNEL_COLORS: Record<string, string> = {
-  email: "#d4a012",
-  call: "#22d3ee",
+  email: "#c9a227",
+  call: "#67b5c4",
   linkedin_connect: "#0077B5",
   linkedin_inmail: "#0077B5",
   whatsapp: "#25D366",

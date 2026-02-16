@@ -15,7 +15,7 @@ export function PipelineStagesSection() {
     ?? DEFAULT_PIPELINE_STAGES;
 
   const [newLabel, setNewLabel] = useState("");
-  const [newColor, setNewColor] = useState("#2D2D2D");
+  const [newColor, setNewColor] = useState("#52525b");
 
   const updateStages = (updated: PipelineStage[]) => {
     (updateAdminConfig as unknown as (config: Record<string, unknown>) => void)({ pipelineStages: updated });
@@ -27,7 +27,7 @@ export function PipelineStagesSection() {
     if (stages.some((s) => s.id === id)) return;
     updateStages([...stages, { id, label: newLabel.trim(), color: newColor, order: stages.length }]);
     setNewLabel("");
-    setNewColor("#2D2D2D");
+    setNewColor("#52525b");
   };
 
   const removeStage = (id: string) => {

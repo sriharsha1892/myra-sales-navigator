@@ -9,7 +9,7 @@ import type {
 
 const SCHEMA = "http://adaptivecards.io/schemas/adaptive-card.json";
 const VERSION = "1.5";
-const ACCENT = "#d4a012"; // Ember
+const ACCENT = "#c9a227"; // Muted amber
 const MUTED = "#6b6b80";
 
 const CHANNEL_LABELS: Record<string, string> = {

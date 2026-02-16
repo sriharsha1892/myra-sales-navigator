@@ -145,9 +145,9 @@ export interface PipelineStage {
 }
 
 export const DEFAULT_PIPELINE_STAGES: PipelineStage[] = [
-  { id: "new", label: "New", color: "#B5B3AD", order: 0 },
-  { id: "researching", label: "Researching", color: "#2D2D2D", order: 1 },
-  { id: "contacted", label: "Contacted", color: "#1B4D3E", order: 2 },
+  { id: "new", label: "New", color: "#a1a1aa", order: 0 },
+  { id: "researching", label: "Researching", color: "#52525b", order: 1 },
+  { id: "contacted", label: "Contacted", color: "#3f6b7a", order: 2 },
   { id: "demo_scheduled", label: "Demo Scheduled", color: "#16a34a", order: 3 },
   { id: "passed", label: "Passed", color: "#dc2626", order: 4 },
 ];

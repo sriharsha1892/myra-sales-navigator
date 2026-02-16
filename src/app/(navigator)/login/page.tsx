@@ -99,9 +99,6 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen bg-surface-0">
-      {/* Noise overlay — z-40 so comet (z-50) punches through */}
-      <div className="noise-overlay" />
-
       {/* Left panel — Prospect Field + Dossier Animation */}
       <div className="relative w-[55%] overflow-hidden">
         <ProspectField settled={dossierDone} />
@@ -112,25 +109,10 @@ export default function LoginPage() {
       <div className="flex w-[45%] flex-col items-center justify-center panel-divider login-right-dot-grid relative bg-surface-1">
         {/* Branding */}
         <div className="relative flex flex-col items-center">
-          {/* Brand glow */}
-          <div
-            className="absolute pointer-events-none"
-            style={{
-              width: "200px",
-              height: "80px",
-              top: "-10px",
-              left: "50%",
-              transform: "translateX(-50%)",
-              background: "radial-gradient(ellipse at center, var(--color-accent-highlight-light), transparent 70%)",
-              filter: "blur(40px)",
-              zIndex: 0,
-            }}
-          />
           <h1
             className="relative text-[2.5rem] text-text-primary"
             style={{
               fontFamily: "'Instrument Serif', Georgia, serif",
-              animation: "loginLogoReveal 500ms ease-out both",
               zIndex: 1,
             }}
           >
@@ -140,7 +122,6 @@ export default function LoginPage() {
             className="relative mt-1 text-[0.8rem] font-medium uppercase tracking-[0.12em] text-accent-secondary"
             style={{
               fontFamily: "'Plus Jakarta Sans', sans-serif",
-              animation: "loginLogoReveal 400ms ease-out 200ms both",
               zIndex: 1,
             }}
           >
@@ -150,7 +131,6 @@ export default function LoginPage() {
             className="relative mt-2 text-[0.75rem] italic text-text-tertiary"
             style={{
               fontFamily: "'Plus Jakarta Sans', sans-serif",
-              animation: "loginTaglineFade 400ms ease-out 500ms both",
               zIndex: 1,
             }}
           >
@@ -158,35 +138,28 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Login card — focus border wrapper */}
+        {/* Login card */}
         <div
           className="mt-8 w-full max-w-[380px]"
           style={{
             padding: cardFocused || dossierDone ? "1.5px" : "0",
-            borderRadius: "18px",
+            borderRadius: "var(--radius-card)",
+            border: cardFocused || dossierDone ? "none" : "1px solid transparent",
             background: cardFocused || dossierDone
-              ? "conic-gradient(from var(--border-angle), #8FD9C4, #E5E3DD 25%, #1B4D3E 50%, #E5E3DD 75%, #8FD9C4)"
+              ? "var(--color-accent-secondary)"
               : "transparent",
-            animation: cardFocused
-              ? "borderRotate 4s linear infinite"
-              : dossierDone
-                ? "borderRotate 4s linear infinite, loginCardInvite 1.2s ease-in-out forwards"
-                : "none",
-            transition: "padding 180ms ease-out",
+            transition: "padding 180ms ease-out, background 180ms ease-out",
           }}
         >
           <div
             ref={cardRef}
             onFocus={handleCardFocus}
             onBlur={handleCardBlur}
-            className="relative w-full rounded-2xl p-8"
+            className="relative w-full rounded-card p-8"
             style={{
               background: "var(--color-surface-1)",
-              backdropFilter: "blur(16px)",
-              WebkitBackdropFilter: "blur(16px)",
               border: (cardFocused || dossierDone) ? "none" : "1px solid var(--color-surface-3)",
               boxShadow: "var(--shadow-sm)",
-              animation: "loginCardFadeUp 400ms ease-out 400ms both",
             }}
           >
             {error && (
@@ -196,7 +169,6 @@ export default function LoginPage() {
                 className="mb-4 text-center text-xs text-danger"
                 style={{
                   fontFamily: "'Plus Jakarta Sans', sans-serif",
-                  animation: "loginTaglineFade 200ms ease-out both",
                 }}
               >
                 {error}
@@ -215,19 +187,19 @@ export default function LoginPage() {
                 <select
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-lg border border-surface-3 bg-surface-1 px-3 py-2.5 text-sm text-text-primary outline-none transition-all duration-[180ms] ease-out focus:border-accent-secondary focus:shadow-focus appearance-none"
+                  className="w-full rounded-input border border-surface-3 bg-surface-1 px-3 py-2.5 text-sm text-text-primary outline-none transition-all duration-[180ms] ease-out focus:border-accent-secondary focus:shadow-focus appearance-none"
                   style={{
                     fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238A8A85' stroke-width='2' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
                     backgroundRepeat: "no-repeat",
                     backgroundPosition: "right 12px center",
                   }}
                 >
-                  <option value="" disabled style={{ background: "white", color: "#B5B3AD" }}>
+                  <option value="" disabled style={{ background: "white", color: "#a1a1aa" }}>
                     Select your name...
                   </option>
                   {TEAM_NAMES.map((n) => (
-                    <option key={n} value={n} style={{ background: "white", color: "#2D2D2D" }}>
+                    <option key={n} value={n} style={{ background: "white", color: "#09090b" }}>
                       {n}
                     </option>
                   ))}
@@ -251,7 +223,7 @@ export default function LoginPage() {
                       if (e.key === "Enter") handleLogin();
                     }}
                     placeholder="Enter team password"
-                    className="w-full rounded-lg border border-surface-3 bg-surface-1 px-3 py-2.5 pr-9 text-sm text-text-primary outline-none transition-all duration-[180ms] ease-out placeholder:text-text-tertiary/60 focus:border-accent-secondary focus:shadow-focus"
+                    className="w-full rounded-input border border-surface-3 bg-surface-1 px-3 py-2.5 pr-9 text-sm text-text-primary outline-none transition-all duration-[180ms] ease-out placeholder:text-text-tertiary/60 focus:border-accent-secondary focus:shadow-focus"
                     style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                   />
                   <button
@@ -279,7 +251,7 @@ export default function LoginPage() {
               <button
                 onClick={handleLogin}
                 disabled={isDisabled}
-                className={`sign-in-btn w-full rounded-lg border-none py-[11px] px-4 text-sm font-semibold transition-all duration-[180ms] ease-out ${
+                className={`sign-in-btn w-full rounded-input border-none py-[11px] px-4 text-sm font-semibold transition-all duration-[180ms] ease-out ${
                   isDisabled
                     ? "cursor-not-allowed bg-accent-secondary/30 text-text-tertiary"
                     : "cursor-pointer bg-accent-secondary text-white hover:bg-accent-secondary/80"
@@ -300,62 +272,15 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Comet impact animation on successful login */}
+      {/* Simple fade-out on successful login */}
       {loginSuccess && (
-        <div className="pointer-events-none fixed inset-0 z-50">
-          {/* Comet streak */}
-          <div
-            className="absolute"
-            style={{
-              width: "120px",
-              height: "3px",
-              background: "linear-gradient(90deg, transparent, #d4a012, #fff)",
-              borderRadius: "2px",
-              top: "50%",
-              left: "72.5%",
-              transform: "translate(-50%, -50%) rotate(-45deg)",
-              filter: "blur(1px)",
-              boxShadow: "0 0 20px 4px rgba(212,160,18,0.6)",
-              animation: "loginCometStreak 400ms ease-in both",
-            }}
-          />
-          {/* Impact flash */}
-          <div
-            className="absolute"
-            style={{
-              width: "24px",
-              height: "24px",
-              borderRadius: "50%",
-              background: "radial-gradient(circle, #fff 0%, #d4a012 40%, transparent 70%)",
-              top: "50%",
-              left: "72.5%",
-              transform: "translate(-50%, -50%)",
-              animation: "loginImpactFlash 400ms ease-out 350ms both",
-            }}
-          />
-          {/* Shockwave ring */}
-          <div
-            className="absolute"
-            style={{
-              width: "0px",
-              height: "0px",
-              borderRadius: "50%",
-              border: "2px solid rgba(212,160,18,0.6)",
-              top: "50%",
-              left: "72.5%",
-              transform: "translate(-50%, -50%)",
-              animation: "loginShockwave 600ms ease-out 400ms both",
-            }}
-          />
-          {/* Screen wash — fades into light app bg */}
-          <div
-            className="absolute inset-0"
-            style={{
-              background: "radial-gradient(circle at 72.5% 50%, rgba(212,160,18,0.15), var(--color-surface-0))",
-              animation: "loginFadeOut 400ms ease-in 800ms both",
-            }}
-          />
-        </div>
+        <div
+          className="pointer-events-none fixed inset-0 z-50"
+          style={{
+            background: "var(--color-surface-0)",
+            animation: "fadeIn 400ms ease-in 200ms both",
+          }}
+        />
       )}
     </div>
   );

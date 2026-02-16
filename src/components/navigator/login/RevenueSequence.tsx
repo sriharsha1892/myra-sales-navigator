@@ -104,7 +104,7 @@ export function RevenueSequence() {
             }}
           >
             <span className="text-[12px] text-[#f0f0f5]">Tate &amp; Lyle</span>
-            <span className="ml-2 text-[10px] text-[#d4a012]">82</span>
+            <span className="ml-2 text-[10px] text-[#c9a227]">82</span>
           </div>
           <div
             className="mt-1 pl-4 text-[11px] text-[#f0f0f5]/50"

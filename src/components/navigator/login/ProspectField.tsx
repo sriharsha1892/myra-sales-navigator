@@ -71,9 +71,9 @@ const CONNECTION_PAIRS: [number, number][] = [
 ];
 
 const LAYER_CONFIG = {
-  1: { size: 7, opacity: 0.15, animation: "fragmentDriftSlow 40s ease-in-out infinite" },
-  2: { size: 9, opacity: 0.25, animation: "fragmentDriftMedium 30s ease-in-out infinite" },
-  3: { size: 11, opacity: 0.40, animation: "none" },
+  1: { size: 7, opacity: 0.15 },
+  2: { size: 9, opacity: 0.25 },
+  3: { size: 11, opacity: 0.40 },
 } as const;
 
 // Center of left panel where dossier sits (roughly)
@@ -81,16 +81,12 @@ const CENTER_X = 50;
 const CENTER_Y = 44;
 const PROXIMITY_RADIUS = 30;
 
-function getProximityBoost(x: number, y: number): { opacity: number; shadow: string } {
+function getProximityBoost(x: number, y: number): number {
   const dist = Math.hypot(x - CENTER_X, y - CENTER_Y);
   if (dist < PROXIMITY_RADIUS) {
-    const factor = 1 - dist / PROXIMITY_RADIUS;
-    return {
-      opacity: factor * 0.15,
-      shadow: `0 0 ${4 * factor}px rgba(143,217,196,${0.3 * factor})`,
-    };
+    return (1 - dist / PROXIMITY_RADIUS) * 0.15;
   }
-  return { opacity: 0, shadow: "none" };
+  return 0;
 }
 
 interface ProspectFieldProps {
@@ -100,37 +96,10 @@ interface ProspectFieldProps {
 export function ProspectField({ settled = false }: ProspectFieldProps) {
   return (
     <div className="absolute inset-0 overflow-hidden prospect-dot-grid">
-      {/* Aurora mesh gradients */}
-      <div
-        className="absolute pointer-events-none"
-        style={{
-          width: "500px",
-          height: "500px",
-          left: "10%",
-          top: "15%",
-          background: `radial-gradient(ellipse at center, rgba(143,217,196,${settled ? 0.08 : 0.06}), transparent 70%)`,
-          animation: "auroraDrift1 20s ease-in-out infinite",
-          transition: "opacity 1s",
-        }}
-      />
-      <div
-        className="absolute pointer-events-none"
-        style={{
-          width: "450px",
-          height: "450px",
-          right: "5%",
-          bottom: "10%",
-          background: `radial-gradient(ellipse at center, rgba(27,77,62,${settled ? 0.07 : 0.05}), transparent 70%)`,
-          animation: "auroraDrift2 25s ease-in-out infinite",
-          transition: "opacity 1s",
-        }}
-      />
-
       {/* Data fragments with depth layers */}
       {FRAGMENTS.map((f, i) => {
         const config = LAYER_CONFIG[f.layer];
-        const proximity = getProximityBoost(f.x, f.y);
-        const finalOpacity = config.opacity + proximity.opacity;
+        const finalOpacity = config.opacity + getProximityBoost(f.x, f.y);
 
         return (
           <span
@@ -142,11 +111,10 @@ export function ProspectField({ settled = false }: ProspectFieldProps) {
               transform: `rotate(${f.rot}deg)`,
               fontFamily: "'Geist Mono', monospace",
               fontSize: `${config.size}px`,
-              color: "#D5D3CD",
-              opacity: finalOpacity,
+              color: "var(--color-text-tertiary)",
+              opacity: settled ? finalOpacity * 1.1 : finalOpacity,
               lineHeight: 1,
-              textShadow: proximity.shadow,
-              animation: config.animation,
+              transition: "opacity 1s",
             }}
           >
             {f.text}
@@ -166,39 +134,13 @@ export function ProspectField({ settled = false }: ProspectFieldProps) {
               y1={`${fa.y}%`}
               x2={`${fb.x}%`}
               y2={`${fb.y}%`}
-              stroke="rgba(143,217,196,0.15)"
+              stroke="var(--color-surface-3)"
               strokeWidth="0.5"
-              strokeDasharray="200"
-              strokeDashoffset="200"
-              style={{
-                animation: `lineTrace 3s ease-out ${i * 0.5}s both`,
-              }}
+              opacity="0.3"
             />
           );
         })}
       </svg>
-
-      {/* Horizontal luminous sweep (original) */}
-      <div
-        className="absolute inset-y-0 pointer-events-none"
-        style={{
-          width: "100%",
-          background:
-            "radial-gradient(ellipse 300px 600px at center, rgba(143,217,196,0.12), transparent 70%)",
-          animation: `prospectSweep ${settled ? "20s" : "12s"} linear infinite`,
-        }}
-      />
-
-      {/* Vertical luminous sweep */}
-      <div
-        className="absolute inset-x-0 pointer-events-none"
-        style={{
-          height: "100%",
-          background:
-            "radial-gradient(ellipse 600px 200px at center, rgba(27,77,62,0.08), transparent 70%)",
-          animation: `prospectSweepVertical ${settled ? "24s" : "16s"} linear infinite`,
-        }}
-      />
     </div>
   );
 }

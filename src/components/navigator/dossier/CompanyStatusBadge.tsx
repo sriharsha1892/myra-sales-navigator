@@ -42,7 +42,7 @@ export function CompanyStatusBadge({ domain, currentStatus, size = "md" }: Compa
     return (
       <span
         className="inline-block h-2 w-2 rounded-full flex-shrink-0"
-        style={{ backgroundColor: currentStage?.color ?? "#B5B3AD" }}
+        style={{ backgroundColor: currentStage?.color ?? "#a1a1aa" }}
         aria-label={currentStage?.label ?? "New"}
       />
     );
@@ -58,7 +58,7 @@ export function CompanyStatusBadge({ domain, currentStatus, size = "md" }: Compa
       >
         <span
           className="h-2 w-2 rounded-full"
-          style={{ backgroundColor: currentStage?.color ?? "#B5B3AD" }}
+          style={{ backgroundColor: currentStage?.color ?? "#a1a1aa" }}
         />
         <span className="text-text-secondary">{currentStage?.label ?? "New"}</span>
         <svg className="h-3 w-3 text-text-tertiary" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">

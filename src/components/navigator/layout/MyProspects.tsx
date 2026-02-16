@@ -98,7 +98,7 @@ export function MyProspects() {
                 >
                   <span
                     className="h-2 w-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: stage?.color ?? "#B5B3AD" }}
+                    style={{ backgroundColor: stage?.color ?? "#a1a1aa" }}
                   />
                   <span className="truncate flex-1 text-left">{company.name}</span>
                   <span className="text-[10px] text-text-tertiary">{stage?.label ?? company.status}</span>
@@ -128,7 +128,7 @@ export function MyProspects() {
                 >
                   <span
                     className="h-2 w-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: stage?.color ?? "#B5B3AD" }}
+                    style={{ backgroundColor: stage?.color ?? "#a1a1aa" }}
                   />
                   <span className="truncate flex-1 text-left">{company.name}</span>
                   <span className="text-[10px] text-text-tertiary">

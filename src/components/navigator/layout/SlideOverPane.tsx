@@ -178,7 +178,7 @@ export function SlideOverPane() {
       <div
         ref={scrollContainerRef}
         className="flex h-full flex-col overflow-y-auto transition-shadow duration-500"
-        style={highlightFlash ? { boxShadow: "inset 0 0 0 1px rgba(212, 160, 18, 0.4), inset 0 2px 12px rgba(212, 160, 18, 0.1)" } : undefined}
+        style={highlightFlash ? { boxShadow: "inset 0 0 0 1px rgba(201, 162, 39, 0.25), inset 0 2px 8px rgba(201, 162, 39, 0.06)" } : undefined}
       >
         {/* Breadcrumb bar */}
         <div className="flex flex-shrink-0 items-center justify-between border-b border-surface-3 px-4 py-2.5">

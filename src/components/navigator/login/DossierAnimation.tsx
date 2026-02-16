@@ -111,23 +111,22 @@ export function DossierAnimation({ onComplete }: DossierAnimationProps) {
 
   return (
     <div className="absolute inset-0 flex items-center justify-center" style={{ paddingBottom: "12%" }}>
-      <div className="dossier-border-glow">
+      <div
+        className="rounded-card"
+        style={{
+          border: "1px solid var(--color-surface-3)",
+        }}
+      >
         <div
-          className="relative w-[380px] rounded-2xl p-6"
+          className="relative w-[380px] rounded-card p-6"
           style={{
-            background: "rgba(253,252,250,0.75)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            boxShadow:
-              "0 8px 24px rgba(45,45,45,0.08), 0 0 60px rgba(143,217,196,0.08), 0 0 120px rgba(27,77,62,0.04)",
+            background: "var(--color-surface-1)",
+            boxShadow: "var(--shadow-lg)",
             opacity: isFadingOut ? 0 : 1,
             transform: isFadingOut ? "translateX(30px) scale(0.96)" : "translateX(0) scale(1)",
             transition: `opacity ${FADE_DURATION}ms ease-in, transform ${FADE_DURATION}ms ease-in`,
           }}
         >
-          {/* Scan line */}
-          <div className="dossier-scan-line" key={`scan-${scenarioIndex}`} />
-
           {/* Workflow steps */}
           <div className="relative flex flex-col">
             {/* Vertical connecting line */}
@@ -135,7 +134,7 @@ export function DossierAnimation({ onComplete }: DossierAnimationProps) {
               className="absolute left-[7px] top-[15px]"
               style={{
                 width: "1.5px",
-                background: "linear-gradient(to bottom, #D5D3CD, #E5E3DD)",
+                background: "var(--color-surface-3)",
                 height: visibleSteps > 1
                   ? `calc(${((visibleSteps - 1) / (STEP_COUNT - 1)) * 100}% - 15px)`
                   : "0",
@@ -145,7 +144,6 @@ export function DossierAnimation({ onComplete }: DossierAnimationProps) {
 
             {scenario.steps.map((step, i) => {
               const isVisible = i < visibleSteps;
-              const isFirst = i === 0;
               const isFinal = step.isFinal;
 
               return (
@@ -167,7 +165,7 @@ export function DossierAnimation({ onComplete }: DossierAnimationProps) {
                       <div
                         className="w-full h-full rounded-full flex items-center justify-center"
                         style={{
-                          background: "#1B4D3E",
+                          background: "var(--color-accent-secondary)",
                           animation: isVisible ? "taskCheckIn 300ms ease-out 200ms both" : "none",
                         }}
                       >
@@ -182,7 +180,7 @@ export function DossierAnimation({ onComplete }: DossierAnimationProps) {
                         >
                           <path
                             d="M1.5 4.5L3.5 6.5L7.5 2.5"
-                            stroke="#FDFCFA"
+                            stroke="var(--color-text-inverse)"
                             strokeWidth="1.5"
                             strokeLinecap="round"
                             strokeLinejoin="round"
@@ -193,9 +191,8 @@ export function DossierAnimation({ onComplete }: DossierAnimationProps) {
                       <div
                         className="w-full h-full rounded-full"
                         style={{
-                          border: "1.5px solid #D5D3CD",
-                          background: "rgba(253,252,250,0.9)",
-                          animation: isFirst && isVisible ? "taskIndicatorPulse 2s ease-in-out infinite" : "none",
+                          border: "1.5px solid var(--color-surface-3)",
+                          background: "var(--color-surface-1)",
                         }}
                       />
                     )}
@@ -204,7 +201,7 @@ export function DossierAnimation({ onComplete }: DossierAnimationProps) {
                   {/* Step content */}
                   <div className="flex-1 min-w-0 flex items-baseline justify-between gap-2">
                     <span
-                      className="text-[0.75rem] text-[#2D2D2D] leading-tight truncate"
+                      className="text-[0.75rem] text-text-primary leading-tight truncate"
                       style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                     >
                       {step.label}
@@ -213,7 +210,7 @@ export function DossierAnimation({ onComplete }: DossierAnimationProps) {
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       {step.detail && (
                         <span
-                          className="text-[0.65rem] text-[#8A8A85] whitespace-nowrap"
+                          className="text-[0.65rem] text-text-tertiary whitespace-nowrap"
                           style={{ fontFamily: "'Geist Mono', monospace" }}
                         >
                           {step.detail}{isFinal ? " \u2713" : ""}
@@ -221,7 +218,7 @@ export function DossierAnimation({ onComplete }: DossierAnimationProps) {
                       )}
                       {isFinal && !step.detail && (
                         <span
-                          className="text-[0.65rem] text-[#1B4D3E]"
+                          className="text-[0.65rem] text-accent-secondary"
                           style={{ fontFamily: "'Geist Mono', monospace" }}
                         >
                           {"\u2713"}
@@ -233,23 +230,6 @@ export function DossierAnimation({ onComplete }: DossierAnimationProps) {
               );
             })}
           </div>
-
-          {/* Exit light sweep */}
-          {visibleSteps === STEP_COUNT && (
-            <div
-              className="absolute left-0 right-0 overflow-hidden pointer-events-none"
-              style={{ bottom: "20%", height: "1px" }}
-            >
-              <div
-                style={{
-                  width: "40%",
-                  height: "1px",
-                  background: "linear-gradient(90deg, transparent, rgba(143,217,196,0.5), rgba(27,77,62,0.3), transparent)",
-                  animation: "taskExitSweep 800ms ease-out forwards",
-                }}
-              />
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -302,23 +282,8 @@ function SettledRadar() {
   return (
     <div
       className="absolute inset-0 overflow-hidden"
-      style={{ animation: "dossierSettleIn 600ms ease-out 200ms both" }}
+      style={{ animation: "fadeIn 600ms ease-out 200ms both" }}
     >
-      {/* ── Ambient glow behind radar ── */}
-      <div
-        className="absolute pointer-events-none"
-        style={{
-          width: "400px",
-          height: "400px",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(143,217,196,0.08), rgba(27,77,62,0.03) 60%, transparent 80%)",
-          filter: "blur(40px)",
-        }}
-      />
-
       {/* ── Radar container (centered) ── */}
       <div
         className="absolute"
@@ -341,41 +306,12 @@ function SettledRadar() {
               top: "50%",
               left: "50%",
               transform: "translate(-50%, -50%)",
-              border: `1px solid rgba(213,211,205,${0.3 - i * 0.07})`,
-              animation: `radarRingIn 800ms ease-out ${300 + i * 200}ms both`,
+              border: `1px solid var(--color-surface-3)`,
+              opacity: 0.5 - i * 0.1,
+              animation: `fadeIn 800ms ease-out ${300 + i * 200}ms both`,
             }}
           />
         ))}
-
-        {/* ── Sweep line (rotating) ── */}
-        <div
-          className="absolute pointer-events-none"
-          style={{
-            top: "50%",
-            left: "50%",
-            width: "230px",
-            height: "2px",
-            transformOrigin: "0% 50%",
-            background: "linear-gradient(90deg, rgba(143,217,196,0.5), rgba(143,217,196,0.15) 40%, transparent)",
-            animation: "radarSweep 8s linear 1.5s infinite",
-            filter: "blur(0.5px)",
-          }}
-        />
-
-        {/* ── Sweep cone (trailing glow behind line) ── */}
-        <div
-          className="absolute pointer-events-none"
-          style={{
-            top: "50%",
-            left: "50%",
-            width: "230px",
-            height: "230px",
-            transformOrigin: "0% 0%",
-            background: "conic-gradient(from 0deg, rgba(143,217,196,0.06), transparent 30deg)",
-            animation: "radarSweep 8s linear 1.5s infinite",
-            borderRadius: "0 230px 0 0",
-          }}
-        />
 
         {/* ── Connection lines (SVG) ── */}
         <svg
@@ -393,13 +329,9 @@ function SettledRadar() {
               <line
                 key={i}
                 x1={ax} y1={ay} x2={bx} y2={by}
-                stroke="rgba(143,217,196,0.12)"
+                stroke="var(--color-surface-3)"
                 strokeWidth="0.75"
-                strokeDasharray="200"
-                strokeDashoffset="200"
-                style={{
-                  animation: `lineTrace 1.5s ease-out ${1800 + i * 150}ms both`,
-                }}
+                opacity="0.4"
               />
             );
           })}
@@ -415,9 +347,7 @@ function SettledRadar() {
             width: "6px",
             height: "6px",
             borderRadius: "50%",
-            background: "#1B4D3E",
-            boxShadow: "0 0 12px 3px rgba(27,77,62,0.3)",
-            animation: "radarCenterPulse 3s ease-in-out infinite",
+            background: "var(--color-accent-secondary)",
           }}
         />
 
@@ -436,7 +366,7 @@ function SettledRadar() {
                 left: px,
                 top: py,
                 transform: "translate(-50%, -50%)",
-                animation: `radarNodeIn 500ms ease-out ${node.delay}ms both`,
+                animation: `fadeIn 500ms ease-out ${node.delay}ms both`,
               }}
             >
               {/* Node dot */}
@@ -446,17 +376,10 @@ function SettledRadar() {
                   height: isCompany ? "5px" : "3.5px",
                   borderRadius: "50%",
                   background: isCompany
-                    ? "#1B4D3E"
+                    ? "var(--color-accent-secondary)"
                     : isMetric
-                      ? "#8FD9C4"
-                      : "#D5D3CD",
-                  boxShadow: isCompany
-                    ? "0 0 8px 2px rgba(27,77,62,0.2)"
-                    : "none",
-                  animation: isCompany
-                    ? "radarNodeGlow 4s ease-in-out infinite"
-                    : "none",
-                  animationDelay: `${node.delay}ms`,
+                      ? "var(--color-accent-highlight)"
+                      : "var(--color-surface-3)",
                 }}
               />
               {/* Label */}
@@ -468,7 +391,7 @@ function SettledRadar() {
                     : "'Plus Jakarta Sans', sans-serif",
                   fontSize: isCompany ? "0.62rem" : "0.55rem",
                   fontWeight: isCompany ? 500 : 400,
-                  color: isCompany ? "#5C5C58" : "#B5B3AD",
+                  color: isCompany ? "var(--color-text-secondary)" : "var(--color-text-tertiary)",
                   opacity: isCompany ? 0.7 : 0.5,
                 }}
               >
@@ -482,7 +405,7 @@ function SettledRadar() {
       {/* ── Bottom status line ── */}
       <div
         className="absolute bottom-[12%] left-0 right-0 flex justify-center"
-        style={{ animation: "dossierSettleIn 600ms ease-out 2000ms both" }}
+        style={{ animation: "fadeIn 600ms ease-out 2000ms both" }}
       >
         <div className="flex items-center gap-2">
           <div
@@ -490,8 +413,8 @@ function SettledRadar() {
               width: "5px",
               height: "5px",
               borderRadius: "50%",
-              background: "#8FD9C4",
-              animation: "radarCenterPulse 2s ease-in-out infinite",
+              background: "var(--color-accent-highlight)",
+              animation: "pulse-subtle 2s ease-in-out infinite",
             }}
           />
           <span
@@ -499,7 +422,7 @@ function SettledRadar() {
             style={{
               fontFamily: "'Geist Mono', monospace",
               fontSize: "0.58rem",
-              color: "#B5B3AD",
+              color: "var(--color-text-tertiary)",
               letterSpacing: "0.04em",
             }}
           >

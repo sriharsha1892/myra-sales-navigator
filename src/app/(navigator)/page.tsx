@@ -162,7 +162,7 @@ export default function Home() {
     : "Search companies or press \u2318K for smart search...";
 
   return (
-    <div className="animate-fadeInUp relative h-screen overflow-hidden bg-surface-0 ambient-header">
+    <div className="animate-fadeInUp relative h-screen overflow-hidden bg-surface-0">
       {/* Top bar */}
       <div className="bg-surface-0 border-b border-surface-3 flex h-14 flex-shrink-0 items-center justify-between shadow-sm px-5">
         <div className="flex items-center gap-3">
@@ -238,7 +238,7 @@ export default function Home() {
               }
             }}
             placeholder={placeholder}
-            className={`w-full rounded-pill border border-surface-3 bg-surface-2 py-2.5 pl-9 pr-16 text-base text-text-primary placeholder:text-text-tertiary transition-all duration-[180ms] focus:border-accent-primary focus:shadow-[0_0_0_3px_var(--color-accent-primary-light)] focus:outline-none${showGlow ? " animate-[searchGlow_2s_ease-in-out_3]" : ""}`}
+            className="w-full rounded-pill border border-surface-3 bg-surface-2 py-2.5 pl-9 pr-16 text-base text-text-primary placeholder:text-text-tertiary transition-all duration-[180ms] focus:border-accent-primary focus:shadow-[0_0_0_3px_var(--color-accent-primary-light)] focus:outline-none"
           />
           <kbd
             onClick={() => useStore.getState().setCommandPaletteOpen(true)}

@@ -158,8 +158,8 @@ export function DossierFreshsales({ company }: DossierFreshsalesProps) {
               className="h-full rounded-full transition-all duration-300"
               style={{
                 width: `${Math.max(5, 100 - daysAgo(intel.lastContactDate))}%`,
-                backgroundColor: daysAgo(intel.lastContactDate) <= 14 ? "#d4a012" :
-                                daysAgo(intel.lastContactDate) <= 60 ? "#22d3ee" : "#6b6b80",
+                backgroundColor: daysAgo(intel.lastContactDate) <= 14 ? "#c9a227" :
+                                daysAgo(intel.lastContactDate) <= 60 ? "#67b5c4" : "#6b6b80",
               }}
             />
           </div>

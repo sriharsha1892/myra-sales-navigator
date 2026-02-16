@@ -190,7 +190,7 @@ export function DossierPreviewPopover({
                 </span>
               )}
               {c.sources.includes("freshsales" as import("@/lib/navigator/types").ResultSource) && (
-                <span className="flex-shrink-0 rounded-pill bg-[#d4a012]/15 px-1 py-px text-[9px] font-semibold text-[#d4a012]">
+                <span className="flex-shrink-0 rounded-pill bg-[#c9a227]/15 px-1 py-px text-[9px] font-semibold text-[#c9a227]">
                   Warm
                 </span>
               )}
