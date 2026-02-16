@@ -5,12 +5,7 @@ import { defaultAdminConfig } from "@/lib/navigator/mock-data";
 import { getCached, setCached } from "@/lib/cache";
 import { CACHE_TTLS } from "@/lib/navigator/cache-config";
 import type { EmailDraftRequest, EmailDraftResponse, EmailPromptsConfig } from "@/lib/navigator/types";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { createServerClient } from "@/lib/supabase/server";
 
 async function getEmailPromptsConfig(): Promise<EmailPromptsConfig> {
   const cacheKey = "admin:email-prompts";
@@ -18,7 +13,7 @@ async function getEmailPromptsConfig(): Promise<EmailPromptsConfig> {
   if (cached) return cached;
 
   try {
-    const { data } = await supabase
+    const { data } = await createServerClient()
       .from("admin_config")
       .select("email_prompts")
       .eq("id", "global")
