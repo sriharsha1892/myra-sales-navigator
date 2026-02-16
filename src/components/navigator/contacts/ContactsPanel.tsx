@@ -202,7 +202,7 @@ export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps)
               <span className="text-text-tertiary">&middot;</span>
               <span
                 className="rounded-pill px-1.5 py-0.5 text-[10px] font-medium"
-                style={{ backgroundColor: "rgba(62, 166, 123, 0.12)", color: "#3EA67B" }}
+                style={{ backgroundColor: "var(--color-source-freshsales-light)", color: "var(--color-source-freshsales)" }}
               >
                 CRM: {fsStatus}
               </span>
@@ -244,7 +244,7 @@ export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps)
             className={cn(
               "rounded-pill border px-2 py-0.5 text-[10px] font-medium transition-colors",
               sourceFilter === "freshsales"
-                ? "border-[#3EA67B]/30 bg-[#3EA67B]/10 text-[#3EA67B]"
+                ? "border-source-freshsales/30 bg-source-freshsales/10 text-source-freshsales"
                 : "border-surface-3 text-text-tertiary hover:text-text-secondary"
             )}
           >

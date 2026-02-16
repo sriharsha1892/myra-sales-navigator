@@ -23,9 +23,9 @@ function daysAgoLabel(dateStr: string): string {
 }
 
 const warmthColors = {
-  hot: { dot: "bg-[#d4a012]", label: "Hot" },
-  warm: { dot: "bg-[#22d3ee]", label: "Warm" },
-  cold: { dot: "bg-[#6b6b80]", label: "Cold" },
+  hot: { dot: "bg-accent-primary", label: "Hot" },
+  warm: { dot: "bg-accent-highlight", label: "Warm" },
+  cold: { dot: "bg-text-tertiary", label: "Cold" },
 };
 
 export function PreCallBriefingCard({ data, loading }: PreCallBriefingCardProps) {

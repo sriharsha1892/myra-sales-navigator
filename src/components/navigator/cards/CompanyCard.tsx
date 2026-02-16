@@ -53,7 +53,7 @@ const SENIORITY_ORDER: Record<string, number> = {
 const SENIORITY_CHIP_COLORS: Record<string, string> = {
   c_level: "bg-accent-primary/15 text-accent-primary border-accent-primary/30",
   vp: "bg-accent-secondary/15 text-accent-secondary border-accent-secondary/30",
-  director: "bg-[#3b82f6]/15 text-[#3b82f6] border-[#3b82f6]/30",
+  director: "bg-seniority-director/15 text-seniority-director border-seniority-director/30",
   manager: "bg-surface-2 text-text-secondary border-surface-3",
   staff: "bg-surface-2 text-text-tertiary border-surface-3",
 };
@@ -65,17 +65,17 @@ const SENIORITY_LABELS: Record<string, string> = {
 const TITLE_FILTER_RE = /intern|coordinator|assistant|trainee|apprentice/i;
 
 const crmStatusColors: Record<string, { bg: string; text: string }> = {
-  open: { bg: "rgba(34, 197, 94, 0.12)", text: "#22c55e" },
-  in_progress: { bg: "rgba(34, 197, 94, 0.12)", text: "#22c55e" },
-  negotiation: { bg: "rgba(34, 197, 94, 0.12)", text: "#22c55e" },
-  new: { bg: "rgba(59, 130, 246, 0.12)", text: "#3b82f6" },
-  new_lead: { bg: "rgba(59, 130, 246, 0.12)", text: "#3b82f6" },
-  contacted: { bg: "rgba(59, 130, 246, 0.12)", text: "#3b82f6" },
-  closed_won: { bg: "rgba(249, 115, 22, 0.12)", text: "#f97316" },
-  won: { bg: "rgba(249, 115, 22, 0.12)", text: "#f97316" },
-  customer: { bg: "rgba(249, 115, 22, 0.12)", text: "#f97316" },
-  closed_lost: { bg: "rgba(239, 68, 68, 0.12)", text: "#ef4444" },
-  lost: { bg: "rgba(239, 68, 68, 0.12)", text: "#ef4444" },
+  open: { bg: "var(--color-crm-open-light)", text: "var(--color-crm-open)" },
+  in_progress: { bg: "var(--color-crm-open-light)", text: "var(--color-crm-open)" },
+  negotiation: { bg: "var(--color-crm-open-light)", text: "var(--color-crm-open)" },
+  new: { bg: "var(--color-crm-new-light)", text: "var(--color-crm-new)" },
+  new_lead: { bg: "var(--color-crm-new-light)", text: "var(--color-crm-new)" },
+  contacted: { bg: "var(--color-crm-new-light)", text: "var(--color-crm-new)" },
+  closed_won: { bg: "var(--color-crm-won-light)", text: "var(--color-crm-won)" },
+  won: { bg: "var(--color-crm-won-light)", text: "var(--color-crm-won)" },
+  customer: { bg: "var(--color-crm-won-light)", text: "var(--color-crm-won)" },
+  closed_lost: { bg: "var(--color-crm-lost-light)", text: "var(--color-crm-lost)" },
+  lost: { bg: "var(--color-crm-lost-light)", text: "var(--color-crm-lost)" },
 };
 
 const freshsalesLabels: Record<string, string> = {

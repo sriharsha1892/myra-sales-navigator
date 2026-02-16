@@ -70,6 +70,7 @@ export function IcpScoreBadge({ score, className, showHelp, breakdown, showBreak
             strokeDasharray={circumference}
             strokeDashoffset={offset}
             strokeLinecap="round"
+            style={{ "--ring-circumference": circumference, animation: "icpRingDraw 600ms ease-out" } as React.CSSProperties}
           />
         )}
       </svg>

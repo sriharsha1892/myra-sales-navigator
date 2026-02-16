@@ -134,7 +134,7 @@ export const ResultsHeader = React.memo(function ResultsHeader({
                   aria-valuenow={enrichmentProgress.completed}
                   aria-valuemin={0}
                   aria-valuemax={enrichmentProgress.total}
-                  className="h-full bg-accent-secondary transition-all duration-300 ease-out rounded-full"
+                  className="h-full bg-accent-secondary transition-[width] duration-300 ease-out rounded-full"
                   style={{ width: `${(enrichmentProgress.completed / enrichmentProgress.total) * 100}%` }}
                 />
               </div>

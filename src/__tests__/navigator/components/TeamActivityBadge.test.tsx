@@ -119,8 +119,8 @@ describe("TeamActivityBadge", () => {
     render(<TeamActivityBadge activity={activity} />);
 
     const badge = screen.getByText("SA").closest("div");
-    expect(badge?.className).toContain("bg-[#d4a012]/20");
-    expect(badge?.className).toContain("text-[#d4a012]");
+    expect(badge?.className).toContain("bg-accent-primary/20");
+    expect(badge?.className).toContain("text-accent-primary");
   });
 
   it("applies green styling for 'interested' decision type", () => {
@@ -286,6 +286,6 @@ describe("TeamActivityBadge", () => {
 
     // The type should be "export" (exporter overwrites viewer in Map)
     const badge = allBadges[0].closest("div");
-    expect(badge?.className).toContain("bg-[#d4a012]/20");
+    expect(badge?.className).toContain("bg-accent-primary/20");
   });
 });

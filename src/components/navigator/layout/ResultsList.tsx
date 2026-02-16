@@ -437,7 +437,7 @@ export function ResultsList() {
                     <div
                       key={company.domain}
                       data-result-index={resultIdx}
-                      className={`animate-fadeInUp${isActiveResult ? " ring-1 ring-accent-secondary/40 rounded-card" : ""}`}
+                      className={`animate-fadeInUp${isActiveResult ? " ring-1 ring-accent-secondary/40 bg-surface-hover/50 rounded-card" : ""}`}
                       style={{ animationDelay: `${Math.min(idx, 10) * 40}ms` }}
                     >
                       <CompanyCard

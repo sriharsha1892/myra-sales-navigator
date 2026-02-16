@@ -332,8 +332,9 @@ export function ContactCard({
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
+          aria-label={isExpanded ? "Collapse contact details" : "Expand contact details"}
           className={cn(
-            "flex-shrink-0 text-text-tertiary transition-transform duration-[180ms]",
+            "flex-shrink-0 text-text-tertiary transition-transform duration-[180ms] ease-out",
             isExpanded && "rotate-180"
           )}
         >

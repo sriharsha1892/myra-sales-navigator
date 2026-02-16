@@ -34,7 +34,7 @@ export function TeamActivityBadge({ activity }: TeamActivityBadgeProps) {
   };
 
   const getBg = (type: string) => {
-    if (type === "export") return "bg-[#d4a012]/20 text-[#d4a012]";
+    if (type === "export") return "bg-accent-primary/20 text-accent-primary";
     if (type === "interested") return "bg-success/20 text-success";
     if (type === "pass") return "bg-danger/20 text-danger";
     return "bg-surface-2 text-text-tertiary";

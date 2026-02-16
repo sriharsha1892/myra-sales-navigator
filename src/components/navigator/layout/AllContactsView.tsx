@@ -11,9 +11,9 @@ const SENIORITY_ORDER: Record<string, number> = {
 };
 
 const SENIORITY_CHIP_COLORS: Record<string, string> = {
-  c_level: "bg-[#d4a012]/15 text-[#d4a012] border-[#d4a012]/30",
-  vp: "bg-[#22d3ee]/15 text-[#22d3ee] border-[#22d3ee]/30",
-  director: "bg-[#3b82f6]/15 text-[#3b82f6] border-[#3b82f6]/30",
+  c_level: "bg-seniority-clevel/15 text-seniority-clevel border-seniority-clevel/30",
+  vp: "bg-seniority-vp/15 text-seniority-vp border-seniority-vp/30",
+  director: "bg-seniority-director/15 text-seniority-director border-seniority-director/30",
   manager: "bg-surface-2 text-text-secondary border-surface-3",
   staff: "bg-surface-2 text-text-tertiary border-surface-3",
 };
@@ -227,7 +227,7 @@ export function AllContactsView() {
             </div>
 
             {contact.sources.includes("freshsales") && (
-              <span className="flex-shrink-0 rounded-pill bg-[#d4a012]/15 px-1.5 py-0.5 text-[8px] font-semibold text-[#d4a012]">
+              <span className="flex-shrink-0 rounded-pill bg-[#c9a227]/15 px-1.5 py-0.5 text-[8px] font-semibold text-[#c9a227]">
                 Warm
               </span>
             )}

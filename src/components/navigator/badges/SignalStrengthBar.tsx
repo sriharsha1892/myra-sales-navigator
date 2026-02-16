@@ -12,9 +12,9 @@ export function SignalStrengthBar({ signalCount, signalTypes }: SignalStrengthBa
   const fill = Math.min(signalCount / 4, 1) * 100;
   const colorClass =
     signalCount >= 4
-      ? "bg-[#1B4D3E]"
+      ? "bg-intel"
       : signalCount === 3
-      ? "bg-[#8FD9C4]"
+      ? "bg-accent-highlight"
       : signalCount === 2
       ? "bg-warning"
       : "bg-surface-3";
