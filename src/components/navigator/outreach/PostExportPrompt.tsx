@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useStore } from "@/lib/navigator/store";
 import { SequenceEnrollModal } from "./SequenceEnrollModal";
 
@@ -8,10 +8,14 @@ export function PostExportPrompt() {
   const lastExport = useStore((s) => s.lastExportedContacts);
   const [showEnroll, setShowEnroll] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const prevTimestampRef = useRef(lastExport?.timestamp);
 
-  useEffect(() => {
-    setDismissed(false);
-  }, [lastExport?.timestamp]);
+  // Reset dismissed when a new export happens (no setState in effect)
+  const currentTimestamp = lastExport?.timestamp;
+  if (currentTimestamp !== prevTimestampRef.current) {
+    prevTimestampRef.current = currentTimestamp;
+    if (dismissed) setDismissed(false);
+  }
 
   useEffect(() => {
     if (!lastExport || dismissed) return;
