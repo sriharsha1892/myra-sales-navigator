@@ -6,6 +6,8 @@ import { pick } from "@/lib/navigator/ui-copy";
 
 interface DossierSignalsProps {
   signals: Signal[];
+  isLoading?: boolean;
+  error?: string | null;
 }
 
 const signalPillColors: Record<string, string> = {
@@ -15,7 +17,35 @@ const signalPillColors: Record<string, string> = {
   news: "bg-surface-2 text-text-secondary",
 };
 
-export function DossierSignals({ signals }: DossierSignalsProps) {
+export function DossierSignals({ signals, isLoading, error }: DossierSignalsProps) {
+  if (isLoading && signals.length === 0) {
+    return (
+      <div className="rounded-card bg-surface-0/50 px-4 py-3">
+        <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+          Signals
+        </h3>
+        <div className="space-y-2">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="h-16 animate-pulse rounded-card bg-surface-2 shimmer" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error && signals.length === 0) {
+    return (
+      <div className="rounded-card bg-surface-0/50 px-4 py-3">
+        <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+          Signals
+        </h3>
+        <div className="rounded-input border border-danger/20 bg-danger/5 px-3 py-2 text-xs text-danger">
+          Failed to load signals
+        </div>
+      </div>
+    );
+  }
+
   if (signals.length === 0) {
     return (
       <div className="rounded-card bg-surface-0/50 px-4 py-3">

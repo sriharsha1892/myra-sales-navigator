@@ -2,7 +2,7 @@
 
 import { useStore } from "@/lib/navigator/store";
 import { AdminSection } from "./AdminSection";
-import type { AdminUiPreferences, ViewMode } from "@/lib/navigator/types";
+import type { AdminUiPreferences } from "@/lib/navigator/types";
 
 export function UiPreferencesSection() {
   const config = useStore((s) => s.adminConfig);
@@ -49,24 +49,7 @@ export function UiPreferencesSection() {
           </div>
         </div>
 
-        <div>
-          <label className="mb-1.5 block text-[10px] font-medium uppercase text-text-tertiary">Default View Mode</label>
-          <div className="flex gap-2">
-            {(["companies", "contacts"] as ViewMode[]).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => update({ defaultViewMode: mode })}
-                className={`rounded-input px-3 py-1.5 text-xs capitalize ${
-                  prefs.defaultViewMode === mode
-                    ? "bg-accent-primary text-text-inverse"
-                    : "border border-surface-3 text-text-secondary hover:bg-surface-hover"
-                }`}
-              >
-                {mode}
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* Default view mode — always "companies" now (exported/prospects are separate routes) */}
 
         <div>
           <label className="mb-1 block text-[10px] font-medium uppercase text-text-tertiary">

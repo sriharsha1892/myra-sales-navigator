@@ -25,8 +25,6 @@ export default function SettingsPage() {
   const setSortField = useStore((s) => s.setSortField);
   const userCopyFormat = useStore((s) => s.userCopyFormat);
   const setUserCopyFormat = useStore((s) => s.setUserCopyFormat);
-  const demoMode = useStore((s) => s.demoMode);
-  const setDemoMode = useStore((s) => s.setDemoMode);
   const hoverPrefetchEnabled = useStore((s) => s.hoverPrefetchEnabled);
   const setHoverPrefetchEnabled = useStore((s) => s.setHoverPrefetchEnabled);
   const { enabled: notificationsEnabled, permission: notifPermission, toggleEnabled } = useBrowserNotifications();
@@ -348,20 +346,6 @@ export default function SettingsPage() {
               </div>
             </label>
 
-            <label className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                checked={demoMode}
-                onChange={(e) => { setDemoMode(e.target.checked); showSaved(); }}
-                className="mt-0.5 h-4 w-4 rounded border-surface-3 bg-surface-2 accent-accent-primary"
-              />
-              <div>
-                <span className="text-sm font-medium text-text-primary">Show demo data when idle</span>
-                <p className="mt-0.5 text-[11px] text-text-tertiary">
-                  Display sample companies on the home screen before your first search. Automatically turns off when you search.
-                </p>
-              </div>
-            </label>
           </div>
         </Section>
 

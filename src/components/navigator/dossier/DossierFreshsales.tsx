@@ -8,6 +8,7 @@ import { defaultFreshsalesSettings } from "@/lib/navigator/mock-data";
 import { MissingData } from "@/components/navigator/shared/MissingData";
 import { Tooltip } from "@/components/navigator/shared/Tooltip";
 import { CreateTaskInline } from "@/components/navigator/freshsales/CreateTaskInline";
+import { DealHealthSummary } from "@/components/navigator/freshsales/DealHealthSummary";
 import { pick } from "@/lib/navigator/ui-copy";
 
 interface DossierFreshsalesProps {
@@ -135,6 +136,7 @@ export function DossierFreshsales({ company }: DossierFreshsalesProps) {
           )}
         </div>
       )}
+      {intel && <DealHealthSummary intel={intel} stalledThresholdDays={settings.stalledDealThresholdDays ?? 30} />}
       {/* Fallback status badge when no intel */}
       {(status === "none" || !intel) && (
         <div className="mb-3">
@@ -222,9 +224,21 @@ export function DossierFreshsales({ company }: DossierFreshsalesProps) {
                     className="flex items-center justify-between rounded-input bg-surface-1 px-2 py-1.5"
                   >
                     <div className="min-w-0 flex-1">
-                      <span className="block truncate text-xs font-medium text-text-primary">
-                        {deal.name}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate text-xs font-medium text-text-primary">
+                          {deal.name}
+                        </span>
+                        {deal.probability != null && (
+                          <span className={cn(
+                            "flex-shrink-0 rounded-pill px-1.5 py-0.5 text-[9px] font-mono font-medium",
+                            deal.probability >= 80 ? "bg-success/10 text-success" :
+                            deal.probability >= 50 ? "bg-warning/10 text-warning" :
+                            "bg-danger/10 text-danger"
+                          )}>
+                            {deal.probability}%
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[10px] text-text-tertiary">
                         {deal.stage}
                         {settings.showDealVelocity !== false && deal.daysInStage != null && (
@@ -239,6 +253,9 @@ export function DossierFreshsales({ company }: DossierFreshsalesProps) {
                         )}
                         {deal.expectedClose
                           ? ` \u00b7 Close ${formatDate(deal.expectedClose)}`
+                          : ""}
+                        {deal.createdAt
+                          ? ` \u00b7 Created ${formatDate(deal.createdAt)}`
                           : ""}
                       </span>
                       {deal.lostReason && (
@@ -277,7 +294,7 @@ export function DossierFreshsales({ company }: DossierFreshsalesProps) {
                       </span>
                       {settings.showTags && c.tags && c.tags.length > 0 && (
                         <div className="mt-0.5 flex flex-wrap gap-1">
-                          {c.tags.slice(0, 3).map((tag) => {
+                          {c.tags.slice(0, 5).map((tag) => {
                             const isBoost = (settings.tagScoringRules?.boostTags || [])
                               .some((bt) => bt.toLowerCase() === tag.toLowerCase());
                             const isPenalty = (settings.tagScoringRules?.penaltyTags || [])
@@ -296,9 +313,9 @@ export function DossierFreshsales({ company }: DossierFreshsalesProps) {
                               </span>
                             );
                           })}
-                          {c.tags.length > 3 && (
-                            <Tooltip text={c.tags.slice(3).join(", ")}>
-                              <span className="text-[9px] text-text-tertiary">+{c.tags.length - 3}</span>
+                          {c.tags.length > 5 && (
+                            <Tooltip text={c.tags.slice(5).join(", ")}>
+                              <span className="text-[9px] text-text-tertiary">+{c.tags.length - 5}</span>
                             </Tooltip>
                           )}
                         </div>
@@ -332,6 +349,12 @@ export function DossierFreshsales({ company }: DossierFreshsalesProps) {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 text-[11px]">
                           <span className="font-medium text-text-primary">{act.actor}</span>
+                          {act.contactName && act.contactName !== act.actor && (
+                            <>
+                              <span className="text-text-tertiary">&rarr;</span>
+                              <span className="text-text-secondary">{act.contactName}</span>
+                            </>
+                          )}
                           <span className="text-text-tertiary">&middot;</span>
                           <span className="text-text-tertiary">
                             {daysAgo(act.date) === 0 ? "today" : `${daysAgo(act.date)}d ago`}

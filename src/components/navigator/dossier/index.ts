@@ -1,4 +1,5 @@
 export { DossierHeader } from "./DossierHeader";
+export { DossierCompactHeader } from "./DossierCompactHeader";
 export { DossierOverview } from "./DossierOverview";
 export { DossierSignals } from "./DossierSignals";
 export { DossierContacts } from "./DossierContacts";
@@ -6,3 +7,5 @@ export { DossierHubspot } from "./DossierHubspot";
 export { DossierFreshsales } from "./DossierFreshsales";
 export { DossierSkeleton } from "./DossierSkeleton";
 export { DossierSimilarCompanies } from "./DossierSimilarCompanies";
+export { CollapsibleSection } from "./CollapsibleSection";
+export { ContactsHeroSection } from "./ContactsHeroSection";

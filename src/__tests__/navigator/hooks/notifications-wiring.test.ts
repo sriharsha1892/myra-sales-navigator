@@ -97,6 +97,7 @@ vi.mock("@/lib/navigator/store", async () => {
   store.getState = () => ({
     ...originalGetState(),
     userName: "TestUser",
+    setLastExportedContacts: vi.fn(),
   });
   const useStore = (selector: (s: Record<string, unknown>) => unknown) => {
     const state = {

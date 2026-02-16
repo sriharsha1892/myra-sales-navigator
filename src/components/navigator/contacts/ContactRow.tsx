@@ -67,6 +67,7 @@ interface ContactRowProps {
   onToggle: () => void;
   onDraftEmail: () => void;
   exportInfo?: { exportedBy: string; exportedAt: string };
+  warmActivity?: { type: string; daysAgo: number };
 }
 
 export const ContactRow = React.memo(function ContactRow({
@@ -77,6 +78,7 @@ export const ContactRow = React.memo(function ContactRow({
   onToggle,
   onDraftEmail,
   exportInfo,
+  warmActivity,
 }: ContactRowProps) {
   const queryClient = useQueryClient();
   const { trigger, FeedbackLabel } = useInlineFeedback();
@@ -215,6 +217,14 @@ export const ContactRow = React.memo(function ContactRow({
             <SourceBadge key={src} source={src} />
           ))}
         </div>
+        {warmActivity && (
+          <Tooltip text={`${warmActivity.type === "call" ? "Called" : "Emailed"} ${warmActivity.daysAgo === 0 ? "today" : `${warmActivity.daysAgo}d ago`}`}>
+            <span className="flex items-center gap-1 rounded-pill bg-warning/10 px-1.5 py-0.5 text-[9px] font-medium text-warning">
+              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-warning" />
+              Warm
+            </span>
+          </Tooltip>
+        )}
         {needsReveal && (
           <button
             onClick={handleReveal}

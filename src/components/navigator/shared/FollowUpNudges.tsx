@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/navigator/store";
 
 interface ExportEntry {
@@ -52,7 +53,7 @@ export function FollowUpNudges() {
   const userName = useStore((s) => s.userName);
   const dismissed = useStore((s) => s.followUpNudgesDismissed);
   const dismiss = useStore((s) => s.dismissFollowUpNudges);
-  const setViewMode = useStore((s) => s.setViewMode);
+  const router = useRouter();
 
   // Compute dates once on mount (not during every render)
   const [dateRange] = useState(computeDateRange);
@@ -102,7 +103,7 @@ export function FollowUpNudges() {
       </div>
       {nudges.length > 3 && (
         <button
-          onClick={() => setViewMode("exported")}
+          onClick={() => router.push("/exported")}
           className="mt-2 text-xs text-accent-primary hover:underline"
         >
           View all exports &rarr;

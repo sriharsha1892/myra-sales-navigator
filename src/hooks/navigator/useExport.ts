@@ -258,6 +258,16 @@ export function useExport() {
       return;
     }
 
+    const primaryDomain = contacts[0]?.companyDomain ?? null;
+    const domains = [...new Set(contacts.map((c) => c.companyDomain).filter(Boolean))];
+    useStore.getState().setLastExportedContacts({
+      contacts,
+      domains,
+      primaryDomain,
+      timestamp: Date.now(),
+      mode,
+    });
+
     // Log exported contacts to Supabase
     try {
       const exportPayload = contacts

@@ -261,6 +261,12 @@ export function useCompanyDossier(domain: string | null) {
     company: companyWithCount,
     contacts,
     signals: signalsQuery.data ?? [],
+    companyLoading: companyQuery.isLoading,
+    contactsLoading: contactsQuery.isLoading,
+    signalsLoading: signalsQuery.isLoading,
+    companyError: companyQuery.error?.message ?? null,
+    contactsError: contactsQuery.error?.message ?? null,
+    signalsError: signalsQuery.error?.message ?? null,
     isLoading: companyQuery.isLoading || contactsQuery.isLoading || signalsQuery.isLoading,
     error: companyQuery.error?.message || contactsQuery.error?.message || signalsQuery.error?.message || null,
     refetch: () => {

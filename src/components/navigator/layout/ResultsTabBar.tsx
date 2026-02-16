@@ -1,42 +1,29 @@
 "use client";
 
 import React from "react";
-import { ViewToggle } from "@/components/navigator/shared";
 import { Tooltip } from "@/components/navigator/shared/Tooltip";
 import { CreditUsageIndicator } from "@/components/navigator/CreditUsageIndicator";
 import { useStore } from "@/lib/navigator/store";
-import type { SortField, ViewMode } from "@/lib/navigator/types";
+import type { SortField } from "@/lib/navigator/types";
 
 interface ResultsTabBarProps {
-  viewMode: ViewMode;
   sortField: SortField;
   sortDirection: "asc" | "desc";
-  companyCount: number;
-  prospectCount: number;
   selectedCompanyCount: number;
   searchLoading: boolean;
-  onViewModeChange: (mode: ViewMode) => void;
   onSortChange: (field: SortField) => void;
   onSortDirectionToggle: () => void;
   onDeselectAll: () => void;
-  allContactsActive?: boolean;
-  onAllContactsToggle?: () => void;
 }
 
 export const ResultsTabBar = React.memo(function ResultsTabBar({
-  viewMode,
   sortField,
   sortDirection,
-  companyCount,
-  prospectCount,
   selectedCompanyCount,
   searchLoading,
-  onViewModeChange,
   onSortChange,
   onSortDirectionToggle,
   onDeselectAll,
-  allContactsActive,
-  onAllContactsToggle,
 }: ResultsTabBarProps) {
   const cardDensity = useStore((s) => s.cardDensity);
 
@@ -47,18 +34,9 @@ export const ResultsTabBar = React.memo(function ResultsTabBar({
           <div className="h-full w-1/4 bg-accent-primary" style={{ animation: "progressSlide 1.2s ease-in-out infinite" }} />
         </div>
       )}
-      <ViewToggle
-        value={viewMode}
-        onChange={onViewModeChange}
-        companyCount={companyCount}
-        prospectCount={prospectCount}
-        allContactsActive={allContactsActive}
-        onAllContactsToggle={onAllContactsToggle}
-      />
       {/* Bulk selection count indicator */}
       {selectedCompanyCount > 0 && (
         <>
-          <div className="h-3.5 w-px bg-surface-3" />
           <span className="flex items-center gap-1.5 rounded-pill bg-accent-primary/10 px-2 py-0.5 text-xs text-accent-primary">
             {selectedCompanyCount} selected
             <button
@@ -75,46 +53,42 @@ export const ResultsTabBar = React.memo(function ResultsTabBar({
         </>
       )}
       <div className="ml-auto flex items-center gap-3">
-        {viewMode === "companies" && (
-          <>
-            {/* Sort — dot-separated text links (hidden in table mode — table has column headers) */}
-            {cardDensity !== "table" && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs uppercase tracking-[0.06em] text-text-secondary">Sort</span>
-                <div className="flex items-center">
-                  {(["icp_score", "name", "employee_count"] as SortField[]).map((field, i) => {
-                    const labels: Record<SortField, string> = { icp_score: "Score", name: "Name", employee_count: "Size", relevance: "Relevance" };
-                    const sortIcons: Record<SortField, string> = { icp_score: "\u2605", name: "Az", employee_count: "\u2195", relevance: "\u2261" };
-                    const isActive = sortField === field;
-                    return (
-                      <span key={field} className="flex items-center">
-                        {i > 0 && <span className="mx-1 text-text-tertiary/40">&middot;</span>}
-                        <button
-                          onClick={() => onSortChange(field)}
-                          className={`rounded px-1.5 py-0.5 text-xs transition-all duration-[180ms] ${
-                            isActive
-                              ? "bg-surface-2 font-semibold text-text-primary"
-                              : "text-text-secondary hover:bg-surface-2 hover:text-text-primary"
-                          }`}
-                        >
-                          <span className="mr-0.5 opacity-60">{sortIcons[field]}</span>{labels[field]}
-                        </button>
-                      </span>
-                    );
-                  })}
-                </div>
-                <button
-                  onClick={onSortDirectionToggle}
-                  className="btn-press text-xs text-text-tertiary hover:text-text-primary transition-colors duration-[180ms]"
-                  aria-label={`Sort ${({ icp_score: "Score", name: "Name", employee_count: "Size", relevance: "Relevance" } as Record<SortField, string>)[sortField]} ${sortDirection === "desc" ? "ascending" : "descending"}`}
-                >
-                  {sortDirection === "desc" ? "\u2193" : "\u2191"}
-                </button>
-              </div>
-            )}
-            <DensityToggle />
-          </>
+        {/* Sort — dot-separated text links (hidden in table mode — table has column headers) */}
+        {cardDensity !== "table" && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs uppercase tracking-[0.06em] text-text-secondary">Sort</span>
+            <div className="flex items-center">
+              {(["icp_score", "name", "employee_count"] as SortField[]).map((field, i) => {
+                const labels: Record<SortField, string> = { icp_score: "Score", name: "Name", employee_count: "Size", relevance: "Relevance" };
+                const sortIcons: Record<SortField, string> = { icp_score: "\u2605", name: "Az", employee_count: "\u2195", relevance: "\u2261" };
+                const isActive = sortField === field;
+                return (
+                  <span key={field} className="flex items-center">
+                    {i > 0 && <span className="mx-1 text-text-tertiary/40">&middot;</span>}
+                    <button
+                      onClick={() => onSortChange(field)}
+                      className={`rounded px-1.5 py-0.5 text-xs transition-all duration-[180ms] ${
+                        isActive
+                          ? "bg-surface-2 font-semibold text-text-primary"
+                          : "text-text-secondary hover:bg-surface-2 hover:text-text-primary"
+                      }`}
+                    >
+                      <span className="mr-0.5 opacity-60">{sortIcons[field]}</span>{labels[field]}
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+            <button
+              onClick={onSortDirectionToggle}
+              className="btn-press text-xs text-text-tertiary hover:text-text-primary transition-colors duration-[180ms]"
+              aria-label={`Sort ${({ icp_score: "Score", name: "Name", employee_count: "Size", relevance: "Relevance" } as Record<SortField, string>)[sortField]} ${sortDirection === "desc" ? "ascending" : "descending"}`}
+            >
+              {sortDirection === "desc" ? "\u2193" : "\u2191"}
+            </button>
+          </div>
         )}
+        <DensityToggle />
         <CreditUsageIndicator />
       </div>
     </div>

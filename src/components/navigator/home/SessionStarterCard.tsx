@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/navigator/store";
 import { TeamMomentumLine } from "./TeamMomentumLine";
 
@@ -21,9 +22,9 @@ function getGreeting(): string {
 export function SessionStarterCard() {
   const userName = useStore((s) => s.userName);
   const searchResults = useStore((s) => s.searchResults);
-  const setViewMode = useStore((s) => s.setViewMode);
   const setPendingFreeTextSearch = useStore((s) => s.setPendingFreeTextSearch);
   const selectCompany = useStore((s) => s.selectCompany);
+  const router = useRouter();
 
   const { data: insights } = useQuery<SessionInsights>({
     queryKey: ["session-insights", userName],
@@ -90,7 +91,7 @@ export function SessionStarterCard() {
               {insights.followUpCount} export{insights.followUpCount !== 1 ? "s" : ""} need follow-up
             </p>
             <button
-              onClick={() => setViewMode("exported")}
+              onClick={() => router.push("/exported")}
               className="flex-shrink-0 rounded-lg bg-surface-2 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-surface-3"
             >
               View exports

@@ -31,7 +31,6 @@ const SENIORITY_ORDER: Record<string, number> = {
 };
 
 export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps) {
-  const setSlideOverMode = useStore((s) => s.setSlideOverMode);
   const selectedContactIds = useStore((s) => s.selectedContactIds);
   const toggleContactSelection = useStore((s) => s.toggleContactSelection);
 
@@ -118,10 +117,6 @@ export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps)
     }
   }, [allSelected, filteredContacts, selectedContactIds, toggleContactSelection]);
 
-  const handleBackToDossier = useCallback(() => {
-    setSlideOverMode("dossier");
-  }, [setSlideOverMode]);
-
   const hasSelection = selectedContactIds.size > 0 &&
     filteredContacts.some((c) => selectedContactIds.has(c.id));
 
@@ -154,11 +149,7 @@ export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps)
     } else if (e.key === "Escape") {
       e.preventDefault();
       if (hasSelection) {
-        // First escape: clear selection
         deselectAll();
-      } else {
-        // Second escape (or no selection): go back to dossier
-        handleBackToDossier();
       }
     } else if (e.key === "a" && (e.metaKey || e.ctrlKey) && e.shiftKey) {
       // Cmd+Shift+A: deselect all
@@ -169,7 +160,7 @@ export function ContactsPanel({ domain, company, contacts }: ContactsPanelProps)
       e.preventDefault();
       toggleAll();
     }
-  }, [filteredContacts, focusIndex, toggleContactSelection, handleBackToDossier, toggleAll, hasSelection, deselectAll]);
+  }, [filteredContacts, focusIndex, toggleContactSelection, toggleAll, hasSelection, deselectAll]);
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);

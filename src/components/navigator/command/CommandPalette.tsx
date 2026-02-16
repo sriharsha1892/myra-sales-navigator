@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Command } from "cmdk";
+import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/navigator/store";
 import { Overlay } from "@/components/primitives/Overlay";
 import { cn } from "@/lib/cn";
@@ -15,7 +16,6 @@ export function CommandPalette() {
   const companies = useStore((s) => s.companies);
   const contactsByDomain = useStore((s) => s.contactsByDomain);
   const selectCompany = useStore((s) => s.selectCompany);
-  const setViewMode = useStore((s) => s.setViewMode);
   const resetFilters = useStore((s) => s.resetFilters);
   const addToast = useStore((s) => s.addToast);
   const setPendingFreeTextSearch = useStore((s) => s.setPendingFreeTextSearch);
@@ -25,6 +25,7 @@ export function CommandPalette() {
   const presets = useStore((s) => s.presets);
   const loadPreset = useStore((s) => s.loadPreset);
   const recentDomains = useStore((s) => s.recentDomains);
+  const router = useRouter();
   const { history } = useSearchHistory();
   const [search, setSearch] = useState("");
 
@@ -218,11 +219,19 @@ export function CommandPalette() {
             <Command.Group heading="Navigate" className="mb-2">
               <CommandItem
                 onSelect={() => {
-                  setViewMode("companies");
+                  router.push("/exported");
                   setOpen(false);
                 }}
               >
-                View Companies
+                Go to Exported Contacts
+              </CommandItem>
+              <CommandItem
+                onSelect={() => {
+                  router.push("/prospects");
+                  setOpen(false);
+                }}
+              >
+                Go to My Prospects
               </CommandItem>
               <CommandItem
                 onSelect={() => {

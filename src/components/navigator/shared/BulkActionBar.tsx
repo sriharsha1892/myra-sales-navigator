@@ -16,7 +16,6 @@ import { pick } from "@/lib/navigator/ui-copy";
 import { CompanyComparisonModal } from "@/components/navigator/comparison/CompanyComparisonModal";
 
 export function BulkActionBar() {
-  const viewMode = useStore((s) => s.viewMode);
   const selectedContactIds = useStore((s) => s.selectedContactIds);
   const selectedCompanyDomains = useStore((s) => s.selectedCompanyDomains);
   const deselectAllContacts = useStore((s) => s.deselectAllContacts);
@@ -36,11 +35,10 @@ export function BulkActionBar() {
 
   const filteredCompanies = useStore((s) => s.filteredCompanies);
   const contactsByDomain = useStore((s) => s.contactsByDomain);
-  const allContactsViewActive = useStore((s) => s.allContactsViewActive);
   const bulkLoadContacts = useStore((s) => s.bulkLoadContacts);
   const bulkContactsLoadingSize = useStore((s) => s.bulkContactsLoading?.size ?? 0);
 
-  const isContactMode = allContactsViewActive && selectedContactIds.size > 0;
+  const isContactMode = selectedContactIds.size > 0;
   const clearSelection = isContactMode ? deselectAllContacts : deselectAllCompanies;
   const count = isContactMode ? selectedContactIds.size : selectedCompanyDomains.size;
   const domains = Array.from(selectedCompanyDomains);
@@ -221,7 +219,7 @@ export function BulkActionBar() {
                 <Tooltip text={exportTooltip}>
                   <BulkButton onClick={() => initiateExport("excel")} label="Excel" disabled={exportDisabled} />
                 </Tooltip>
-                {viewMode === "companies" && !isContactMode && (
+                {!isContactMode && (
                   <>
                     {count >= 2 && count <= 3 && (
                       <BulkButton onClick={() => setShowComparison(true)} label="Compare" />
