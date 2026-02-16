@@ -8,10 +8,12 @@ export async function GET() {
     const supabase = createServerClient();
     const today = new Date().toISOString().split("T")[0] + "T23:59:59.999Z";
 
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
     const { data: enrollments, error: enrollErr } = await supabase
       .from("outreach_enrollments")
       .select("*")
       .eq("status", "active")
+      .gte("next_step_due_at", thirtyDaysAgo)
       .lte("next_step_due_at", today)
       .order("next_step_due_at", { ascending: true })
       .limit(50);

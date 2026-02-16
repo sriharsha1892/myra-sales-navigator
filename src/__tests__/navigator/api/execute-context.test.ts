@@ -237,10 +237,10 @@ function stubHappyPath(overrides?: {
   const sequenceTable = fakeTableSingle(sequence, sequenceError);
   const updateStepLogTable = fakeTableSingle(); // mark step completed
   const insertStepLogTable = fakeTableList(); // insert next step
-  const updateEnrollmentTable = fakeTableSingle(
+  const updateEnrollmentTable = fakeTableList(
     isLastStep
-      ? { ...UPDATED_ENROLLMENT, status: "completed", current_step: SEQUENCE_STEPS.length }
-      : UPDATED_ENROLLMENT
+      ? [{ ...UPDATED_ENROLLMENT, status: "completed", current_step: SEQUENCE_STEPS.length }]
+      : [UPDATED_ENROLLMENT]
   );
   const fetchStepLogsTable = fakeTableList(STEP_LOGS);
   // user_config for call channel
@@ -285,12 +285,12 @@ function stubLastStep() {
   const sequenceTable = fakeTableSingle({ steps: SEQUENCE_STEPS });
   const updateStepLogTable = fakeTableSingle();
   // No insert for next step when last step
-  const updateEnrollmentTable = fakeTableSingle({
+  const updateEnrollmentTable = fakeTableList([{
     ...UPDATED_ENROLLMENT,
     status: "completed",
     current_step: 3,
     next_step_due_at: null,
-  });
+  }]);
   const fetchStepLogsTable = fakeTableList(STEP_LOGS);
 
   mockFrom
@@ -452,7 +452,7 @@ describe("POST /api/outreach/enrollments/[id]/execute", () => {
     const userConfigTable = fakeTableSingle({ freshsales_domain: "myra" });
     const updateStepLogTable = fakeTableSingle();
     const insertStepLogTable = fakeTableList();
-    const updateEnrollmentTable = fakeTableSingle(UPDATED_ENROLLMENT);
+    const updateEnrollmentTable = fakeTableList([UPDATED_ENROLLMENT]);
     const fetchStepLogsTable = fakeTableList(STEP_LOGS);
 
     mockFrom

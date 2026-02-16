@@ -158,12 +158,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Create the first step log entry as pending
-    await supabase.from("outreach_step_logs").insert({
+    const { error: stepLogErr } = await supabase.from("outreach_step_logs").insert({
       enrollment_id: enrollment.id,
       step_index: 0,
       channel: steps[0].channel,
       status: "pending",
     });
+
+    if (stepLogErr) {
+      // Rollback: delete the orphaned enrollment
+      await supabase.from("outreach_enrollments").delete().eq("id", enrollment.id);
+      return NextResponse.json({ error: "Failed to create step log — enrollment rolled back" }, { status: 500 });
+    }
 
     // Fire-and-forget: create Freshsales task for the first step
     (async () => {

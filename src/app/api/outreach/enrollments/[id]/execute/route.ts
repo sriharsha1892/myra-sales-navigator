@@ -53,7 +53,8 @@ async function rollbackStepLog(
         notes: `Rollback: ${reason}`,
       })
       .eq("enrollment_id", enrollmentId)
-      .eq("step_index", stepIndex);
+      .eq("step_index", stepIndex)
+      .eq("status", "completed");
   } catch (rollbackErr) {
     // Log but don't throw — we're already in an error path
     console.error("[Execute] Rollback step log failed:", rollbackErr);
@@ -389,7 +390,7 @@ export async function POST(
 
     if (nextStepIndex >= steps.length) {
       // Sequence complete
-      const { data, error } = await supabase
+      const { data: completedRows, error } = await supabase
         .from("outreach_enrollments")
         .update({
           current_step: nextStepIndex,
@@ -398,10 +399,10 @@ export async function POST(
           updated_at: now,
         })
         .eq("id", id)
-        .select()
-        .single();
+        .eq("status", "active")
+        .select();
 
-      if (error || !data) {
+      if (error) {
         await rollbackStepLog(supabase, id, currentStepIndex, "Enrollment completion failed");
         return NextResponse.json(
           {
@@ -411,7 +412,19 @@ export async function POST(
           { status: 500 }
         );
       }
-      updatedEnrollment = mapEnrollmentRow(data);
+
+      if (!completedRows || completedRows.length === 0) {
+        // Enrollment was paused/unenrolled during execution — step log stays completed
+        return NextResponse.json(
+          {
+            error: "Enrollment was modified during execution (paused or unenrolled)",
+            stepLogStatus: "completed",
+            enrollmentState: "not_advanced",
+          },
+          { status: 409 }
+        );
+      }
+      updatedEnrollment = mapEnrollmentRow(completedRows[0]);
       completed = true;
     } else {
       // Advance to next step
@@ -439,7 +452,7 @@ export async function POST(
         );
       }
 
-      const { data, error } = await supabase
+      const { data: advancedRows, error } = await supabase
         .from("outreach_enrollments")
         .update({
           current_step: nextStepIndex,
@@ -447,12 +460,11 @@ export async function POST(
           updated_at: now,
         })
         .eq("id", id)
-        .select()
-        .single();
+        .eq("status", "active")
+        .select();
 
-      if (error || !data) {
+      if (error) {
         await rollbackStepLog(supabase, id, currentStepIndex, "Enrollment advance failed");
-        // Also clean up the next step log we just created
         await supabase
           .from("outreach_step_logs")
           .delete()
@@ -467,7 +479,25 @@ export async function POST(
           { status: 500 }
         );
       }
-      updatedEnrollment = mapEnrollmentRow(data);
+
+      if (!advancedRows || advancedRows.length === 0) {
+        // Enrollment was paused/unenrolled during execution — clean up next step log
+        await supabase
+          .from("outreach_step_logs")
+          .delete()
+          .eq("enrollment_id", id)
+          .eq("step_index", nextStepIndex)
+          .eq("status", "pending");
+        return NextResponse.json(
+          {
+            error: "Enrollment was modified during execution (paused or unenrolled)",
+            stepLogStatus: "completed",
+            enrollmentState: "not_advanced",
+          },
+          { status: 409 }
+        );
+      }
+      updatedEnrollment = mapEnrollmentRow(advancedRows[0]);
     }
 
     // Fire-and-forget: sync activity to Freshsales CRM (no rollback on failure)

@@ -126,7 +126,7 @@ export async function PUT(
       }
       const { data, error } = await supabase
         .from("outreach_enrollments")
-        .update({ status: "paused", updated_at: now })
+        .update({ status: "paused", next_step_due_at: null, updated_at: now })
         .eq("id", id)
         .select()
         .single();
@@ -134,6 +134,14 @@ export async function PUT(
       if (error) {
         return NextResponse.json({ error: "Failed to pause enrollment" }, { status: 500 });
       }
+
+      // Cancel any pending step logs so in-flight executions can't complete
+      await supabase
+        .from("outreach_step_logs")
+        .update({ status: "cancelled", notes: "Enrollment paused" })
+        .eq("enrollment_id", id)
+        .eq("status", "pending");
+
       return NextResponse.json({ enrollment: mapEnrollmentRow(data) });
     }
 
@@ -141,9 +149,28 @@ export async function PUT(
       if (enrollment.status !== "paused") {
         return NextResponse.json({ error: "Can only resume paused enrollments" }, { status: 400 });
       }
+
+      // Fetch sequence to recalculate next_step_due_at from now
+      const { data: seq } = await supabase
+        .from("outreach_sequences")
+        .select("steps")
+        .eq("id", enrollment.sequence_id)
+        .single();
+
+      const resumeSteps: SequenceStep[] = seq
+        ? typeof seq.steps === "string" ? JSON.parse(seq.steps) : seq.steps ?? []
+        : [];
+      const stepIdx: number = enrollment.current_step ?? 0;
+      let nextStepDueAt: string | null = null;
+      if (stepIdx < resumeSteps.length) {
+        const nextDue = new Date();
+        nextDue.setDate(nextDue.getDate() + (resumeSteps[stepIdx].delayDays ?? 0));
+        nextStepDueAt = nextDue.toISOString();
+      }
+
       const { data, error } = await supabase
         .from("outreach_enrollments")
-        .update({ status: "active", updated_at: now })
+        .update({ status: "active", next_step_due_at: nextStepDueAt, updated_at: now })
         .eq("id", id)
         .select()
         .single();
@@ -151,6 +178,27 @@ export async function PUT(
       if (error) {
         return NextResponse.json({ error: "Failed to resume enrollment" }, { status: 500 });
       }
+
+      // Re-create pending step log if it was cancelled during pause
+      if (stepIdx < resumeSteps.length) {
+        const { data: existingLog } = await supabase
+          .from("outreach_step_logs")
+          .select("id")
+          .eq("enrollment_id", id)
+          .eq("step_index", stepIdx)
+          .eq("status", "pending")
+          .limit(1);
+
+        if (!existingLog || existingLog.length === 0) {
+          await supabase.from("outreach_step_logs").insert({
+            enrollment_id: id,
+            step_index: stepIdx,
+            channel: resumeSteps[stepIdx].channel,
+            status: "pending",
+          });
+        }
+      }
+
       return NextResponse.json({ enrollment: mapEnrollmentRow(data) });
     }
 
@@ -160,7 +208,7 @@ export async function PUT(
       }
       const { data, error } = await supabase
         .from("outreach_enrollments")
-        .update({ status: "unenrolled", updated_at: now })
+        .update({ status: "unenrolled", next_step_due_at: null, updated_at: now })
         .eq("id", id)
         .select()
         .single();
@@ -168,6 +216,14 @@ export async function PUT(
       if (error) {
         return NextResponse.json({ error: "Failed to unenroll" }, { status: 500 });
       }
+
+      // Cancel any pending step logs
+      await supabase
+        .from("outreach_step_logs")
+        .update({ status: "cancelled", notes: "Enrollment unenrolled" })
+        .eq("enrollment_id", id)
+        .eq("status", "pending");
+
       return NextResponse.json({ enrollment: mapEnrollmentRow(data) });
     }
 
@@ -195,7 +251,7 @@ export async function PUT(
     const currentStepIndex: number = enrollment.current_step ?? 0;
 
     // Mark current step log as completed
-    await supabase
+    const { error: stepLogErr } = await supabase
       .from("outreach_step_logs")
       .update({
         status: "completed",
@@ -206,6 +262,10 @@ export async function PUT(
       .eq("enrollment_id", id)
       .eq("step_index", currentStepIndex)
       .eq("status", "pending");
+
+    if (stepLogErr) {
+      return NextResponse.json({ error: "Failed to update step log" }, { status: 500 });
+    }
 
     const nextStepIndex = currentStepIndex + 1;
 
@@ -220,6 +280,7 @@ export async function PUT(
           updated_at: now,
         })
         .eq("id", id)
+        .eq("status", "active")
         .select()
         .single();
 
@@ -235,14 +296,18 @@ export async function PUT(
     nextDue.setDate(nextDue.getDate() + (nextStep.delayDays ?? 0));
 
     // Create next step log
-    await supabase.from("outreach_step_logs").insert({
+    const { error: nextLogErr } = await supabase.from("outreach_step_logs").insert({
       enrollment_id: id,
       step_index: nextStepIndex,
       channel: nextStep.channel,
       status: "pending",
     });
 
-    // Update enrollment
+    if (nextLogErr) {
+      return NextResponse.json({ error: "Failed to create next step log" }, { status: 500 });
+    }
+
+    // Update enrollment (status guard prevents advancing paused/unenrolled)
     const { data, error } = await supabase
       .from("outreach_enrollments")
       .update({
@@ -251,6 +316,7 @@ export async function PUT(
         updated_at: now,
       })
       .eq("id", id)
+      .eq("status", "active")
       .select()
       .single();
 

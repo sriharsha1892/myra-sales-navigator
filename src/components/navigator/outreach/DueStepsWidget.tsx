@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useState, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useStore } from "@/lib/navigator/store";
 import { CHANNEL_OPTIONS } from "@/lib/navigator/outreach/channelConfig";
 import { ExecutionModal } from "@/components/navigator/outreach/ExecutionModal";
@@ -32,8 +32,8 @@ interface ExecutionResult {
 }
 
 const CHANNEL_COLORS: Record<string, string> = {
-  email: "#d4a012",
-  call: "#22d3ee",
+  email: "#c9a227",
+  call: "#67b5c4",
   linkedin_connect: "#0077B5",
   linkedin_inmail: "#0077B5",
   whatsapp: "#25D366",
@@ -43,9 +43,6 @@ export function DueStepsWidget() {
   const queryClient = useQueryClient();
   const addToast = useStore((s) => s.addToast);
 
-  const [items, setItems] = useState<DueStepItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
   const [collapsed, setCollapsed] = useState(() =>
     typeof window !== "undefined" && localStorage.getItem("nav_due_steps_collapsed") === "1"
   );
@@ -64,33 +61,27 @@ export function DueStepsWidget() {
   const [briefingData, setBriefingData] = useState<Record<string, BriefingData>>({});
   const [briefingLoading, setBriefingLoading] = useState<Record<string, boolean>>({});
 
-  const fetchDueSteps = useCallback(() => {
-    setLoading(true);
-    setError(false);
-
-    fetch(`/api/outreach/due-steps`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch due steps");
-        return res.json();
-      })
-      .then((data: { items: DueStepItem[] }) => {
-        setItems(data.items);
-        setLoading(false);
-      })
-      .catch(() => {
-        setItems([]);
-        setLoading(false);
-        setError(true);
-      });
-  }, []);
-
-  useEffect(() => {
-    fetchDueSteps();
-  }, [fetchDueSteps]);
+  const {
+    data: items = [],
+    isLoading: loading,
+    isError: error,
+    refetch: fetchDueSteps,
+  } = useQuery<DueStepItem[]>({
+    queryKey: ["due-steps"],
+    queryFn: async () => {
+      const res = await fetch("/api/outreach/due-steps");
+      if (!res.ok) throw new Error("Failed to fetch due steps");
+      const data: { items: DueStepItem[] } = await res.json();
+      return data.items;
+    },
+    refetchInterval: 30_000,
+  });
 
   const removeItem = useCallback((enrollmentId: string) => {
-    setItems((prev) => prev.filter((i) => i.enrollment.id !== enrollmentId));
-  }, []);
+    queryClient.setQueryData<DueStepItem[]>(["due-steps"], (prev) =>
+      (prev ?? []).filter((i) => i.enrollment.id !== enrollmentId)
+    );
+  }, [queryClient]);
 
   const handleExecute = useCallback(
     async (item: DueStepItem) => {
@@ -139,6 +130,7 @@ export function DueStepsWidget() {
           addToast({ message: `Sequence completed for ${item.contactName}!`, type: "success" });
           removeItem(enrollmentId);
           queryClient.invalidateQueries({ queryKey: ["enrollments"] });
+          queryClient.invalidateQueries({ queryKey: ["due-steps"] });
           setExecutingId(null);
           return;
         }
@@ -172,6 +164,7 @@ export function DueStepsWidget() {
       addToast({ message: `Step completed for ${modalData.item.contactName}`, type: "success" });
       removeItem(modalData.item.enrollment.id);
       queryClient.invalidateQueries({ queryKey: ["enrollments"] });
+      queryClient.invalidateQueries({ queryKey: ["due-steps"] });
       setModalData(null);
     }
   }, [modalData, addToast, removeItem, queryClient]);
@@ -180,6 +173,7 @@ export function DueStepsWidget() {
     if (expandedCallId) {
       removeItem(expandedCallId);
       queryClient.invalidateQueries({ queryKey: ["enrollments"] });
+      queryClient.invalidateQueries({ queryKey: ["due-steps"] });
       setExpandedCallId(null);
       setCallResult(null);
       setShowCallOutcome(false);
@@ -246,7 +240,7 @@ export function DueStepsWidget() {
               <div className="flex flex-col items-center gap-2 py-4">
                 <p className="text-xs text-red-400">Failed to load due steps</p>
                 <button
-                  onClick={fetchDueSteps}
+                  onClick={() => fetchDueSteps()}
                   className="rounded-input border border-surface-3 px-3 py-1 text-xs font-medium text-text-secondary transition-colors duration-[180ms] hover:bg-surface-2"
                 >
                   Retry
