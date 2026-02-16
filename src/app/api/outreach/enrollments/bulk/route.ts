@@ -65,14 +65,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check which contacts are already enrolled (active or paused) in this sequence
+    // Check which contacts are already enrolled (active, paused, or completed) in this sequence
     const contactIds = body.contacts.map((c) => c.contactId);
     const { data: existingEnrollments } = await supabase
       .from("outreach_enrollments")
       .select("contact_id")
       .eq("sequence_id", body.sequenceId)
       .in("contact_id", contactIds)
-      .in("status", ["active", "paused"]);
+      .in("status", ["active", "paused", "completed"]);
 
     const alreadyEnrolledIds = new Set(
       (existingEnrollments ?? []).map((e) => e.contact_id as string)

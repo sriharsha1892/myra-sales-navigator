@@ -194,28 +194,13 @@ The dedup check only looks for enrollments with status `"active"` or `"paused"`.
 
 ---
 
-## Recommended Fix Priority
+## Fix Status: ALL RESOLVED
 
-### Phase 1 — Fix the "cancelled tasks still run" bug (Bugs 1-3)
+All 9 bugs fixed across commits `e896eee` and subsequent.
 
-1. Add `.eq("status", "active")` to ALL enrollment update calls in execute/route.ts (lines 392, 442)
-2. After the status guard, check if 0 rows were updated — if so, abort and return an error
-3. In pause handler: clear `next_step_due_at`, cancel pending step logs
-4. In unenroll handler: clear `next_step_due_at`, cancel pending step logs
-
-### Phase 2 — Data consistency (Bugs 4-5, 7)
-
-5. In resume handler: recalculate `next_step_due_at` from now + step delay
-6. In advance handler: add error checks on step log ops + status guard
-7. In enrollment creation: check step log insert result, rollback enrollment if it fails
-
-### Phase 3 — Frontend freshness (Bug 6)
-
-8. Convert DueStepsWidget to React Query with `["due-steps"]` key
-9. Invalidate `["due-steps"]` after execute/skip/snooze
-10. Add 30s polling interval
-
-### Phase 4 — Cleanup (Bugs 8-9)
-
-11. Add lower date bound to due-steps query
-12. Decide on bulk dedup policy for completed enrollments
+| Phase | Bugs | Status |
+|-------|------|--------|
+| Phase 1: TOCTOU race | 1-3 | Fixed — `.eq("status", "active")` guards, step log cancellation on pause/unenroll |
+| Phase 2: Data consistency | 4-5, 7 | Fixed — resume recalculates due dates, advance has error checks, enrollment creation rolls back on failure |
+| Phase 3: Frontend freshness | 6 | Fixed — DueStepsWidget converted to React Query with 30s polling |
+| Phase 4: Cleanup | 8-9 | Fixed — 30-day lower bound on due-steps, dedup now includes "completed" status |

@@ -109,22 +109,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if contact is already enrolled in this sequence (active/paused)
+    // Check if contact is already enrolled in this sequence (active/paused/completed)
     const { data: existingEnrollment } = await supabase
       .from("outreach_enrollments")
       .select("id, status")
       .eq("sequence_id", body.sequenceId)
       .eq("contact_id", body.contactId)
-      .in("status", ["active", "paused"])
+      .in("status", ["active", "paused", "completed"])
       .limit(1);
 
     if (existingEnrollment && existingEnrollment.length > 0) {
-      const activeStatus = existingEnrollment[0].status;
+      const existingStatus = existingEnrollment[0].status;
+      const message = existingStatus === "completed"
+        ? "Contact already completed this sequence"
+        : `Contact already has an ${existingStatus} enrollment in this sequence`;
       return NextResponse.json(
         {
-          error: `Contact already has an ${activeStatus} enrollment in this sequence`,
+          error: message,
           enrollmentId: existingEnrollment[0].id,
-          status: activeStatus,
+          status: existingStatus,
         },
         { status: 409 }
       );
