@@ -19,7 +19,6 @@ export function SearchBridge() {
   const setSearchError = useStore((s) => s.setSearchError);
   const setLastSearchParams = useStore((s) => s.setLastSearchParams);
   const filters = useStore((s) => s.filters);
-  const setDemoMode = useStore((s) => s.setDemoMode);
   const { search } = useSearch();
   const { saveToHistory } = useSearchHistory();
   const { notify } = useBrowserNotifications();
@@ -200,6 +199,9 @@ export function SearchBridge() {
     const controller = new AbortController();
     searchAbortRef.current = controller;
 
+    // Store cancel function for UI cancel button
+    useStore.getState().setCancelSearch(() => controller.abort());
+
     // Build combined search params for the API
     const searchParams: SearchParams = {
       signal: controller.signal,
@@ -215,7 +217,6 @@ export function SearchBridge() {
 
     const queryLabel = text ?? summarizeFilters(currentFilters);
 
-    setDemoMode(false);
     setSearchLoading(true);
     setSearchError(null);
     setLastSearchQuery(queryLabel);
@@ -223,16 +224,30 @@ export function SearchBridge() {
     setLastSearchParams(combinedParams);
     useStore.getState().setSearchMeta(null);
     useStore.getState().setEnrichmentProgress(null);
+    useStore.getState().setSearchPhase("discovering");
 
     search(searchParams, {
       onSuccess: (data) => {
-        saveToHistory(queryLabel, currentFilters, data.companies.length);
-        notify("Search complete", `${data.companies.length} companies found`);
-        preWarmContacts(data.companies);
-        enrichCrmStatus(data.companies);
-        enrichTeamActivity(data.companies);
+        // Phase 1 results rendered by twoPhaseSearch, start post-search enrichment
+        const companies = useStore.getState().searchResults ?? data.companies;
+        saveToHistory(queryLabel, currentFilters, companies.length);
+        notify("Search complete", `${companies.length} companies found`);
+        preWarmContacts(companies);
+        enrichCrmStatus(companies);
+        enrichTeamActivity(companies);
         fetchSimilarSearch(queryLabel, useStore.getState().userName ?? "");
         useStore.getState().incrementSessionSearchCount();
+
+        // Auto-open dossier for exact match (company-name searches)
+        const exactMatch = companies.find((c: { exactMatch?: boolean }) => c.exactMatch);
+        if (exactMatch) {
+          requestAnimationFrame(() => {
+            const current = useStore.getState().searchResults;
+            if (current?.some((c) => c.domain === exactMatch.domain)) {
+              useStore.getState().selectCompany(exactMatch.domain);
+            }
+          });
+        }
       },
       onError: (error: Error) => {
         if (error.name === "AbortError") return;
@@ -241,13 +256,14 @@ export function SearchBridge() {
       onSettled: (_data, error) => {
         if (error?.name === "AbortError") return;
         setSearchLoading(false);
+        useStore.getState().setCancelSearch(null);
       },
     });
 
     // Clear pending triggers
     if (hasFreeText) setPendingFreeTextSearch(null);
     if (hasFilter) setPendingFilterSearch(false);
-  }, [pendingFreeTextSearch, pendingFilterSearch, search, setPendingFreeTextSearch, setPendingFilterSearch, setSearchLoading, setSearchError, setLastSearchQuery, setLastICPCriteria, setLastSearchParams, filters, saveToHistory, notify, setDemoMode]);
+  }, [pendingFreeTextSearch, pendingFilterSearch, search, setPendingFreeTextSearch, setPendingFilterSearch, setSearchLoading, setSearchError, setLastSearchQuery, setLastICPCriteria, setLastSearchParams, filters, saveToHistory, notify]);
 
   return null;
 }

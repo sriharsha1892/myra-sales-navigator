@@ -169,7 +169,7 @@ function extractFirmographicsFromDescription(desc: string): { employeeCount?: nu
 // ---------------------------------------------------------------------------
 
 export async function POST(request: Request) {
-  let body: { filters?: FilterState; freeText?: string; userName?: string };
+  let body: { filters?: FilterState; freeText?: string; userName?: string; domains?: string[] };
   try {
     body = await request.json();
   } catch {
@@ -179,7 +179,10 @@ export async function POST(request: Request) {
   const filters = body.filters;
   const freeText = body.freeText;
 
-  if (!filters && !freeText) {
+  // Phase 2 enrichment: caller passes pre-discovered domains
+  const enrichOnlyDomains = body.domains;
+
+  if (!filters && !freeText && !enrichOnlyDomains) {
     return NextResponse.json({
       companies: [],
       signals: [],
@@ -212,6 +215,149 @@ export async function POST(request: Request) {
   const errors: SearchErrorDetail[] = [];
   const warnings: string[] = [];
   let querySimplified = false;
+  let didYouMean: { original: string; simplified: string } | null = null;
+
+  // --- Enrich-only path: Phase 2 of two-phase search ---
+  if (enrichOnlyDomains && enrichOnlyDomains.length > 0) {
+    try {
+      const enrichLimits = await getEnrichmentLimits();
+      // Build minimal Company shells from domains (for Apollo enrichment input)
+      const now = new Date().toISOString();
+      const shells: Company[] = enrichOnlyDomains.map((domain) => ({
+        domain,
+        name: domain,
+        firstViewedBy: "",
+        firstViewedAt: now,
+        lastViewedBy: "",
+        lastViewedAt: now,
+        source: "",
+        noteCount: 0,
+        lastNoteAt: null,
+        extractionCount: 0,
+        lastExtractionAt: null,
+        excluded: false,
+        excludedBy: null,
+        excludedAt: null,
+        exclusionReason: null,
+        status: "new",
+        statusChangedBy: null,
+        statusChangedAt: null,
+        viewedBy: null,
+        industry: "",
+        vertical: "",
+        employeeCount: 0,
+        location: "",
+        region: "",
+        description: "",
+        icpScore: 0,
+        hubspotStatus: "none" as const,
+        freshsalesStatus: "none" as const,
+        freshsalesIntel: null,
+        sources: [],
+        signals: [],
+        contactCount: 0,
+        lastRefreshed: now,
+      }));
+
+      // Try to load cached Exa data for each domain to get richer shells
+      for (const shell of shells) {
+        const cached = await getCached<Company>(`exa:company:${shell.domain}`);
+        if (cached) {
+          Object.assign(shell, cached);
+        }
+      }
+
+      const apolloEnriched = await apolloStructuredSearch(shells, enrichLimits.maxSearchEnrich);
+      apolloEnrichedCount = apolloEnriched.length;
+
+      // Merge Apollo enrichment onto shells
+      const enrichedDomains = new Set(apolloEnriched.map((c) => getRootDomain(c.domain)));
+      const merged = shells.map((c) =>
+        enrichedDomains.has(getRootDomain(c.domain))
+          ? apolloEnriched.find((e) => getRootDomain(e.domain) === getRootDomain(c.domain))!
+          : c
+      );
+
+      // ICP scoring
+      let icpWeights: Partial<IcpWeights> = {};
+      try {
+        const cachedWeights = await getCached<IcpWeights>("admin:icp-weights");
+        if (cachedWeights) {
+          icpWeights = cachedWeights;
+        } else {
+          const supabase = createServerClient();
+          const { data: configRow } = await supabase.from("admin_config").select("icp_weights").eq("id", "global").single();
+          if (configRow?.icp_weights) {
+            icpWeights = configRow.icp_weights as IcpWeights;
+            await setCached("admin:icp-weights", icpWeights, CACHE_TTLS.adminConfig);
+          }
+        }
+      } catch { /* use defaults */ }
+
+      const scoringContext = {
+        verticals: filters?.verticals ?? [],
+        regions: filters?.regions ?? [],
+        sizes: filters?.sizes ?? [],
+        signals: filters?.signals?.map(String) ?? [],
+      };
+
+      for (const c of merged) {
+        const { score, breakdown } = calculateIcpScore(c, icpWeights, scoringContext);
+        c.icpScore = score;
+        c.icpBreakdown = breakdown;
+      }
+
+      // NL ICP scoring for discovery queries
+      const isNameQuery = looksLikeCompanyName(freeText || "");
+      let nlIcpCriteria: NLICPCriteria | null = null;
+      if (!isNameQuery && freeText && remainingMs() >= 1500) {
+        try {
+          nlIcpCriteria = await extractICPCriteria(freeText);
+          const nlScores = await scoreCompaniesAgainstICP(nlIcpCriteria, merged);
+          const scoreMap = new Map(nlScores.map((s) => [s.domain, s]));
+          for (const c of merged) {
+            const nlScore = scoreMap.get(c.domain);
+            if (nlScore) {
+              c.nlIcpScore = nlScore.score;
+              c.nlIcpReasoning = nlScore.reasoning;
+              c.icpScore = nlScore.score;
+            }
+          }
+        } catch { /* use rule-based scores */ }
+      }
+
+      merged.sort((a, b) => b.icpScore - a.icpScore);
+
+      return NextResponse.json({
+        companies: merged,
+        signals: [],
+        reformulatedQueries: [],
+        extractedEntities: { verticals: [], regions: [], signals: [] },
+        nlIcpCriteria,
+        excludedCount: 0,
+        searchEngine: "apollo",
+        errors: [],
+        warnings: [],
+        searchMeta: {
+          totalDurationMs: Date.now() - searchStart,
+          engineUsed: "apollo",
+          enrichedCount: apolloEnrichedCount,
+          unenrichedCount: merged.length - apolloEnrichedCount,
+        },
+      });
+    } catch (err) {
+      console.error("[Search] enrich-only failed:", err);
+      return NextResponse.json({
+        companies: [],
+        signals: [],
+        reformulatedQueries: [],
+        error: "Enrichment failed.",
+        errors: [classifyError(err, "apollo")],
+        warnings: [],
+        searchMeta: { totalDurationMs: Date.now() - searchStart, engineUsed: "apollo", enrichedCount: 0, unenrichedCount: 0 },
+      }, { status: 500 });
+    }
+  }
 
   // LLM query reformulation (Groq) — expands raw text into semantic queries.
   // Skip reformulation for company name queries to avoid genericizing them.
@@ -406,6 +552,7 @@ export async function POST(request: Request) {
           }
           if (searchCompanies.length > 0) {
             querySimplified = true;
+            didYouMean = { original: freeText, simplified };
             warnings.push(`No exact results for "${freeText}". Showing results for: "${simplified}"`);
           }
         } catch {
@@ -639,6 +786,7 @@ export async function POST(request: Request) {
       usageSummary,
       errors,
       warnings,
+      didYouMean,
       searchMeta: {
         totalDurationMs,
         engineUsed: searchEngine,

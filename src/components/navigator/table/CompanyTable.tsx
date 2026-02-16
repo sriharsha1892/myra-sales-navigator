@@ -9,6 +9,7 @@ import { logEmailCopy } from "@/lib/navigator/logEmailCopy";
 import { useStore } from "@/lib/navigator/store";
 import { isStale } from "@/lib/navigator/staleness";
 import { CompanyLogo } from "@/components/navigator/shared/CompanyLogo";
+import { SourceBadge } from "@/components/navigator/badges/SourceBadge";
 
 type SortField = "name" | "icp_score" | "industry" | "employee_count" | "location" | "signals";
 type SortDir = "asc" | "desc";
@@ -140,22 +141,25 @@ export function CompanyTable({
           </tr>
         </thead>
         <tbody>
-          {sorted.map((company) => {
+          {sorted.map((company, idx) => {
             const isSelected = selectedCompanyDomain === company.domain;
             const isChecked = selectedCompanyDomains.has(company.domain);
             const contacts = contactsByDomain[company.domain];
             const topContact = contacts?.find((c) => c.email);
             const crmStatus = company.freshsalesStatus !== "none" ? company.freshsalesStatus : company.hubspotStatus !== "none" ? company.hubspotStatus : null;
             const stale = isStale(company.lastRefreshed);
+            const isActiveResult = useStore.getState().activeResultIndex === idx;
 
             return (
               <tr
                 key={company.domain}
+                data-result-index={idx}
                 onClick={() => onSelectCompany(company.domain)}
                 className={cn(
                   "cursor-pointer border-b border-surface-3 transition-colors",
                   isSelected ? "bg-accent-primary-light" : "bg-surface-1 hover:bg-surface-2",
-                  isChecked && "ring-1 ring-inset ring-accent-highlight/30"
+                  isChecked && "ring-1 ring-inset ring-accent-highlight/30",
+                  isActiveResult && "ring-1 ring-accent-secondary/40"
                 )}
               >
                 <td className={tdClass}>
@@ -178,6 +182,11 @@ export function CompanyTable({
                   <div className="flex items-center gap-1.5">
                     <CompanyLogo logoUrl={company.logoUrl} domain={company.domain} name={company.name} size={16} className="h-4 w-4" />
                     <span className="max-w-[180px] truncate" title={company.name}>{company.name}</span>
+                    {company.sources.length > 0 && (
+                      <div className="flex items-center gap-0.5">
+                        {company.sources.map((s) => <SourceBadge key={s} source={s} />)}
+                      </div>
+                    )}
                     {stale && (
                       <Tooltip text={`Data is ${formatTimeAgo(company.lastRefreshed)} old`}>
                         <span className="flex-shrink-0 text-[9px] text-warning">

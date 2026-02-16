@@ -31,6 +31,7 @@ import type {
   SearchErrorDetail,
   SearchMeta,
   CompanyPipelineStage,
+  LastExportedContacts,
 } from "./types";
 import { DEFAULT_PIPELINE_STAGES } from "./types";
 import {
@@ -70,7 +71,6 @@ interface AppState {
 
   // Slide-over
   slideOverOpen: boolean;
-  slideOverMode: "dossier" | "contacts";
 
   // Auth
   userName: string | null;
@@ -85,6 +85,8 @@ interface AppState {
   triggerExport: "csv" | "clipboard" | "excel" | null;
   triggerExpressExport: boolean;
   setTriggerExpressExport: (v: boolean) => void;
+  lastExportedContacts: LastExportedContacts | null;
+  setLastExportedContacts: (data: LastExportedContacts | null) => void;
 
   // Cmd+K free-text search
   pendingFreeTextSearch: string | null;
@@ -94,6 +96,7 @@ interface AppState {
 
   // Search loading state
   searchLoading: boolean;
+  searchPhase: "discovering" | "enriching" | "done" | null;
 
   // Last search query (for match evidence highlighting)
   lastSearchQuery: string | null;
@@ -144,8 +147,6 @@ interface AppState {
   excludeCompany: (domain: string) => void;
   undoExclude: (domain: string) => void;
   setSlideOverOpen: (open: boolean) => void;
-  setSlideOverMode: (mode: "dossier" | "contacts") => void;
-  openContacts: (domain: string) => void;
   setUserName: (name: string | null, admin?: boolean) => void;
   addNote: (domain: string, content: string, mentions?: string[]) => void;
   editNote: (noteId: string, domain: string, content: string, mentions?: string[]) => void;
@@ -175,6 +176,10 @@ interface AppState {
   setLastSearchQuery: (query: string | null) => void;
   setExtractedEntities: (entities: ExtractedEntities | null) => void;
   setSearchLoading: (loading: boolean) => void;
+  setSearchPhase: (phase: "discovering" | "enriching" | "done" | null) => void;
+  mergeSearchResults: (companies: CompanyEnriched[]) => void;
+  cancelSearch: (() => void) | null;
+  setCancelSearch: (fn: (() => void) | null) => void;
   setResultGrouping: (g: "icp_tier" | "source" | "none") => void;
   toggleDetailPane: () => void;
   setExclusions: (exclusions: Exclusion[]) => void;
@@ -206,10 +211,6 @@ interface AppState {
   // Outreach session state
   writingRulesSession: string;
   setWritingRules: (rules: string) => void;
-
-  // All contacts view (flat list across all companies)
-  allContactsViewActive: boolean;
-  setAllContactsViewActive: (active: boolean) => void;
 
   // Outreach sequences
   activeSequences: OutreachSequence[];
@@ -283,10 +284,6 @@ interface AppState {
   setEnrichmentProgress: (p: { total: number; completed: number } | null) => void;
   incrementEnrichmentCompleted: () => void;
 
-  // Demo mode
-  demoMode: boolean;
-  setDemoMode: (on: boolean) => void;
-
   // CRM enrichment progress indicator
   crmEnrichmentInProgress: boolean;
   setCrmEnrichmentInProgress: (v: boolean) => void;
@@ -310,6 +307,7 @@ interface AppState {
   // Computed / derived
   getCompanyStage: (domain: string) => CompanyPipelineStage;
   filteredCompanies: () => CompanyEnriched[];
+  quickFilterCounts: () => Record<string, number> | null;
   selectedCompany: () => CompanyEnriched | null;
   companyContacts: (domain: string) => Contact[];
   companyNotes: (domain: string) => CompanyNote[];
@@ -366,15 +364,6 @@ function loadCardDensity(): "comfortable" | "compact" | "table" {
     if (raw === "compact" || raw === "table") return raw;
     return "comfortable";
   } catch { return "comfortable"; }
-}
-
-// Load persisted demo mode from localStorage (default true)
-function loadDemoMode(): boolean {
-  if (typeof window === "undefined") return true;
-  try {
-    const raw = localStorage.getItem("nav_demo_mode");
-    return raw === null ? true : raw === "1";
-  } catch { return true; }
 }
 
 // Load persisted hover prefetch preference from localStorage (default true)
@@ -440,7 +429,6 @@ export const useStore = create<AppState>((set, get) => ({
   filters: defaultFilters,
 
   slideOverOpen: false,
-  slideOverMode: "dossier",
 
   userName: null,
   isAdmin: false,
@@ -452,9 +440,12 @@ export const useStore = create<AppState>((set, get) => ({
   triggerExport: null,
   triggerExpressExport: false,
   setTriggerExpressExport: (v) => set({ triggerExpressExport: v }),
+  lastExportedContacts: null,
+  setLastExportedContacts: (data) => set({ lastExportedContacts: data }),
   pendingFreeTextSearch: null,
   pendingFilterSearch: false,
   searchLoading: false,
+  searchPhase: null,
   lastSearchQuery: null,
   extractedEntities: null,
   lastICPCriteria: null,
@@ -486,10 +477,6 @@ export const useStore = create<AppState>((set, get) => ({
   // Outreach session state
   writingRulesSession: "",
   setWritingRules: (rules) => set({ writingRulesSession: rules }),
-
-  // All contacts view
-  allContactsViewActive: false,
-  setAllContactsViewActive: (active) => set({ allContactsViewActive: active }),
 
   // Outreach sequences
   activeSequences: [],
@@ -718,15 +705,6 @@ export const useStore = create<AppState>((set, get) => ({
     );
   },
 
-  // Demo mode
-  demoMode: loadDemoMode(),
-  setDemoMode: (on) => {
-    set({ demoMode: on });
-    if (typeof window !== "undefined") {
-      localStorage.setItem("nav_demo_mode", on ? "1" : "0");
-    }
-  },
-
   // Follow-up nudges
   followUpNudgesDismissed: false,
   dismissFollowUpNudges: () => set({ followUpNudgesDismissed: true }),
@@ -758,7 +736,7 @@ export const useStore = create<AppState>((set, get) => ({
       if (typeof window !== "undefined" && domain) {
         localStorage.setItem("nav_detail_pane_collapsed", "0");
       }
-      return { selectedCompanyDomain: domain, slideOverOpen: !!domain, slideOverMode: "dossier", detailPaneCollapsed: false, dossierScrollToTop: state.dossierScrollToTop + 1, selectedContactIds: new Set<string>(), selectedContactsForOutreach: new Set<string>(), exportState: null };
+      return { selectedCompanyDomain: domain, slideOverOpen: !!domain, detailPaneCollapsed: false, dossierScrollToTop: state.dossierScrollToTop + 1, selectedContactIds: new Set<string>(), selectedContactsForOutreach: new Set<string>(), exportState: null, lastExportedContacts: null };
     });
     if (hadSelections && domain) {
       get().addToast({ message: "Selection cleared", type: "info", duration: 2000 });
@@ -1093,18 +1071,6 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   setSlideOverOpen: (open) => set({ slideOverOpen: open }),
-  setSlideOverMode: (mode) => set({ slideOverMode: mode }),
-  openContacts: (domain) => {
-    set({ selectedCompanyDomain: domain, slideOverOpen: true, slideOverMode: "contacts" });
-    // Track view same as selectCompany
-    if (!sessionViewedDomains.has(domain)) {
-      sessionViewedDomains.add(domain);
-      set((state) => ({ sessionCompaniesReviewed: state.sessionCompaniesReviewed + 1 }));
-    }
-    const recent = get().recentDomains.filter((r) => r !== domain);
-    recent.unshift(domain);
-    set({ recentDomains: recent.slice(0, 10) });
-  },
 
   setUserName: (name, admin) => {
     if (admin !== undefined) {
@@ -1362,7 +1328,7 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
-  setSearchResults: (companies) => set({ searchResults: companies, similarResults: null, searchMeta: null }),
+  setSearchResults: (companies) => set({ searchResults: companies, similarResults: null, searchMeta: null, lastExportedContacts: null, activeResultIndex: null }),
   setSearchError: (error) => set({
     searchError: error,
     searchErrors: error
@@ -1403,6 +1369,22 @@ export const useStore = create<AppState>((set, get) => ({
   setLastSearchQuery: (query) => set({ lastSearchQuery: query }),
   setExtractedEntities: (entities) => set({ extractedEntities: entities }),
   setSearchLoading: (loading) => set({ searchLoading: loading }),
+  setSearchPhase: (phase) => set({ searchPhase: phase }),
+  mergeSearchResults: (companies) => {
+    const current = get().searchResults;
+    if (!current) {
+      set({ searchResults: companies });
+      return;
+    }
+    // Merge by domain — enriched data replaces existing
+    const domainMap = new Map(current.map((c) => [c.domain, c]));
+    for (const c of companies) {
+      domainMap.set(c.domain, c);
+    }
+    set({ searchResults: Array.from(domainMap.values()) });
+  },
+  cancelSearch: null,
+  setCancelSearch: (fn) => set({ cancelSearch: fn }),
   setResultGrouping: (g) => set({ resultGrouping: g }),
   toggleDetailPane: () => set((state) => {
     const next = !state.detailPaneCollapsed;
@@ -1624,6 +1606,21 @@ export const useStore = create<AppState>((set, get) => ({
     }
 
     return result;
+  },
+
+  quickFilterCounts: () => {
+    const results = get().searchResults;
+    if (!results) return null;
+    const decisions = get().companyDecisions;
+    const cbd = get().contactsByDomain;
+    return {
+      has_signals: results.filter((c) => c.signals?.length > 0).length,
+      not_in_freshsales: results.filter((c) => c.freshsalesStatus === "none" || !c.freshsalesStatus).length,
+      high_icp: results.filter((c) => c.icpScore >= 80).length,
+      has_contacts: results.filter((c) => (cbd[c.domain]?.length ?? 0) > 0).length,
+      unreviewed: results.filter((c) => !decisions?.[c.domain]).length,
+      reviewed: results.filter((c) => !!decisions?.[c.domain]).length,
+    };
   },
 
   updateContact: (domain: string, contactId: string, updated: Contact) => {

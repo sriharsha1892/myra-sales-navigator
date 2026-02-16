@@ -20,6 +20,7 @@ import { formatTimeAgo } from "@/components/navigator/shared/StalenessIndicator"
 import { hasStaleRefreshed, markStaleRefreshed } from "@/lib/navigator/store";
 import { getVerificationDotColor } from "@/lib/navigator/verification";
 import { CompanyLogo } from "@/components/navigator/shared/CompanyLogo";
+import { SourceBadge } from "@/components/navigator/badges/SourceBadge";
 
 interface CompanyCardProps {
   company: CompanyEnriched;
@@ -326,6 +327,11 @@ export function CompanyCard({
             {company.name}
           </span>
         </Tooltip>
+        {company.sources.length > 0 && (
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            {company.sources.map((s) => <SourceBadge key={s} source={s} />)}
+          </div>
+        )}
         {pipelineStage !== "new" && (
           <span className="flex flex-shrink-0 items-center gap-1">
             <span className={cn("h-1.5 w-1.5 rounded-full", stageConfig.dotClass)} />

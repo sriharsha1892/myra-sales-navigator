@@ -16,6 +16,7 @@ const chipConfig: { key: QuickFilter; label: string }[] = [
 export function QuickFilterBar() {
   const quickFilters = useStore((s) => s.filters.quickFilters);
   const toggleQuickFilter = useStore((s) => s.toggleQuickFilter);
+  const counts = useStore((s) => s.quickFilterCounts());
 
   const activeCount = quickFilters.filter((f) =>
     chipConfig.some((c) => c.key === f)
@@ -26,6 +27,8 @@ export function QuickFilterBar() {
       <div className="flex flex-wrap gap-1.5">
         {chipConfig.map(({ key, label }) => {
           const active = quickFilters.includes(key);
+          const count = counts?.[key];
+          const isEmpty = count === 0;
           return (
             <button
               key={key}
@@ -34,10 +37,14 @@ export function QuickFilterBar() {
                 "rounded-pill border px-2.5 py-0.5 text-xs font-medium transition-all duration-[180ms]",
                 active
                   ? "bg-accent-primary/15 text-accent-primary border-accent-primary/30"
-                  : "border-surface-3 text-text-secondary hover:text-text-primary"
+                  : "border-surface-3 text-text-secondary hover:text-text-primary",
+                isEmpty && !active && "opacity-50"
               )}
             >
               {label}
+              {count != null && (
+                <span className="ml-1 tabular-nums text-text-tertiary">{count}</span>
+              )}
             </button>
           );
         })}

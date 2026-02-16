@@ -28,6 +28,7 @@ export interface SearchMeta {
   engineUsed: string;
   enrichedCount: number;
   unenrichedCount: number;
+  didYouMean?: { original: string; simplified: string } | null;
 }
 
 export type HubSpotStatus =
@@ -124,7 +125,7 @@ export type SignalType = "hiring" | "funding" | "expansion" | "news";
 
 export type ConfidenceLevel = "high" | "medium" | "low" | "none";
 
-export type ViewMode = "companies" | "exported" | "prospect_list";
+export type ViewMode = "companies";
 
 export type TriageDecision = "interested" | "pass" | "skip";
 
@@ -284,6 +285,14 @@ export interface ContactSnapshot {
   title: string;
   email: string | null;
   company: string;
+}
+
+export interface LastExportedContacts {
+  contacts: Contact[];
+  domains: string[];
+  primaryDomain: string | null;
+  timestamp: number;
+  mode: "csv" | "clipboard" | "excel";
 }
 
 // ---------------------------------------------------------------------------

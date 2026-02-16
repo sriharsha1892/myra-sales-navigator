@@ -23,10 +23,12 @@ export function useKeyboardShortcuts() {
         return;
       }
 
-      // Escape — close palette, slide-over, or deselect
+      // Escape — cancel search, close palette, slide-over, or deselect
       if (e.key === "Escape") {
         if (state.commandPaletteOpen) {
           state.setCommandPaletteOpen(false);
+        } else if (state.searchLoading && state.cancelSearch) {
+          state.cancelSearch();
         } else if (state.slideOverOpen) {
           state.setSlideOverOpen(false);
         } else {
@@ -100,20 +102,20 @@ export function useKeyboardShortcuts() {
         return;
       }
 
-      // ArrowDown — move to next result
+      // ArrowDown — move to next visible result
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        const results = state.searchResults ?? [];
-        if (results.length === 0) return;
+        const visible = state.filteredCompanies();
+        if (visible.length === 0) return;
         const currentIndex = state.activeResultIndex ?? -1;
-        const nextIndex = Math.min(currentIndex + 1, results.length - 1);
+        const nextIndex = Math.min(currentIndex + 1, visible.length - 1);
         state.setActiveResultIndex(nextIndex);
         const el = document.querySelector(`[data-result-index="${nextIndex}"]`);
         el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
         return;
       }
 
-      // ArrowUp — move to previous result
+      // ArrowUp — move to previous visible result
       if (e.key === "ArrowUp") {
         e.preventDefault();
         const currentIndex = state.activeResultIndex ?? 0;
@@ -124,24 +126,24 @@ export function useKeyboardShortcuts() {
         return;
       }
 
-      // Enter — select active result
+      // Enter — select active visible result
       if (e.key === "Enter") {
-        const results = state.searchResults ?? [];
+        const visible = state.filteredCompanies();
         const idx = state.activeResultIndex;
-        if (idx != null && idx >= 0 && idx < results.length) {
+        if (idx != null && idx >= 0 && idx < visible.length) {
           e.preventDefault();
-          state.selectCompany(results[idx].domain);
+          state.selectCompany(visible[idx].domain);
         }
         return;
       }
 
-      // Space — toggle checkbox on active result
+      // Space — toggle checkbox on active visible result
       if (e.key === " ") {
-        const results = state.searchResults ?? [];
+        const visible = state.filteredCompanies();
         const idx = state.activeResultIndex;
-        if (idx != null && idx >= 0 && idx < results.length) {
+        if (idx != null && idx >= 0 && idx < visible.length) {
           e.preventDefault();
-          state.toggleCompanySelection(results[idx].domain);
+          state.toggleCompanySelection(visible[idx].domain);
         }
         return;
       }

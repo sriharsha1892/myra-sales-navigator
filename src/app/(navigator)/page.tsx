@@ -15,6 +15,7 @@ import { useStore } from "@/lib/navigator/store";
 import { MentionNotifications } from "@/components/navigator/MentionNotifications";
 import { ChatWidget } from "@/components/navigator/chat/ChatWidget";
 import { TeamPulseWidget } from "@/components/navigator/shared/TeamPulseWidget";
+import { PostExportPrompt } from "@/components/navigator/outreach/PostExportPrompt";
 import { SearchTypeahead } from "@/components/navigator/search/SearchTypeahead";
 import type { SearchTypeaheadHandle } from "@/components/navigator/search/SearchTypeahead";
 import { useTypeahead } from "@/hooks/navigator/useTypeahead";
@@ -190,9 +191,17 @@ export default function Home() {
         {/* Centered search bar */}
         <div className="relative flex w-full max-w-3xl items-center mx-4">
           {searchLoading ? (
-            <svg className="pointer-events-none absolute left-3 h-3.5 w-3.5 text-text-tertiary animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
-            </svg>
+            <button
+              onClick={() => useStore.getState().cancelSearch?.()}
+              className="absolute left-3 z-10 flex h-4 w-4 items-center justify-center text-text-tertiary hover:text-danger transition-colors cursor-pointer"
+              title="Cancel search (Esc)"
+              aria-label="Cancel search"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
           ) : (
             <svg className="pointer-events-none absolute left-3 h-3.5 w-3.5 text-text-tertiary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="8" />
@@ -230,6 +239,9 @@ export default function Home() {
                 useStore.getState().setPendingFreeTextSearch(searchInput.trim());
               }
               if (e.key === "Escape") {
+                if (useStore.getState().searchLoading) {
+                  useStore.getState().cancelSearch?.();
+                }
                 setTypeaheadVisible(false);
               }
               if (e.key === "k" && e.metaKey) {
@@ -286,6 +298,7 @@ export default function Home() {
       <SessionActivityBridge />
       <ChatWidget />
       <TeamPulseWidget />
+      <PostExportPrompt />
     </div>
   );
 }

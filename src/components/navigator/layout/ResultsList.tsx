@@ -5,32 +5,17 @@ import { CompanyCard } from "@/components/navigator/cards/CompanyCard";
 import { InlineContacts } from "@/components/navigator/cards/InlineContacts";
 import { SkeletonCard } from "@/components/navigator/cards/SkeletonCard";
 import { EmptyState } from "@/components/navigator/shared";
-import type { SortField, CompanyEnriched, ViewMode } from "@/lib/navigator/types";
+import type { SortField, CompanyEnriched } from "@/lib/navigator/types";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { useSearchHistory } from "@/hooks/navigator/useSearchHistory";
 import { pick } from "@/lib/navigator/ui-copy";
-import { ExportedContactsPanel } from "@/components/navigator/exports/ExportedContactsPanel";
-import { AllContactsView } from "./AllContactsView";
-import { SessionStarterCard } from "@/components/navigator/home/SessionStarterCard";
 import { SimilarSearchBanner } from "@/components/navigator/banners/SimilarSearchBanner";
 import { ResultsTabBar } from "./ResultsTabBar";
 import { ResultsHeader } from "./ResultsHeader";
 import { CompanyTable } from "@/components/navigator/table/CompanyTable";
 import { QuickFilterBar } from "@/components/navigator/shared/QuickFilterBar";
-import { SEED_COMPANIES, SEED_CONTACTS } from "@/lib/navigator/seed-data";
-
-const EXAMPLE_CATEGORIES = [
-  { label: "Exact Company", examples: ["BASF SE", "Brenntag", "Evonik"] },
-  { label: "Industry + Region", examples: ["SaaS companies in EMEA", "chemicals in Europe", "food ingredients North America"] },
-  { label: "With Signals", examples: ["tech companies hiring VPs in US", "packaging companies funding round", "polymer manufacturers hiring"] },
-  { label: "Multi-criteria", examples: ["mid-size pharma expanding Asia with funding", "specialty chemicals North America", "agricultural distributors Latin America"] },
-];
-
-const ALL_EXAMPLE_QUERIES = EXAMPLE_CATEGORIES.flatMap((c) => c.examples);
+import { MorningDashboard } from "@/components/navigator/home/MorningDashboard";
 
 export function ResultsList() {
-  const viewMode = useStore((s) => s.viewMode);
-  const setViewMode = useStore((s) => s.setViewMode);
   const sortField = useStore((s) => s.sortField);
   const sortDirection = useStore((s) => s.sortDirection);
   const setSortField = useStore((s) => s.setSortField);
@@ -38,11 +23,7 @@ export function ResultsList() {
   const searchError = useStore((s) => s.searchError);
   const searchResults = useStore((s) => s.searchResults);
   const searchLoading = useStore((s) => s.searchLoading);
-  const setPendingFreeTextSearch = useStore((s) => s.setPendingFreeTextSearch);
-  const setFilters = useStore((s) => s.setFilters);
-  const setPendingFilterSearch = useStore((s) => s.setPendingFilterSearch);
   const lastSearchQuery = useStore((s) => s.lastSearchQuery);
-  const { history } = useSearchHistory();
 
   const filteredCompanies = useStore((s) => s.filteredCompanies);
   const selectedCompanyDomain = useStore((s) => s.selectedCompanyDomain);
@@ -50,16 +31,9 @@ export function ResultsList() {
   const selectedCompanyDomains = useStore((s) => s.selectedCompanyDomains);
   const toggleCompanySelection = useStore((s) => s.toggleCompanySelection);
   const expandedContactsDomain = useStore((s) => s.expandedContactsDomain);
-  const allContactsViewActive = useStore((s) => s.allContactsViewActive);
-  const setAllContactsViewActive = useStore((s) => s.setAllContactsViewActive);
-  const presets = useStore((s) => s.presets);
-  const loadPreset = useStore((s) => s.loadPreset);
   const lastExcludedCount = useStore((s) => s.lastExcludedCount);
   const deselectAllCompanies = useStore((s) => s.deselectAllCompanies);
   const activeResultIndex = useStore((s) => s.activeResultIndex);
-  const prospectList = useStore((s) => s.prospectList);
-  const demoMode = useStore((s) => s.demoMode);
-  const setContactsForDomain = useStore((s) => s.setContactsForDomain);
   const relevanceFeedback = useStore((s) => s.relevanceFeedback);
   const showHiddenResults = useStore((s) => s.showHiddenResults);
   const setShowHiddenResults = useStore((s) => s.setShowHiddenResults);
@@ -69,19 +43,10 @@ export function ResultsList() {
   const cardDensity = useStore((s) => s.cardDensity);
   const contactsByDomain = useStore((s) => s.contactsByDomain);
   const selectAllCompanies = useStore((s) => s.selectAllCompanies);
+  const searchPhase = useStore((s) => s.searchPhase);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Pick 6 random example queries per mount
-  const exampleQueries = useMemo(() => {
-    const shuffled = [...ALL_EXAMPLE_QUERIES].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, 6);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only on mount
-  }, []);
-
-  const [showOnboarding, setShowOnboarding] = useState(
-    () => typeof window !== "undefined" && !localStorage.getItem("nav_onboarded")
-  );
   const [relatedCollapsed, setRelatedCollapsed] = useState(true);
   const [lowFitCollapsed, setLowFitCollapsed] = useState(true);
   const [previousResultCount, setPreviousResultCount] = useState(6);
@@ -105,24 +70,7 @@ export function ResultsList() {
     });
   }, [searchResults]);
 
-  // Seed contacts into store when demo mode is active
   const hasSearched = searchResults !== null;
-  const seedContactsLoadedRef = useRef(false);
-  useEffect(() => {
-    if (demoMode && !hasSearched && !seedContactsLoadedRef.current) {
-      for (const [domain, contacts] of Object.entries(SEED_CONTACTS)) {
-        setContactsForDomain(domain, contacts);
-      }
-      seedContactsLoadedRef.current = true;
-    }
-  }, [demoMode, hasSearched, setContactsForDomain]);
-
-  const dismissOnboarding = () => {
-    setShowOnboarding(false);
-    localStorage.setItem("nav_onboarded", "1");
-  };
-
-  const showDemoData = demoMode && !hasSearched && !searchLoading;
 
   const handleSortChange = useCallback((field: SortField) => {
     if (sortField === field) {
@@ -137,59 +85,21 @@ export function ResultsList() {
     setSortDirection(sortDirection === "desc" ? "asc" : "desc");
   }, [sortDirection, setSortDirection]);
 
-  const handleViewModeChange = useCallback((mode: ViewMode) => {
-    setViewMode(mode);
-    if (mode !== "companies") setAllContactsViewActive(false);
-  }, [setViewMode, setAllContactsViewActive]);
-
   const handleDeselectAll = useCallback(() => {
     deselectAllCompanies();
   }, [deselectAllCompanies]);
-
-  const handleAllContactsToggle = useCallback(() => {
-    if (allContactsViewActive) {
-      setAllContactsViewActive(false);
-    } else {
-      setViewMode("companies");
-      setAllContactsViewActive(true);
-    }
-  }, [allContactsViewActive, setAllContactsViewActive, setViewMode]);
-
-  const quickStartChips = history.length > 0
-    ? history.slice(0, 6).map((h) => ({ label: h.label ?? "Search", onClick: () => {
-        const f = h.filters;
-        const hasFilters = f && (
-          (f.verticals?.length > 0) ||
-          (f.regions?.length > 0) ||
-          (f.sizes?.length > 0) ||
-          (f.signals?.length > 0)
-        );
-        if (hasFilters) {
-          setFilters(f);
-          setPendingFilterSearch(true);
-        } else {
-          setPendingFreeTextSearch(h.label ?? "");
-        }
-      }}))
-    : exampleQueries.map((q) => ({ label: q, onClick: () => setPendingFreeTextSearch(q) }));
 
   return (
     <div className="flex h-full flex-col bg-surface-0">
       {/* Top bar */}
       <ResultsTabBar
-        viewMode={viewMode}
         sortField={sortField}
         sortDirection={sortDirection}
-        companyCount={companies.length}
-        prospectCount={prospectList.size}
         selectedCompanyCount={selectedCompanyDomains.size}
         searchLoading={searchLoading}
-        onViewModeChange={handleViewModeChange}
         onSortChange={handleSortChange}
         onSortDirectionToggle={handleSortDirectionToggle}
         onDeselectAll={handleDeselectAll}
-        allContactsActive={allContactsViewActive}
-        onAllContactsToggle={handleAllContactsToggle}
       />
 
       {/* Search query header + filter pills + error banner */}
@@ -205,6 +115,16 @@ export function ResultsList() {
       {/* Quick filter bar */}
       {hasSearched && !searchLoading && <QuickFilterBar />}
 
+      {/* Enrichment phase indicator */}
+      {searchPhase === "enriching" && (
+        <div className="flex items-center gap-2 px-4 pb-2">
+          <svg className="h-3 w-3 animate-spin text-accent-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
+          </svg>
+          <span className="text-xs text-accent-secondary">Enriching with Apollo...</span>
+        </div>
+      )}
+
       {/* Results */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 transition-opacity duration-200">
         {/* Loading skeletons */}
@@ -216,168 +136,21 @@ export function ResultsList() {
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
               <span className="text-sm font-medium text-text-primary">Searching...</span>
+              <button
+                onClick={() => useStore.getState().cancelSearch?.()}
+                className="text-xs text-text-tertiary hover:text-text-secondary transition-colors"
+              >
+                Cancel
+              </button>
             </div>
             <ContextualLoadingMessage />
             {Array.from({ length: previousResultCount }).map((_, i) => (
               <SkeletonCard key={i} density={cardDensity} />
             ))}
           </div>
-        ) : viewMode === "exported" ? (
-          /* ======== Exported contacts view (works pre-search too) ======== */
-          <ExportedContactsPanel />
-        ) : viewMode === "prospect_list" ? (
-          /* ======== Prospect list view ======== */
-          <ProspectListView />
         ) : !hasSearched ? (
-          /* Welcome state — before first search */
-          showDemoData ? (
-            /* ======== Demo data mode ======== */
-            <div className="space-y-3">
-              {/* Demo badge */}
-              <div className="animate-fadeInUp flex items-center justify-center gap-2 rounded-card border border-surface-3 bg-surface-1/60 px-4 py-2.5">
-                <span className="rounded-pill border border-accent-secondary/30 bg-accent-secondary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent-secondary">
-                  Demo data
-                </span>
-                <span className="text-xs text-text-tertiary">
-                  Showing sample companies — run a search to see real results
-                </span>
-              </div>
-
-              {/* Quick start chips */}
-              <div className="flex flex-wrap justify-center gap-2 pb-1">
-                {quickStartChips.slice(0, 4).map((chip, i) => (
-                  <button
-                    key={`${chip.label}-${i}`}
-                    onClick={chip.onClick}
-                    className="btn-press animate-fadeInUp rounded-pill border border-surface-3 bg-surface-1 px-4 py-2 text-xs font-medium text-text-secondary shadow-sm transition-all duration-[180ms] hover:-translate-y-0.5 hover:shadow-md hover:text-text-primary max-w-[220px] truncate"
-                    style={{ animationDelay: `${60 + i * 40}ms` }}
-                    title={chip.label}
-                  >
-                    {chip.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Seed company cards */}
-              <div role="listbox" aria-label="Demo company results" className="space-y-1.5">
-                {SEED_COMPANIES.map((company, idx) => (
-                  <div
-                    key={company.domain}
-                    className="animate-fadeInUp"
-                    style={{ animationDelay: `${100 + idx * 50}ms` }}
-                  >
-                    <CompanyCard
-                      company={company}
-                      isSelected={selectedCompanyDomain === company.domain}
-                      isChecked={selectedCompanyDomains.has(company.domain)}
-                      onSelect={() => selectCompany(company.domain)}
-                      onToggleCheck={() => toggleCompanySelection(company.domain)}
-                      compact={cardDensity === "compact"}
-                    />
-                    {expandedContactsDomain === company.domain && (
-                      <InlineContacts domain={company.domain} companyName={company.name} />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            /* ======== Standard welcome state (demo off) ======== */
-            <div className="flex h-full flex-col items-center justify-center">
-              {showOnboarding && (
-                <OnboardingTour onDismiss={dismissOnboarding} />
-              )}
-              <SessionStarterCard />
-              <h2 className="animate-fadeInUp font-display text-2xl text-text-primary" style={{ animationDelay: "0ms" }}>
-                Search for companies
-              </h2>
-              <p className="animate-fadeInUp mt-2 text-sm text-text-secondary" style={{ animationDelay: "60ms" }}>
-                A specific company, an industry, or a description of your ideal prospect
-              </p>
-
-              {prospectList.size > 0 && (
-                <button
-                  onClick={() => setViewMode("prospect_list")}
-                  className="animate-fadeInUp mt-4 rounded-input border border-surface-3 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-2 transition-colors duration-[180ms]"
-                  style={{ animationDelay: "90ms" }}
-                >
-                  Resume ({prospectList.size} prospect{prospectList.size === 1 ? "" : "s"})
-                </button>
-              )}
-
-              {history.length > 0 ? (
-                <div className="mt-6 flex flex-wrap justify-center gap-2.5">
-                  {quickStartChips.map((chip, i) => (
-                    <button
-                      key={`${chip.label}-${i}`}
-                      onClick={chip.onClick}
-                      className="btn-press animate-fadeInUp rounded-pill border border-surface-3 bg-surface-1 px-5 py-2.5 text-sm font-medium text-text-secondary shadow-sm transition-all duration-[180ms] hover:-translate-y-0.5 hover:shadow-md hover:text-text-primary max-w-[220px] truncate"
-                      style={{ animationDelay: `${120 + i * 60}ms` }}
-                      title={chip.label}
-                    >
-                      {chip.label}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="mt-6 w-full max-w-lg space-y-4">
-                  {EXAMPLE_CATEGORIES.map((cat, ci) => (
-                    <div key={cat.label} className="animate-fadeInUp" style={{ animationDelay: `${120 + ci * 80}ms` }}>
-                      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-                        {cat.label}
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {cat.examples.map((q) => (
-                          <button
-                            key={q}
-                            onClick={() => setPendingFreeTextSearch(q)}
-                            className="btn-press rounded-pill border border-surface-3 bg-surface-1 px-4 py-2 text-sm font-medium text-text-secondary shadow-sm transition-all duration-[180ms] hover:-translate-y-0.5 hover:shadow-md hover:text-text-primary max-w-[260px] truncate"
-                            title={q}
-                          >
-                            {q}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Team presets */}
-              {presets.length > 0 && (
-                <div className="mt-6 w-full max-w-lg animate-fadeInUp" style={{ animationDelay: "400ms" }}>
-                  <div className="mb-2 flex items-center justify-center gap-1.5">
-                    <p className="text-center text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">Team Presets</p>
-                    {presets.some((p) => (p.newResultCount ?? 0) > 0) && (
-                      <span className="h-1.5 w-1.5 rounded-full bg-accent-primary animate-pulse" />
-                    )}
-                  </div>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    {presets.slice(0, 6).map((preset) => (
-                      <button
-                        key={preset.id}
-                        onClick={() => {
-                          loadPreset(preset.id);
-                        }}
-                        className="relative rounded-pill border border-accent-primary/20 bg-accent-primary/5 px-3 py-1.5 text-xs text-accent-primary transition-colors hover:bg-accent-primary/10 hover:border-accent-primary/40"
-                      >
-                        {preset.name}
-                        {(preset.newResultCount ?? 0) > 0 && (
-                          <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-accent-primary px-1 font-mono text-[9px] font-bold text-surface-0">
-                            {preset.newResultCount}
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-            </div>
-          )
-        ) : allContactsViewActive && viewMode === "companies" ? (
-          <AllContactsView />
-        ) : viewMode === "companies" && cardDensity === "table" ? (
+          <MorningDashboard />
+        ) : cardDensity === "table" ? (
           companies.length === 0 ? (
             searchError ? (
               <EmptyState icon="search" title="Search failed" description="Something went wrong with the search. Check the error above and try again." />
@@ -386,6 +159,7 @@ export function ResultsList() {
             )
           ) : (
             <>
+              <DidYouMeanBanner />
               <SimilarSearchBanner />
               <CompanyTable
                 companies={companies}
@@ -399,8 +173,7 @@ export function ResultsList() {
               />
             </>
           )
-        ) : viewMode === "companies" ? (
-          companies.length === 0 ? (
+        ) : companies.length === 0 ? (
             searchError ? (
               <EmptyState
                 icon="search"
@@ -412,6 +185,7 @@ export function ResultsList() {
             )
           ) : (
             <>
+            <DidYouMeanBanner />
             <SimilarSearchBanner />
             <div
               role="listbox"
@@ -423,15 +197,13 @@ export function ResultsList() {
               className="space-y-1.5 focus:outline-none"
             >
               {(() => {
-                // Build a domain→searchResults index map for data-result-index
-                const domainToResultIndex = new Map<string, number>();
-                if (searchResults) {
-                  searchResults.forEach((c, i) => domainToResultIndex.set(c.domain, i));
-                }
+                // Build a domain→visible index map for data-result-index (matches arrow key navigation)
+                const domainToVisibleIndex = new Map<string, number>();
+                companies.forEach((c, i) => domainToVisibleIndex.set(c.domain, i));
 
                 // Helper: renders a CompanyCard + inline contacts accordion
                 const renderCompanyItem = (company: CompanyEnriched, idx: number) => {
-                  const resultIdx = domainToResultIndex.get(company.domain);
+                  const resultIdx = domainToVisibleIndex.get(company.domain);
                   const isActiveResult = activeResultIndex != null && resultIdx === activeResultIndex;
                   return (
                     <div
@@ -584,8 +356,7 @@ export function ResultsList() {
               </div>
             )}
             </>
-          )
-        ) : null}
+          )}
       </div>
     </div>
   );
@@ -699,41 +470,6 @@ function IcpTierGroupedList({
 }
 
 // ─────────────────────────────────────────────────────────
-// Onboarding Tour (I3) — 3-step walkthrough
-// ─────────────────────────────────────────────────────────
-function OnboardingTour({ onDismiss }: { onDismiss: () => void }) {
-  const [step, setStep] = useState(0);
-  const steps = [
-    { title: "Search", body: "Type a company name, industry, or description in the search bar above. Or press \u2318K for a powerful free-text search." },
-    { title: "Filter", body: "Use the filter pills above the results to narrow by vertical, region, company size, and buying signals. Or press \u2318K to refine your search." },
-    { title: "Export", body: "Select companies with checkboxes, then use Copy/CSV/Excel from the action bar at the bottom. Contacts are verified on export." },
-  ];
-
-  return (
-    <div className="mb-6 w-full max-w-lg animate-fadeInUp rounded-card border border-surface-3 bg-surface-1 px-5 py-3.5">
-      <div className="mb-2 flex items-center gap-2">
-        {steps.map((_, i) => (
-          <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${i <= step ? "bg-accent-primary" : "bg-surface-3"}`} />
-        ))}
-      </div>
-      <p className="text-xs font-semibold uppercase tracking-wider text-accent-primary">{steps[step].title}</p>
-      <p className="mt-1 text-sm text-text-secondary">{steps[step].body}</p>
-      <div className="mt-3 flex items-center justify-between">
-        <span className="text-[10px] text-text-tertiary">{step + 1} of {steps.length}</span>
-        <div className="flex gap-2">
-          <button onClick={onDismiss} className="text-xs text-text-tertiary hover:text-text-secondary">Skip</button>
-          {step < steps.length - 1 ? (
-            <button onClick={() => setStep(step + 1)} className="rounded-input bg-accent-primary px-3 py-1 text-xs font-medium text-text-inverse">Next</button>
-          ) : (
-            <button onClick={onDismiss} className="rounded-input bg-accent-primary px-3 py-1 text-xs font-medium text-text-inverse">Get started</button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────
 // Contextual Loading Message (A1) — cycles through source-specific messages
 // ─────────────────────────────────────────────────────────
 function ContextualLoadingMessage() {
@@ -760,112 +496,6 @@ function ContextualLoadingMessage() {
 }
 
 // ─────────────────────────────────────────────────────────
-// Prospect List View — persistent list across searches
-// ─────────────────────────────────────────────────────────
-function ProspectListView() {
-  const prospectList = useStore((s) => s.prospectList);
-  const removeFromProspectList = useStore((s) => s.removeFromProspectList);
-  const clearProspectList = useStore((s) => s.clearProspectList);
-  const searchResults = useStore((s) => s.searchResults);
-  const companies = useStore((s) => s.companies);
-  const selectCompany = useStore((s) => s.selectCompany);
-  const selectedCompanyDomain = useStore((s) => s.selectedCompanyDomain);
-  const contactsByDomain = useStore((s) => s.contactsByDomain);
-  const setTriggerExport = useStore((s) => s.setTriggerExport);
-  const selectedCompanyDomains = useStore((s) => s.selectedCompanyDomains);
-  const toggleCompanySelection = useStore((s) => s.toggleCompanySelection);
-  const expandedContactsDomain = useStore((s) => s.expandedContactsDomain);
-  const cardDensity = useStore((s) => s.cardDensity);
-
-  const domains = useMemo(() => [...prospectList], [prospectList]);
-
-  // Build company data from search results or companies array
-  const prospectCompanies = useMemo(() => {
-    const all = searchResults ?? companies;
-    const byDomain = new Map(all.map((c) => [c.domain, c]));
-    return domains
-      .map((d) => byDomain.get(d))
-      .filter((c): c is import("@/lib/navigator/types").CompanyEnriched => !!c);
-  }, [domains, searchResults, companies]);
-
-  if (domains.length === 0) {
-    return (
-      <EmptyState
-        icon="search"
-        title="No companies in your list"
-        description={pick("empty_prospects")}
-      />
-    );
-  }
-
-  const totalContacts = prospectCompanies.reduce(
-    (sum, c) => sum + (contactsByDomain[c.domain]?.length ?? 0),
-    0
-  );
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-text-secondary">
-          {prospectCompanies.length} companies · {totalContacts} contacts loaded
-        </p>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={clearProspectList}
-            className="text-[10px] text-danger/70 hover:text-danger"
-          >
-            Clear list
-          </button>
-        </div>
-      </div>
-      <div role="listbox" aria-label="Prospect list" className="space-y-1.5">
-        {prospectCompanies.map((company, idx) => (
-          <div key={company.domain} className="animate-fadeInUp" style={{ animationDelay: `${Math.min(idx, 10) * 40}ms` }}>
-            <CompanyCard
-              company={company}
-              isSelected={selectedCompanyDomain === company.domain}
-              isChecked={selectedCompanyDomains.has(company.domain)}
-              onSelect={() => selectCompany(company.domain)}
-              onToggleCheck={() => toggleCompanySelection(company.domain)}
-              compact={cardDensity === "compact"}
-            />
-            {expandedContactsDomain === company.domain && (
-              <InlineContacts domain={company.domain} companyName={company.name} />
-            )}
-          </div>
-        ))}
-      </div>
-      {/* Show domains not found in current results */}
-      {domains.length > prospectCompanies.length && (
-        <div className="rounded-card border border-surface-3 bg-surface-1 p-3">
-          <p className="text-xs text-text-tertiary">
-            {domains.length - prospectCompanies.length} companies not in current results.
-            Search for them to see full details.
-          </p>
-          <div className="mt-1.5 flex flex-wrap gap-1">
-            {domains
-              .filter((d) => !prospectCompanies.some((c) => c.domain === d))
-              .map((d) => (
-                <span key={d} className="flex items-center gap-1 rounded-pill border border-surface-3 bg-surface-2 px-2 py-0.5 text-[10px] text-text-secondary">
-                  {d}
-                  <button
-                    onClick={() => removeFromProspectList(d)}
-                    className="text-text-tertiary hover:text-danger"
-                  >
-                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
-                  </button>
-                </span>
-              ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────
 // No Results Suggestions (A2) — actionable filter removal + search tips
 // ─────────────────────────────────────────────────────────
 function NoResultsSuggestions() {
@@ -875,6 +505,9 @@ function NoResultsSuggestions() {
   const setPendingFreeTextSearch = useStore((s) => s.setPendingFreeTextSearch);
   const lastSearchQuery = useStore((s) => s.lastSearchQuery);
   const searchWarnings = useStore((s) => s.searchWarnings);
+  const searchMeta = useStore((s) => s.searchMeta);
+
+  const didYouMean = searchMeta?.didYouMean;
 
   const suggestions: { label: string; action: () => void }[] = [];
 
@@ -909,8 +542,24 @@ function NoResultsSuggestions() {
       title="No matches found"
       description={lastSearchQuery ? `No results for "${lastSearchQuery}"` : pick("empty_results")}
     >
+      {/* Did You Mean suggestion */}
+      {didYouMean && (
+        <div className="mt-3 rounded-card border border-accent-secondary/30 bg-accent-secondary/5 px-4 py-3">
+          <p className="text-sm text-text-secondary">
+            Did you mean{" "}
+            <button
+              onClick={() => setPendingFreeTextSearch(didYouMean.simplified)}
+              className="font-medium text-accent-secondary hover:underline"
+            >
+              &ldquo;{didYouMean.simplified}&rdquo;
+            </button>
+            ?
+          </p>
+        </div>
+      )}
+
       {/* API warnings (e.g. simplified query info) */}
-      {searchWarnings.length > 0 && (
+      {searchWarnings.length > 0 && !didYouMean && (
         <div className="mt-2 space-y-1">
           {searchWarnings.map((w, i) => (
             <p key={i} className="text-xs text-accent-secondary">{w}</p>
@@ -953,5 +602,41 @@ function NoResultsSuggestions() {
         ))}
       </div>
     </EmptyState>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// Did You Mean Banner (shown above results when query was auto-simplified)
+// ─────────────────────────────────────────────────────────
+function DidYouMeanBanner() {
+  const searchMeta = useStore((s) => s.searchMeta);
+  const setPendingFreeTextSearch = useStore((s) => s.setPendingFreeTextSearch);
+  const [dismissed, setDismissed] = useState(false);
+
+  const didYouMean = searchMeta?.didYouMean;
+  if (!didYouMean || dismissed) return null;
+
+  return (
+    <div className="mb-2 flex items-center justify-between rounded-card border border-accent-secondary/30 bg-accent-secondary/5 px-3 py-2">
+      <p className="text-xs text-text-secondary">
+        Showing results for <span className="font-medium text-accent-secondary">&ldquo;{didYouMean.simplified}&rdquo;</span>.{" "}
+        <button
+          onClick={() => setPendingFreeTextSearch(didYouMean.original)}
+          className="text-accent-secondary hover:underline"
+        >
+          Search instead for &ldquo;{didYouMean.original}&rdquo;
+        </button>
+      </p>
+      <button
+        onClick={() => setDismissed(true)}
+        className="ml-2 text-text-tertiary hover:text-text-secondary"
+        aria-label="Dismiss"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
   );
 }
