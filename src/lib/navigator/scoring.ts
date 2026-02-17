@@ -16,6 +16,12 @@ interface ScoringContext {
   regions: string[];
   sizes: string[]; // e.g. ["51-200", "201-1000"]
   signals: string[];
+  tagScoringRules?: {
+    boostTags: string[];
+    penaltyTags: string[];
+    excludeTags: string[];
+  };
+  stalledDealThresholdDays?: number;
 }
 
 const DEFAULT_WEIGHTS: IcpWeights = {
@@ -65,6 +71,8 @@ export function calculateIcpScore(
     regions: context?.regions ?? [],
     sizes: context?.sizes ?? [],
     signals: context?.signals ?? [],
+    tagScoringRules: context?.tagScoringRules,
+    stalledDealThresholdDays: context?.stalledDealThresholdDays,
   };
 
   const breakdown: IcpBreakdownItem[] = [];
@@ -171,14 +179,16 @@ export function calculateIcpScore(
     }
   }
 
-  // 8b. Freshsales contact tags
+  // 8b. Freshsales contact tags (admin-configurable via tagScoringRules)
   if (company.freshsalesIntel?.contacts?.length) {
     const allTags = company.freshsalesIntel.contacts.flatMap((c) => c.tags || []);
+    const boostTags = ctx.tagScoringRules?.boostTags ?? ["decision maker", "champion", "key contact"];
+    const penaltyTags = ctx.tagScoringRules?.penaltyTags ?? ["churned", "bad fit", "competitor"];
     const hasBoostTag = allTags.some((t) =>
-      ["decision maker", "champion", "key contact"].includes(t.toLowerCase())
+      boostTags.some((bt) => bt.toLowerCase() === t.toLowerCase())
     );
     const hasPenaltyTag = allTags.some((t) =>
-      ["churned", "bad fit", "competitor"].includes(t.toLowerCase())
+      penaltyTags.some((pt) => pt.toLowerCase() === t.toLowerCase())
     );
     if (hasBoostTag) {
       breakdown.push({
@@ -196,12 +206,13 @@ export function calculateIcpScore(
     }
   }
 
-  // 8c. Freshsales deal velocity (stalled deal penalty)
+  // 8c. Freshsales deal velocity (stalled deal penalty, admin-configurable threshold)
   if (company.freshsalesIntel?.deals?.length) {
+    const stalledThreshold = ctx.stalledDealThresholdDays ?? 30;
     const stalledDeal = company.freshsalesIntel.deals.find(
       (d) =>
         d.daysInStage != null &&
-        d.daysInStage > 30 &&
+        d.daysInStage > stalledThreshold &&
         !["won", "lost", "closed won", "closed lost"].includes(d.stage.toLowerCase())
     );
     if (stalledDeal) {

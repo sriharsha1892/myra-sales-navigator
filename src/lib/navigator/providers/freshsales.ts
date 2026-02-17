@@ -17,12 +17,12 @@ async function getFreshsalesConfig(): Promise<FreshsalesSettings> {
     return _settingsCache.settings;
   }
   try {
-    // Try reading from Supabase admin_config via internal fetch
+    // Read from admin_config single-row table (id=global, column=freshsales_settings)
     const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (baseUrl && serviceKey) {
       const res = await fetch(
-        `${baseUrl}/rest/v1/admin_config?key=eq.freshsalesSettings&select=value`,
+        `${baseUrl}/rest/v1/admin_config?id=eq.global&select=freshsales_settings`,
         {
           headers: {
             apikey: serviceKey,
@@ -32,8 +32,15 @@ async function getFreshsalesConfig(): Promise<FreshsalesSettings> {
       );
       if (res.ok) {
         const rows = await res.json();
-        if (rows.length > 0 && rows[0].value) {
-          const settings = rows[0].value as FreshsalesSettings;
+        if (rows.length > 0 && rows[0].freshsales_settings) {
+          const db = rows[0].freshsales_settings as Record<string, unknown>;
+          const settings: FreshsalesSettings = {
+            ...defaultFreshsalesSettings,
+            ...db,
+            statusLabels: { ...defaultFreshsalesSettings.statusLabels, ...((db.statusLabels as Record<string, string>) ?? {}) },
+            icpWeights: { ...defaultFreshsalesSettings.icpWeights, ...((db.icpWeights as Record<string, number>) ?? {}) },
+            tagScoringRules: { ...defaultFreshsalesSettings.tagScoringRules, ...((db.tagScoringRules as Record<string, unknown>) ?? {}) } as FreshsalesSettings["tagScoringRules"],
+          };
           _settingsCache = { settings, fetchedAt: Date.now() };
           return settings;
         }

@@ -106,7 +106,9 @@ function IcpPreviewPanel({ weights }: { weights: IcpWeights }) {
     regions: [] as string[],
     sizes: [] as string[],
     signals: adminConfig.signalTypes.filter((s) => s.enabled).map((s) => s.type),
-  }), [adminConfig.verticals, adminConfig.signalTypes]);
+    tagScoringRules: adminConfig.freshsalesSettings?.tagScoringRules,
+    stalledDealThresholdDays: adminConfig.freshsalesSettings?.stalledDealThresholdDays,
+  }), [adminConfig.verticals, adminConfig.signalTypes, adminConfig.freshsalesSettings?.tagScoringRules, adminConfig.freshsalesSettings?.stalledDealThresholdDays]);
 
   const handleScore = () => {
     const company = companies.find((c) => c.domain === previewDomain);

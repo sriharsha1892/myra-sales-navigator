@@ -8,7 +8,7 @@ import { calculateIcpScore } from "@/lib/navigator/scoring";
 import { createServerClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import { trackUsageEventServer } from "@/lib/navigator/analytics-server";
-import type { CompanyEnriched, IcpWeights } from "@/lib/navigator/types";
+import type { CompanyEnriched, IcpWeights, FreshsalesSettings } from "@/lib/navigator/types";
 import { CACHE_TTLS } from "@/lib/navigator/cache-config";
 
 export async function GET(
@@ -109,22 +109,29 @@ export async function GET(
       companyName: (company?.name as string) || normalized,
     });
 
-    // ICP scoring for dossier view
+    // ICP scoring for dossier view — fetch admin weights + freshsales tag config
     let icpWeights: Partial<IcpWeights> = {};
+    let fsSettings: Partial<FreshsalesSettings> | null = null;
     try {
       const cachedWeights = await getCached<IcpWeights>("admin:icp-weights");
+      const cachedFs = await getCached<FreshsalesSettings>("admin:freshsales-settings");
       if (cachedWeights) {
         icpWeights = cachedWeights;
+        fsSettings = cachedFs;
       } else {
         const supabase = createServerClient();
         const { data: configRow } = await supabase
           .from("admin_config")
-          .select("icp_weights")
+          .select("icp_weights, freshsales_settings")
           .eq("id", "global")
           .single();
         if (configRow?.icp_weights) {
           icpWeights = configRow.icp_weights as IcpWeights;
           await setCached("admin:icp-weights", icpWeights, CACHE_TTLS.adminConfig);
+        }
+        if (configRow?.freshsales_settings) {
+          fsSettings = configRow.freshsales_settings as FreshsalesSettings;
+          await setCached("admin:freshsales-settings", fsSettings, CACHE_TTLS.adminConfig);
         }
       }
     } catch { /* use defaults */ }
@@ -134,7 +141,10 @@ export async function GET(
       sources: (company.sources as string[]) || [],
       signals: (company.signals as unknown[]) || [],
     } as unknown as CompanyEnriched;
-    const { score, breakdown } = calculateIcpScore(companyForScoring, icpWeights);
+    const { score, breakdown } = calculateIcpScore(companyForScoring, icpWeights, {
+      tagScoringRules: fsSettings?.tagScoringRules,
+      stalledDealThresholdDays: fsSettings?.stalledDealThresholdDays,
+    });
     company.icpScore = score;
     company.icpBreakdown = breakdown;
 

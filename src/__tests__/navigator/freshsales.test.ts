@@ -97,7 +97,7 @@ function makeRawActivity(overrides: Record<string, unknown> = {}) {
 
 function makeSupabaseConfigResponse(settings?: Record<string, unknown>) {
   if (!settings) return makeOkResponse([]);
-  return makeOkResponse([{ value: settings }]);
+  return makeOkResponse([{ freshsales_settings: settings }]);
 }
 
 const DEFAULT_ACCOUNT = {

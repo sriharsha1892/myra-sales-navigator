@@ -18,7 +18,7 @@ import { trackUsageEventServer } from "@/lib/navigator/analytics-server";
 import { recordSuccess as cbSuccess, recordFailure as cbFailure } from "@/lib/navigator/circuitBreaker";
 import { classifyError } from "@/lib/navigator/errors";
 import type { SearchErrorDetail } from "@/lib/navigator/errors";
-import type { Company, FilterState, IcpWeights, NLICPCriteria } from "@/lib/navigator/types";
+import type { Company, FilterState, IcpWeights, NLICPCriteria, FreshsalesSettings } from "@/lib/navigator/types";
 
 // ---------------------------------------------------------------------------
 // Apollo structured search — enrich Exa domains + find contacts in parallel
@@ -278,18 +278,25 @@ export async function POST(request: Request) {
           : c
       );
 
-      // ICP scoring
+      // ICP scoring — fetch admin weights + freshsales tag config
       let icpWeights: Partial<IcpWeights> = {};
+      let fsSettings: Partial<FreshsalesSettings> | null = null;
       try {
         const cachedWeights = await getCached<IcpWeights>("admin:icp-weights");
+        const cachedFs = await getCached<FreshsalesSettings>("admin:freshsales-settings");
         if (cachedWeights) {
           icpWeights = cachedWeights;
+          fsSettings = cachedFs;
         } else {
           const supabase = createServerClient();
-          const { data: configRow } = await supabase.from("admin_config").select("icp_weights").eq("id", "global").single();
+          const { data: configRow } = await supabase.from("admin_config").select("icp_weights, freshsales_settings").eq("id", "global").single();
           if (configRow?.icp_weights) {
             icpWeights = configRow.icp_weights as IcpWeights;
             await setCached("admin:icp-weights", icpWeights, CACHE_TTLS.adminConfig);
+          }
+          if (configRow?.freshsales_settings) {
+            fsSettings = configRow.freshsales_settings as FreshsalesSettings;
+            await setCached("admin:freshsales-settings", fsSettings, CACHE_TTLS.adminConfig);
           }
         }
       } catch { /* use defaults */ }
@@ -299,6 +306,8 @@ export async function POST(request: Request) {
         regions: filters?.regions ?? [],
         sizes: filters?.sizes ?? [],
         signals: filters?.signals?.map(String) ?? [],
+        tagScoringRules: fsSettings?.tagScoringRules,
+        stalledDealThresholdDays: fsSettings?.stalledDealThresholdDays,
       };
 
       for (const c of merged) {
@@ -627,22 +636,29 @@ export async function POST(request: Request) {
       }
     }
 
-    // ICP scoring — fetch admin weights (cached 1h), score each company
+    // ICP scoring — fetch admin weights + freshsales tag config (cached 1h)
     let icpWeights: Partial<IcpWeights> = {};
+    let fsSettings: Partial<FreshsalesSettings> | null = null;
     try {
       const cachedWeights = await getCached<IcpWeights>("admin:icp-weights");
+      const cachedFs = await getCached<FreshsalesSettings>("admin:freshsales-settings");
       if (cachedWeights) {
         icpWeights = cachedWeights;
+        fsSettings = cachedFs;
       } else {
         const supabase = createServerClient();
         const { data: configRow } = await supabase
           .from("admin_config")
-          .select("icp_weights")
+          .select("icp_weights, freshsales_settings")
           .eq("id", "global")
           .single();
         if (configRow?.icp_weights) {
           icpWeights = configRow.icp_weights as IcpWeights;
           await setCached("admin:icp-weights", icpWeights, CACHE_TTLS.adminConfig);
+        }
+        if (configRow?.freshsales_settings) {
+          fsSettings = configRow.freshsales_settings as FreshsalesSettings;
+          await setCached("admin:freshsales-settings", fsSettings, CACHE_TTLS.adminConfig);
         }
       }
     } catch { /* use defaults */ }
@@ -652,6 +668,8 @@ export async function POST(request: Request) {
       regions: filters?.regions ?? [],
       sizes: filters?.sizes ?? [],
       signals: filters?.signals?.map(String) ?? [],
+      tagScoringRules: fsSettings?.tagScoringRules,
+      stalledDealThresholdDays: fsSettings?.stalledDealThresholdDays,
     };
 
     for (const c of companies) {
